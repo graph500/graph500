@@ -1,0 +1,14 @@
+CC = cc
+CFLAGS = -DNDEBUG
+LDFLAGS = $(CFLAGS) # -g -pg
+
+all: libgraph_generator_xmt.a generator_test_xmt
+
+libgraph_generator_xmt.a: btrd_binomial_distribution.c splittable_mrg.c mrg_transitions.c graph_generator.c permutation_gen.c make_graph.c btrd_binomial_distribution.h splittable_mrg.h graph_generator.h mod_arith_xmt.h permutation_gen.h make_graph.h
+	$(CC) $(CFLAGS) -R -pl libgraph_generator_xmt.a btrd_binomial_distribution.c splittable_mrg.c mrg_transitions.c graph_generator.c permutation_gen.c make_graph.c -lm
+
+generator_test_xmt: generator_test_xmt.c libgraph_generator_xmt.a
+	$(CC) $(CFLAGS) -o generator_test_xmt generator_test_xmt.c -L. -lgraph_generator_xmt -lm
+
+clean:
+	-rm -f generator_test_xmt *.pl *.o *.a *.ap2 *.out
