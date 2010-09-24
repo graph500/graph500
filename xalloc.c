@@ -5,10 +5,12 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+
 #if !defined(MAP_HUGETLB)
 #define MAP_HUGETLB 0
 #endif
@@ -27,7 +29,7 @@ xmalloc (size_t sz)
   return out;
 }
 
-#if defined(__MTA__)||defined(USE_MMAP_LARGE)
+#if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
 #define MAX_LARGE 32
 static int n_large_alloc = 0;
 static struct {
@@ -68,20 +70,20 @@ xmalloc_large (size_t sz)
   void *out;
   int which = n_large_alloc++;
   if (n_large_alloc > MAX_LARGE) {
-    fprintf (stderr, "Too many large allocations.\n");
+    fprintf (stderr, "Too many large allocations. %d %d\n", n_large_alloc, MAX_LARGE);
     --n_large_alloc;
     abort ();
   }
   large_alloc[which].p = NULL;
-  large_alloc[n_large_alloc].fd = -1;
+  large_alloc[which].fd = -1;
   out = mmap (NULL, sz, PROT_READ|PROT_WRITE,
 	      MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB|MAP_POPULATE, 0, 0);
   if (!out) {
     perror ("mmap failed");
     abort ();
   }
-  large_alloc[n_large_alloc].p = out;
-  large_alloc[n_large_alloc].sz = sz;
+  large_alloc[which].p = out;
+  large_alloc[which].sz = sz;
   return out;
 #else
   return xmalloc (sz);
@@ -91,8 +93,8 @@ xmalloc_large (size_t sz)
 void
 xfree_large (void *p)
 {
-#if defined(__MTA__)||defined(USE_MMAP_LARGE)
-  int k;
+#if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
+  int k, found = 0;
   for (k = 0; k < n_large_alloc; ++k) {
     if (p == large_alloc[k].p) {
       munmap (p, large_alloc[k].sz);
@@ -101,12 +103,16 @@ xfree_large (void *p)
 	close (large_alloc[k].fd);
 	large_alloc[k].fd = -1;
       }
+      found = 1;
       break;
     }
   }
-  --n_large_alloc;
-  for (; k < n_large_alloc; ++k)
-    large_alloc[k] = large_alloc[k+1];
+  if (found) {
+    --n_large_alloc;
+    for (; k < n_large_alloc; ++k)
+      large_alloc[k] = large_alloc[k+1];
+  } else
+    free (p);
 #else
   free (p);
 #endif
@@ -116,9 +122,19 @@ void *
 xmalloc_large_ext (size_t sz)
 {
 #if !defined(__MTA__)&&defined(USE_MMAP_LARGE_EXT)
-  char extname[] = "/tmp/graph500-ext-XXXXXX";
+  char extname[PATH_MAX+1];
+  char *tmppath;
   void *out;
   int fd, which;
+
+  if (getenv ("TMPDIR"))
+    tmppath = getenv ("TMPDIR");
+  else if (getenv ("TEMPDIR"))
+    tmppath = getenv ("TEMPDIR");
+  else
+    tmppath = "/tmp";
+
+  sprintf (extname, "%s/graph500-ext-XXXXXX", tmppath);
 
   which = n_large_alloc++;
   if (n_large_alloc > MAX_LARGE) {
@@ -138,6 +154,12 @@ xmalloc_large_ext (size_t sz)
     goto errout;
   }
 
+#if _XOPEN_SOURCE >= 500
+  if (pwrite (fd, &fd, sizeof (fd), sz - sizeof(fd)) != sizeof (fd)) {
+    perror ("resizing pwrite failed");
+    goto errout;
+  }
+#else
   if (lseek (fd, sz - sizeof(fd), SEEK_SET) < 0) {
     perror ("lseek failed");
     goto errout;
@@ -146,10 +168,11 @@ xmalloc_large_ext (size_t sz)
     perror ("resizing write failed");
     goto errout;
   }
+#endif
 
   out = mmap (NULL, sz, PROT_READ|PROT_WRITE,
-	      MAP_PRIVATE|MAP_HUGETLB|MAP_POPULATE, fd, 0);
-  if (!out) {
+	      MAP_PRIVATE|MAP_POPULATE, fd, 0);
+  if (MAP_FAILED == out || !out) {
     perror ("mmap failed");
     goto errout;
   }
@@ -170,7 +193,7 @@ xmalloc_large_ext (size_t sz)
 
   large_alloc[which].p = out;
   large_alloc[which].sz = sz;
-  large_alloc[which].fdd = fd;
+  large_alloc[which].fd = fd;
 
   return out;
 

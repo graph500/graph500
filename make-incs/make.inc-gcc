@@ -1,6 +1,7 @@
 # -*- Makefile -*-
 CFLAGS = -g -std=c99
 LDLIBS = -lm -lrt
+CPPFLAGS = -DUSE_MMAP_LARGE -DUSE_MMAP_LARGE_EXT -DALLOCDIR=\"/tmp/hugepage\"
 
 BUILD_OPENMP = Yes
 CFLAGS_OPENMP = -fopenmp

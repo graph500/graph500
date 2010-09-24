@@ -5,6 +5,7 @@
 #define _THREAD_SAFE
 #define _XOPEN_SOURCE 600
 #define _XOPEN_SOURCE_EXTENDED
+#define _SVID_SOURCE
 
 #if __STDC_VERSION__ >= 199901L
 #include <inttypes.h>

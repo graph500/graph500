@@ -518,6 +518,7 @@ output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
 		const int NBFS, const double *bfs_time, const int64_t *bfs_nedge)
 {
   int k;
+  int64_t sz;
   double *tm;
   double *stats;
 
@@ -528,8 +529,10 @@ output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
     abort ();
   }
 
-  printf ("SCALE: %" PRId64"\nnvtx: %" PRId64 "\nedgefactor: %" PRId64 "\n",
-	  SCALE, nvtx_scale, edgefactor);
+  sz = (1L << SCALE) * edgefactor * sizeof (int64_t);
+  printf ("SCALE: %" PRId64 "\nnvtx: %" PRId64 "\nedgefactor: %" PRId64 "\n"
+	  "tebisize: %20.17e\n",
+	  SCALE, nvtx_scale, edgefactor, sz/1.0e12);
   printf ("A: %20.17e\nB: %20.17e\nC: %20.17e\nD: %20.17e\n", A, B, C, D);
   printf ("construction_time: %20.17e\n", construction_time);
   printf ("nbfs: %d\n", NBFS);

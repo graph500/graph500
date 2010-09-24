@@ -35,7 +35,7 @@ static int
 alloc_graph (int64_t nedge)
 {
   sz = (2*nv+2) * sizeof (*xoff);
-  xoff = malloc (sz);
+  xoff = xmalloc_large_ext (sz);
   if (!xoff) return -1;
   return 0;
 }
@@ -43,8 +43,8 @@ alloc_graph (int64_t nedge)
 static void
 free_graph (void)
 {
-  free (xadjstore);
-  free (xoff);
+  xfree_large (xadjstore);
+  xfree_large (xoff);
 }
 
 #define XOFF(k) (xoff[2*(k)])
@@ -71,7 +71,7 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
   XOFF(nv) = accum;
   for (k = 0; k < nv; ++k)
     XENDOFF(k) = XOFF(k);
-  if (!(xadjstore = malloc ((accum + MINVECT_SIZE) * sizeof (*xadjstore))))
+  if (!(xadjstore = xmalloc_large_ext ((accum + MINVECT_SIZE) * sizeof (*xadjstore))))
     return -1;
   xadj = &xadjstore[MINVECT_SIZE]; /* Cheat and permit xadj[-1] to work. */
   for (k = 0; k < accum + MINVECT_SIZE; ++k)
@@ -142,7 +142,7 @@ create_graph_from_edgelist (int64_t *IJ, int64_t nedge)
   find_nv (IJ, nedge);
   if (alloc_graph (nedge)) return -1;
   if (setup_deg_off (IJ, nedge)) {
-    free (xoff);
+    xfree_large (xoff);
     return -1;
   }
   gather_edges (IJ, nedge);
@@ -161,7 +161,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
 
   *max_vtx_out = maxvtx;
 
-  vlist = malloc (nv * sizeof (vlist));
+  vlist = xmalloc_large (nv * sizeof (vlist));
   if (!vlist) return -1;
 
   for (k1 = 0; k1 < nv; ++k1)
@@ -188,7 +188,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
     k1 = oldk2;
   }
 
-  free (vlist);
+  xfree_large (vlist);
 
   return err;
 }

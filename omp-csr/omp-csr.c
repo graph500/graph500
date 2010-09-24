@@ -45,7 +45,7 @@ static int
 alloc_graph (int64_t nedge)
 {
   sz = (2*nv+2) * sizeof (*xoff);
-  xoff = malloc (sz);
+  xoff = xmalloc_large_ext (sz);
   if (!xoff) return -1;
   return 0;
 }
@@ -53,8 +53,8 @@ alloc_graph (int64_t nedge)
 static void
 free_graph (void)
 {
-  free (xadjstore);
-  free (xoff);
+  xfree_large (xadjstore);
+  xfree_large (xoff);
 }
 
 #define XOFF(k) (xoff[2*(k)])
@@ -130,7 +130,7 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
 	XENDOFF(k) = XOFF(k);
     OMP("omp single") {
       XOFF(nv) = accum;
-      if (!(xadjstore = malloc ((XOFF(nv) + MINVECT_SIZE) * sizeof (*xadjstore))))
+      if (!(xadjstore = xmalloc_large_ext ((XOFF(nv) + MINVECT_SIZE) * sizeof (*xadjstore))))
 	err = -1;
       if (!err) {
 	xadj = &xadjstore[MINVECT_SIZE]; /* Cheat and permit xadj[-1] to work. */
@@ -209,7 +209,7 @@ create_graph_from_edgelist (int64_t *IJ, int64_t nedge)
   find_nv (IJ, nedge);
   if (alloc_graph (nedge)) return -1;
   if (setup_deg_off (IJ, nedge)) {
-    free (xoff);
+    xfree_large (xoff);
     return -1;
   }
   gather_edges (IJ, nedge);
@@ -228,14 +228,14 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
 
   *max_vtx_out = maxvtx;
 
-  vlist = malloc (nv * sizeof (vlist));
+  vlist = xmalloc_large (nv * sizeof (vlist));
   if (!vlist) return -1;
 
   vlist[0] = srcvtx;
   k1 = 0; k2 = 1;
   bfs_tree[srcvtx] = srcvtx;
 
-#define THREAD_BUF_LEN 1024
+#define THREAD_BUF_LEN 16384
 
   OMP("omp parallel shared(k1, k2)") {
     int64_t k;
@@ -286,7 +286,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
     }
   }
 
-  free (vlist);
+  xfree_large (vlist);
 
   return err;
 }
