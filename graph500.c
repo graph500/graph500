@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <string.h>
 #include <math.h>
-#include <time.h>
 
 #include <assert.h>
 
@@ -24,24 +23,25 @@ typedef long int64_t;
 #endif
 #endif
 
+#include <alloca.h> /* Portable enough... */
+#if !defined(__MTA__)
 #include <getopt.h>
+#endif
 
 #include "graph500.h"
-#include "graph500-util.h"
-#include "graph500-prng.h"
-#include "graph500-rmat.h"
-
-/** Verify a BFS tree, return volume or -1 if failed. */
-static int64_t verify_bfs_tree (int64_t *bfs_tree, int64_t max_bfsvtx,
-				int64_t root,
-				const int64_t *IJ, int64_t nedge);
+#include "rmat.h"
+#include "verify.h"
+#include "prng.h"
+#include "timer.h"
+#include "xalloc.h"
 
 int VERBOSE = 0;
+int use_RMAT = 1; /* XXX: Fix to link in Kronecker generator... */
 
 #define A_PARAM 0.57
 #define B_PARAM 0.19
 #define C_PARAM 0.19
-/* Leaving D = 0.05.  D is never used explicitly.  */
+/* Hence D = 0.05. */
 
 static double A = A_PARAM;
 static double B = B_PARAM;
@@ -51,8 +51,8 @@ static double D = 1.0 - (A_PARAM + B_PARAM + C_PARAM);
 #define NBFS_max 64
 static int NBFS = NBFS_max;
 
-#define default_SCALE 14
-#define default_edgefactor 83
+#define default_SCALE ((int64_t)14)
+#define default_edgefactor ((int64_t)83)
 
 static int64_t SCALE = default_SCALE;
 static int64_t nvtx_scale;
@@ -69,6 +69,13 @@ static int64_t nedge;
 
 static void get_options (int argc, char **argv);
 static void run_bfs (void);
+static void output_results (const int64_t SCALE, int64_t nvtx_scale,
+			    int64_t edgefactor,
+			    const double A, const double B,
+			    const double C, const double D,
+			    const double construction_time,
+			    const int NBFS,
+			    const double *bfs_time, const int64_t *bfs_nedge);
 
 int
 main (int argc, char **argv)
@@ -83,7 +90,6 @@ main (int argc, char **argv)
 
   nvtx_scale = 1L<<SCALE;
 
-  init_tictoc ();
   init_random ();
 
   nedge = nvtx_scale * edgefactor;
@@ -93,12 +99,13 @@ main (int argc, char **argv)
 
   IJ = xmalloc_large_ext (2 * nedge * sizeof (*IJ));
 
-  rmat_edgelist (IJ, nedge, SCALE, A, B, C, D);
+  rmat_edgelist (IJ, nedge, SCALE, A, B, C);
 
   if (getenv ("DUMPGRAPH")) {
     int k;
     FILE *g = fopen (getenv ("DUMPGRAPH"), "w");
     if (g) {
+      fprintf (g, "%" PRId64 "\n", nedge);
       for (k = 0; k < 2*nedge; k+=2) {
 	const int64_t i = IJ[k];
 	const int64_t j = IJ[k+1];
@@ -111,7 +118,7 @@ main (int argc, char **argv)
 
   run_bfs ();
 
-  xfree_large_ext ();
+  xfree_large (IJ);
 
   output_results (SCALE, nvtx_scale, edgefactor, A, B, C, D,
 		  construction_time, NBFS, bfs_time, bfs_nedge);
@@ -132,7 +139,7 @@ get_options (int argc, char **argv) {
   if (getenv ("VERBOSE"))
     VERBOSE = 1;
 
-  while ((c = getopt (argc, argv, "v?hs:e:A:a:B:b:C:c:D:d:V")) != -1)
+  while ((c = getopt (argc, argv, "v?hRs:e:A:a:B:b:C:c:D:d:V")) != -1)
     switch (c) {
     case 'v':
       printf ("%s version %d\n", NAME, VERSION);
@@ -143,6 +150,7 @@ get_options (int argc, char **argv) {
       printf ("Options:\n"
 	      "  v   : version\n"
 	      "  h|? : this message\n"
+	      "  R   : use R-MAT from SSCA2 (default: use Kronecker generator)\n"
 	      "  s   : R-MAT scale (default %" PRId64 ")\n"
 	      "  e   : R-MAT edge factor (default %" PRId64 ")\n"
 	      "  A|a : R-MAT A (default %lg) >= 0\n"
@@ -179,12 +187,17 @@ get_options (int argc, char **argv) {
 	      "  max_TEPS\n"
 	      "  harmonic_mean_TEPS\n"
 	      "  harmonic_stddev_TEPS\n"
-	      , SCALE, edgefactor, A, B, C, D
+	      , default_SCALE, default_edgefactor,
+	      A_PARAM, B_PARAM, C_PARAM,
+	      (1.0 - (A_PARAM + B_PARAM + C_PARAM))
 	      );
       exit (EXIT_SUCCESS);
       break;
     case 'V':
       VERBOSE = 1;
+      break;
+    case 'R':
+      use_RMAT = 1;
       break;
     case 's':
       errno = 0;
@@ -375,7 +388,7 @@ run_bfs (void)
     }
   }
 
-  xfree_large (has_adj, nvtx_scale * sizeof (*has_adj));
+  xfree_large (has_adj);
 
   for (k = 0; k < NBFS; ++k) {
     int64_t *bfs_tree, max_bfsvtx;
@@ -398,146 +411,140 @@ run_bfs (void)
       abort ();
     }
 
-    xfree_large (bfs_tree, nvtx_scale * sizeof (*bfs_tree));
+    xfree_large (bfs_tree);
   }
 
   destroy_graph ();
 }
 
+#define NSTAT 9
+#define PRINT_STATS(lbl, israte)					\
+  do {									\
+    printf ("min_%s: %20.17e\n", lbl, stats[0]);			\
+    printf ("firstquartile_%s: %20.17e\n", lbl, stats[1]);		\
+    printf ("median_%s: %20.17e\n", lbl, stats[2]);			\
+    printf ("thirdquartile_%s: %20.17e\n", lbl, stats[3]);		\
+    printf ("max_%s: %20.17e\n", lbl, stats[4]);			\
+    if (!israte) {							\
+      printf ("mean_%s: %20.17e\n", lbl, stats[5]);			\
+      printf ("stddev_%s: %20.17e\n", lbl, stats[6]);			\
+    } else {								\
+      printf ("harmonic_mean_%s: %20.17e\n", lbl, stats[7]);		\
+      printf ("harmonic_stddev_%s: %20.17e\n", lbl, stats[8]);	\
+    }									\
+  } while (0)
+
+
 static int
-compute_levels (int64_t * level,
-		int64_t nv, const int64_t * restrict bfs_tree, int64_t root)
+dcmp (const void *a, const void *b)
 {
-  int err = 0;
-  int64_t k;
-  for (k = 0; k < nv; ++k) level[k] = -1;
-  level[root] = 0;
-
-  for (k = 0; k < nv; ++k) {
-    if (level[k] >= 0) continue;
-    if (!err && bfs_tree[k] >= 0 && k != root) {
-      int64_t parent = k;
-      int64_t nhop = 0;
-      /* Run up the tree until we encounter an already-leveled vertex. */
-      while (parent >= 0 && level[parent] < 0 && nhop < nv) {
-	assert (parent != bfs_tree[parent]);
-	parent = bfs_tree[parent];
-	++nhop;
-      }
-      if (nhop >= nv) err = -1; /* Cycle. */
-      if (parent < 0) err = -2; /* Ran off the end. */
-
-      /* Now assign levels until we meet an already-leveled vertex */
-      /* NOTE: This permits benign races if parallelized. */
-      nhop += level[parent];
-      parent = k;
-      while (level[parent] < 0) {
-	assert (nhop > 0);
-	level[parent] = nhop--;
-	parent = bfs_tree[parent];
-      }
-      assert (nhop == level[parent]);
-
-      /* Internal check to catch mistakes in races... */
-#if !defined(NDEBUG)
-      nhop = 0;
-      parent = k;
-      int64_t lastlvl = level[k]+1;
-      while (level[parent] > 0) {
-	assert (lastlvl == 1 + level[parent]);
-	lastlvl = level[parent];
-	parent = bfs_tree[parent];
-	++nhop;
-      }
-#endif
-    }
-  }
-  return err;
+  const double da = *(const double*)a;
+  const double db = *(const double*)b;
+  if (da > db) return 1;
+  if (db > da) return -1;
+  if (da == db) return 0;
+  fprintf (stderr, "No NaNs permitted in output.\n");
+  abort ();
 }
 
-int64_t
-verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
-		 int64_t root,
-		 const int64_t *IJ_in, int64_t nedge)
+void
+statistics (double *out, double *data, int64_t n)
 {
-  int64_t * restrict bfs_tree = bfs_tree_in;
-  const int64_t * restrict IJ = IJ_in;
+  long double s, mean;
+  double t;
+  int k;
 
-  int err, nedge_traversed;
-  int64_t * restrict seen_edge, * restrict level;
+  /* Quartiles */
+  qsort (data, n, sizeof (*data), dcmp);
+  out[0] = data[0];
+  t = (n+1) / 4.0;
+  k = (int) t;
+  if (t == k)
+    out[1] = data[k];
+  else
+    out[1] = 3*(data[k]/4.0) + data[k+1]/4.0;
+  t = (n+1) / 2.0;
+  k = (int) t;
+  if (t == k)
+    out[2] = data[k];
+  else
+    out[2] = data[k]/2.0 + data[k+1]/2.0;
+  t = 3*((n+1) / 4.0);
+  k = (int) t;
+  if (t == k)
+    out[3] = data[k];
+  else
+    out[3] = data[k]/4.0 + 3*(data[k+1]/4.0);
+  out[4] = data[n-1];
 
-  const int64_t nv = max_bfsvtx+1;
-  int64_t k;
+  s = data[n-1];
+  for (k = n-1; k > 0; --k)
+    s += data[k-1];
+  mean = s/n;
+  out[5] = mean;
+  s = data[n-1] - mean;
+  s *= s;
+  for (k = n-1; k > 0; --k) {
+    long double tmp = data[k-1] - mean;
+    s += tmp * tmp;
+  }
+  out[6] = sqrt (s/(n-1));
+
+  s = (data[0]? 1.0L/data[0] : 0);
+  for (k = 1; k < n; ++k)
+    s += (data[k]? 1.0L/data[k] : 0);
+  out[7] = n/s;
+  mean = s/n;
 
   /*
-    This code is horrifically contorted because many compilers
-    complain about continue, return, etc. in parallel sections.
+    Nilan Norris, The Standard Errors of the Geometric and Harmonic
+    Means and Their Application to Index Numbers, 1940.
+    http://www.jstor.org/stable/2235723
   */
+  s = (data[0]? 1.0L/data[0] : 0) - mean;
+  s *= s;
+  for (k = 1; k < n; ++k) {
+    long double tmp = (data[k]? 1.0L/data[k] : 0) - mean;
+    s += tmp * tmp;
+  }
+  s = (sqrt (s)/(n-1)) * out[7] * out[7];
+  out[8] = s;
+}
 
-  if (root > max_bfsvtx || bfs_tree[root] != root)
-    return -999;
+void
+output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
+		const double A, const double B, const double C, const double D,
+		const double construction_time,
+		const int NBFS, const double *bfs_time, const int64_t *bfs_nedge)
+{
+  int k;
+  double *tm;
+  double *stats;
 
-  err = 0;
-  nedge_traversed = 0;
-  seen_edge = xmalloc_large (2 * (nv) * sizeof (*seen_edge));
-  level = &seen_edge[nv];
-
-  for (k = 0; k < nv; ++k)
-    seen_edge[k] = 0;
-
-  err = compute_levels (level, nv, bfs_tree, root);
-
-  if (err) goto done;
-
-  for (k = 0; k < 2*nedge; k+=2) {
-    const int64_t i = IJ[k];
-    const int64_t j = IJ[k+1];
-    int64_t lvldiff;
-
-    if (i > max_bfsvtx && j <= max_bfsvtx) err = -10;
-    if (j > max_bfsvtx && i <= max_bfsvtx) err = -11;
-    if (err || i > max_bfsvtx /* both i & j are on the same side of max_bfsvtx */)
-      continue;
-
-    /* All neighbors must be in the tree. */
-    if (bfs_tree[i] >= 0 && bfs_tree[j] < 0) err = -12;
-    if (bfs_tree[j] >= 0 && bfs_tree[i] < 0) err = -13;
-    if (err || bfs_tree[i] < 0 /* both i & j have the same sign */)
-      continue;
-
-    /* Both i and j are in the tree, count as a traversed edge.
-
-       NOTE: This counts self-edges and repeated edges.  They're
-       part of the input data.
-    */
-    ++nedge_traversed;
-    /* Mark seen tree edges. */
-    if (i != j) {
-      if (bfs_tree[i] == j)
-	seen_edge[i] = 1;
-      if (bfs_tree[j] == i)
-	seen_edge[j] = 1;
-    }
-    lvldiff = level[i] - level[j];
-    /* Check that the levels differ by no more than one. */
-    if (lvldiff > 1 || lvldiff < -1)
-      err = -14;
+  tm = alloca (NBFS * sizeof (*tm));
+  stats = alloca (NSTAT * sizeof (*stats));
+  if (!tm || !stats) {
+    perror ("Error allocating within final statistics calculation.");
+    abort ();
   }
 
-  if (err) goto done;
+  printf ("SCALE: %" PRId64"\nnvtx: %" PRId64 "\nedgefactor: %" PRId64 "\n",
+	  SCALE, nvtx_scale, edgefactor);
+  printf ("A: %20.17e\nB: %20.17e\nC: %20.17e\nD: %20.17e\n", A, B, C, D);
+  printf ("construction_time: %20.17e\n", construction_time);
+  printf ("nbfs: %d\n", NBFS);
 
-  /* Check that every BFS edge was seen and that there's only one root. */
-  for (k = 0; k < nv; ++k)
-    if (k != root) {
-      if (bfs_tree[k] >= 0 && !seen_edge[k])
-	err = -15;
-      if (bfs_tree[k] == k)
-	err = -16;
-    }
+  memcpy (tm, bfs_time, NBFS*sizeof(tm[0]));
+  statistics (stats, tm, NBFS);
+  PRINT_STATS("time", 0);
 
- done:
+  for (k = 0; k < NBFS; ++k)
+    tm[k] = bfs_nedge[k];
+  statistics (stats, tm, NBFS);
+  PRINT_STATS("nedge", 0);
 
-  xfree_large (seen_edge, max_bfsvtx * sizeof (*seen_edge));
-  if (err) return err;
-  return nedge_traversed;
+  for (k = 0; k < NBFS; ++k)
+    tm[k] = bfs_nedge[k] / bfs_time[k];
+  statistics (stats, tm, NBFS);
+  PRINT_STATS("TEPS", 1);
 }

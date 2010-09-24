@@ -1,8 +1,9 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
+#define _XOPEN_SOURCE 600
 #include <stdlib.h>
 #include <errno.h>
 
-#include "graph500-prng.h"
+#include "compat.h"
 
 void
 init_random (void)

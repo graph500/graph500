@@ -19,7 +19,7 @@
 
 #include "make_graph.h"
 
-inline double get_time() {
+static double get_time() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   return tv.tv_sec + tv.tv_usec * 1.e-6;

@@ -1,18 +1,32 @@
-AR = ar
-RANLIB = ranlib
-CC = cc
-CFLAGS = -g -Wall -Drestrict=__restrict__ -O3 -DNDEBUG -ffast-math -DGRAPH_GENERATOR_SEQ # -g -pg
-# CFLAGS = -g -Wall -Drestrict=__restrict__
-LDFLAGS = -g # -g -pg
+# -*- Makefile -*-
+# AR = ar
+# RANLIB = ranlib
+# CC = cc
+# CFLAGS = -g -Wall -Drestrict=__restrict__ -O3 -DNDEBUG -ffast-math -DGRAPH_GENERATOR_SEQ # -g -pg
+# # CFLAGS = -g -Wall -Drestrict=__restrict__
+# LDFLAGS = -g # -g -pg
 
-all: libgraph_generator_seq.a generator_test_seq
+CPPFLAGS = -DGRAPH_GENERATOR_SEQ
+CFLAGS = -std=c99
+LDLIBS = -lm
+
+all: generator_test_seq
 
 generator_test_seq: generator_test_seq.c libgraph_generator_seq.a
-	$(CC) $(CFLAGS) $(LDFLAGS) -o generator_test_seq generator_test_seq.c -L. -lgraph_generator_seq -lm
 
-libgraph_generator_seq.a: btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
-	$(AR) cruv libgraph_generator_seq.a btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
-	$(RANLIB) libgraph_generator_seq.a
+libgraph_generator_seq.a:					\
+	libgraph_generator_seq.a(btrd_binomial_distribution.o)	\
+	libgraph_generator_seq.a(splittable_mrg.o)		\
+	libgraph_generator_seq.a(mrg_transitions.o)		\
+	libgraph_generator_seq.a(graph_generator.o)		\
+	libgraph_generator_seq.a(permutation_gen.o)		\
+	libgraph_generator_seq.a(make_graph.o)
+	ranlib libgraph_generator_seq.a
+
+# $(AR) cruv libgraph_generator_seq.a btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
+# $(RANLIB) libgraph_generator_seq.a
+
+#libgraph_generator_seq.a: btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
 
 clean:
 	-rm -f generator_test_seq libgraph_generator_seq.a *.o
