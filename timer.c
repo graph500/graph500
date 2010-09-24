@@ -1,5 +1,5 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
-#define _XOPEN_SOURCE 600
+#include "compat.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>

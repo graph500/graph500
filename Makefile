@@ -1,16 +1,18 @@
 CFLAGS = -g -std=c99
+CFLAGS_OPENMP = -fopenmp
 LDLIBS = -lm -lrt
 
-GRAPH500_SOURCES=graph500.c xalloc.c timer.c 
-GRAPH500_SEQ_SOURCES=rmat.c verify.c prng.c
+GRAPH500_SOURCES=graph500.c rmat.c verify.c prng.c xalloc.c timer.c 
 
-BIN=seq-list/seq-list seq-csr/seq-csr
+BIN=seq-list/seq-list seq-csr/seq-csr omp-csr/omp-csr
 
 .PHONY: all
 all: $(BIN)
 
-seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) $(GRAPH500_SEQ_SOURCES) libgenerator-seq.a
-seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) $(GRAPH500_SEQ_SOURCES) libgenerator-seq.a
+seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) libgenerator-seq.a
+seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) libgenerator-seq.a
+omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES)
 
 GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
 	mrg_transitions.o graph_generator.o permutation_gen.o		\

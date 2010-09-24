@@ -1,8 +1,5 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
-#define _FILE_OFFSET_BITS 64
-#define _THREAD_SAFE
-#define _XOPEN_SOURCE 600
-#define _XOPEN_SOURCE_EXTENDED
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -12,7 +9,6 @@
 
 #include <assert.h>
 
-#include "compat.h"
 #include "xalloc.h"
 #include "prng.h"
 
@@ -250,7 +246,7 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 }
 
 #if defined(_OPENMP)
-#if defined(__GNUC__)
+#if defined(__GNUC__)||defined(__INTEL_COMPILER)
 int
 double_cas(double* p, double oldval, double newval)
 {

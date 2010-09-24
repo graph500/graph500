@@ -1,5 +1,5 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
-#define _XOPEN_SOURCE 600
+#include "compat.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,8 +15,6 @@
 #if !defined(MAP_POPULATE)
 #define MAP_POPULATE 0
 #endif
-
-#include "compat.h"
 
 void *
 xmalloc (size_t sz)
