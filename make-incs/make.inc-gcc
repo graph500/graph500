@@ -1,0 +1,6 @@
+# -*- Makefile -*-
+CFLAGS = -g -std=c99
+LDLIBS = -lm -lrt
+
+BUILD_OPENMP = Yes
+CFLAGS_OPENMP = -fopenmp

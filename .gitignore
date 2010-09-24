@@ -1,6 +1,7 @@
 *.a
 *.o
 *~
+make.inc
 seq-list/seq-list
 seq-csr/seq-csr
 omp-csr/omp-csr
