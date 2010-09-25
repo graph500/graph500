@@ -63,6 +63,10 @@ abort_handler (int passthrough)
 }
 #endif
 
+#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 void *
 xmalloc_large (size_t sz)
 {

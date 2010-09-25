@@ -5,3 +5,5 @@ make.inc
 seq-list/seq-list
 seq-csr/seq-csr
 omp-csr/omp-csr
+*.pl
+xmt-csr/xmt-csr

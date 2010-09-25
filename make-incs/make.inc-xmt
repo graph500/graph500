@@ -1,0 +1,12 @@
+# -*- Makefile -*-
+# Modules and Emacs+tramp don't cooperate at PNNL.
+PATH:=/opt/mta-pe/6.5.0/bin:${PATH}
+CFLAGS = 
+LDLIBS = -lprand -lm -lrt
+CPPFLAGS = -DUSE_MMAP_LARGE -DNDEBUG
+
+BUILD_OPENMP = No
+CFLAGS_OPENMP =
+
+BUILD_XMT = Yes
+

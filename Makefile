@@ -11,14 +11,22 @@ ifeq ($(BUILD_OPENMP), Yes)
 BIN += omp-csr/omp-csr
 endif
 
+ifeq ($(BUILD_XMT), Yes)
+BIN += xmt-csr/xmt-csr
+endif
+
 .PHONY: all
 all: $(BIN)
 
-seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) libgenerator-seq.a
-seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) libgenerator-seq.a
+seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) #libgenerator-seq.a
+seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) #libgenerator-seq.a
 
 omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
 omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES)
+
+xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
+#xmt-csr/xmt-csr: CPPFLAGS:=$(CPPFLAGS) -Drestrict=
+xmt-csr/xmt-csr: xmt-csr/xmt-csr.c $(GRAPH500_SOURCES)
 
 GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
 	mrg_transitions.o graph_generator.o permutation_gen.o		\

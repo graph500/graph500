@@ -1,8 +1,5 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
-#define _FILE_OFFSET_BITS 64
-#define _THREAD_SAFE
-#define _XOPEN_SOURCE 600
-#define _XOPEN_SOURCE_EXTENDED
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -10,18 +7,6 @@
 #include <math.h>
 
 #include <assert.h>
-
-#if __STDC_VERSION__ >= 199901L
-#include <inttypes.h>
-#else
-#warning "Defining long as int64_t."
-typedef long int64_t;
-#define PRId64 "ld"
-#define SCNd64 "ld"
-#if !defined(restrict)
-#define restrict
-#endif
-#endif
 
 #include <alloca.h> /* Portable enough... */
 #if !defined(__MTA__)
@@ -99,7 +84,9 @@ main (int argc, char **argv)
 
   IJ = xmalloc_large_ext (2 * nedge * sizeof (*IJ));
 
+  if (VERBOSE) fprintf (stderr, "Generating edge list...");
   rmat_edgelist (IJ, nedge, SCALE, A, B, C);
+  if (VERBOSE) fprintf (stderr, " done.\n");
 
   if (getenv ("DUMPGRAPH")) {
     int k;
@@ -193,7 +180,7 @@ get_options (int argc, char **argv) {
 	      );
       exit (EXIT_SUCCESS);
       break;
-    case 'V':
+   case 'V':
       VERBOSE = 1;
       break;
     case 'R':
@@ -350,7 +337,9 @@ run_bfs (void)
   int64_t t;
   double R[2*NBFS];
 
+  if (VERBOSE) fprintf (stderr, "Creating graph...");
   TIME(construction_time, err = create_graph_from_edgelist (IJ, nedge));
+  if (VERBOSE) fprintf (stderr, "done.\n");
   if (err) {
     fprintf (stderr, "Failure creating graph.\n");
     exit (EXIT_FAILURE);
@@ -397,14 +386,18 @@ run_bfs (void)
     bfs_tree = xmalloc_large (nvtx_scale * sizeof (*bfs_tree));
     assert (bfs_root[k] < nvtx_scale);
 
+    if (VERBOSE) fprintf (stderr, "Running bfs %d...", k);
     TIME(bfs_time[k], err = make_bfs_tree (bfs_tree, &max_bfsvtx, bfs_root[k]));
+    if (VERBOSE) fprintf (stderr, "done\n");
 
     if (err) {
       perror ("make_bfs_tree failed");
       abort ();
     }
 
+    if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", k);
     bfs_nedge[k] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[k], IJ, nedge);
+    if (VERBOSE) fprintf (stderr, "done\n");
     if (bfs_nedge[k] < 0) {
       fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
 	       k, bfs_root[k], bfs_nedge[k]);
@@ -445,6 +438,7 @@ dcmp (const void *a, const void *b)
   if (da == db) return 0;
   fprintf (stderr, "No NaNs permitted in output.\n");
   abort ();
+  return 0;
 }
 
 void

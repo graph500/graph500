@@ -25,7 +25,7 @@ compute_levels (int64_t * level,
       for (k = 0; k < nv; ++k)
 	level[k] = (k == root? 0 : -1);
 
-    OMP("omp for")
+    OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < nv; ++k) {
 	if (level[k] >= 0) continue;
 	terr = err;
@@ -110,7 +110,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
       for (k = 0; k < nv; ++k)
 	seen_edge[k] = 0;
 
-    OMP("omp for")
+    OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < 2*nedge; k+=2) {
 	const int64_t i = IJ[k];
 	const int64_t j = IJ[k+1];
@@ -152,7 +152,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 
     if (!terr) {
       /* Check that every BFS edge was seen and that there's only one root. */
-      OMP("omp for")
+      OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
 	for (k = 0; k < nv; ++k) {
 	  terr = err;
 	  if (!terr && k != root) {

@@ -21,7 +21,7 @@ static int double_cas(double* p, double oldval, double newval);
    Create an edge between node i and j.
 */
 
-MTA("mta expect serial context")
+MTA("mta expect parallel context")
 static void
 rmat_edge (int64_t *iout, int64_t *jout, int SCALE,
 	   double A, double B, double C, double D,
@@ -234,7 +234,7 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 
     random_vector (R, NRAND(nedge));
 
-    OMP("omp for")
+    OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < nedge; ++k)
 	rmat_edge (&I(k), &J(k), SCALE, A, B, C, D, &R[NRAND(k)]);
 

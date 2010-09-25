@@ -9,6 +9,9 @@
 
 #if __STDC_VERSION__ >= 199901L
 #include <inttypes.h>
+#elif defined(__MTA__)
+#define PRId64 "ld"
+#define SCNd64 "ld"
 #else
 #warning "Defining long as int64_t."
 typedef long int64_t;

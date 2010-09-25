@@ -7,6 +7,11 @@
 #include <unistd.h>
 #include <time.h>
 
+#if defined(__MTA__)
+long tic_ts;
+#elif defined(__MacOSX__)
+static AbsoluteTime tic_ts;
+#else
 #if defined(CLOCK_MONOTONIC)
 #define TICTOC_CLOCK CLOCK_MONOTONIC
 #define TICTOC_CLOCK_NAME "CLOCK_MONOTONIC"
@@ -17,11 +22,6 @@
 #error "Failed to find a timing clock."
 #endif
 
-#if defined(__MTA__)
-long tic_ts;
-#elif defined(__MacOSX__)
-static AbsoluteTime tic_ts;
-#else
 static struct timespec tic_ts;
 #endif
 
@@ -29,6 +29,7 @@ void
 tic (void)
 {
 #if defined(__MTA__)
+  MTA("mta fence")
   tic_ts = mta_get_clock (0);
 #elif defined(__MacOSX__)
   tic_ts = UpTime ();
@@ -43,8 +44,9 @@ toc (void)
   double out;
 #if defined(__MTA__)
   long ts;
-  ts = mta_get_clock (0);
-  out = ((double)ts - tic_ts) / mta_clock_freq ();
+  MTA("mta fence")
+  ts = mta_get_clock (tic_ts);
+  out = ((double)ts) / mta_clock_freq ();
 #elif defined(__MacOSX__)
   AbsoluteTime ts;
   ts = UpTime ();
