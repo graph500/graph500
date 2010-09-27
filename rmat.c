@@ -15,7 +15,9 @@
 #include "prng.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
-static int double_cas(double* p, double oldval, double newval);
+static void init_take_release (void);
+static double take_double (double* p);
+static void release_double (double* p, double val);
 #endif
 
 /* Recursively divide a grid of N x N by four to a single point, (i, j).
@@ -75,7 +77,7 @@ rmat_edge (int64_t *iout, int64_t *jout, int SCALE,
 #define I(k) (IJ[2*(k)])
 #define J(k) (IJ[2*(k)+1])
 
-#if defined(_OPENMP)
+#if defined(_OPENMP)||defined(__MTA__)
 static void
 randpermute (int64_t *A_in, int64_t nelem, int nper,
 	     double * restrict R)
@@ -87,18 +89,14 @@ randpermute (int64_t *A_in, int64_t nelem, int nper,
 
   random_vector (R, nelem);
 
-  OMP("omp for")
+  OMP("omp for") MTA("mta assert nodep")
     for (k = 0; k < nelem; ++k) {
       int k2;
       int64_t place;
       double Rk, Rplace;
 
-      do {
-	OMP("omp flush (R)");
-	Rk = R[k];
-      } while (Rk < 0.0 || !double_cas (&R[k], Rk, -1.0));
+      Rk = take_double (&R[k]);
 
-      assert (R[k] == -1.0);
       assert (Rk >= 0.0 && Rk <= 1.0);
 
       place = k + (int64_t)floor (Rk * (nelem - k));
@@ -106,12 +104,8 @@ randpermute (int64_t *A_in, int64_t nelem, int nper,
 	assert (place > k);
 	assert (place < nelem);
 
-	do {
-	  OMP("omp flush (R)");
-	  Rplace = R[place];
-	} while (Rplace < 0.0 || !double_cas (&R[place], Rplace, -1.0));
+	Rplace = take_double (&R[place]);
 
-	assert (R[place] == -1.0);
 	assert (Rplace >= 0.0 && Rplace <= 1.0);
 
 	for (k2 = 0; k2 < nper; ++k2) {
@@ -121,49 +115,9 @@ randpermute (int64_t *A_in, int64_t nelem, int nper,
 	  A[k*nper + k2] = t;
 	}
 
-	R[place] = Rplace;
+	release_double (&R[place], Rplace);
       }
-      R[k] = Rk;
-      OMP("omp flush (R)");
-  }
-}
-#elif defined(__MTA__)
-static void
-randpermute (int64_t *A_in, int64_t nelem, int nper,
-	     double * restrict R)
-{
-  int64_t * restrict A = A_in;
-  int64_t k;
-  double Rk, Rplace;
-
-  assert (nper <= 2);
-
-  random_vector (R, nelem);
-
-  MTA("mta assert nodep")
-  for (k = 0; k < nelem; ++k) {
-    int k2;
-    int64_t place;
-    double Rk;
-
-    Rk = readfe (&R[k]);
-
-    place = k + (int64_t)floor (R[k] * (nelem - k));
-
-    if (k != place) {
-      double Rplace;
-      Rplace = readfe (&R[place]);
-
-      for (k2 = 0; k2 < nper; ++k2) {
-	int64_t t;
-	t = A[place*nper + k2];
-	A[place*nper + k2] = A[k*nper + k2];
-	A[k*nper + k2] = t;
-      }
-      writeef (&R[place], Rplace);
-    }
-
-    writeef (&R[k], Rk);
+      release_double (&R[k], Rk);
   }
 }
 #else
@@ -248,36 +202,80 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 }
 
 #if defined(_OPENMP)
-#if defined(__GNUC__)||defined(__INTEL_COMPILER)
+#if 1&&(defined(__GNUC__)||defined(__INTEL_COMPILER))
+/* XXX: These are not completely reliable. */
+union punny {
+  int64_t i64;
+  double d;
+};
+void
+init_take_release (void)
+{
+}
 int
 double_cas(double* p, double oldval, double newval)
 {
-  union ugh {
-    int64_t i64;
-    double d;
-  } oldugh, newugh;
+  union punny oldugh, newugh;
   oldugh.d = oldval;
   newugh.d = newval;
   return __sync_bool_compare_and_swap ((int64_t*)p, oldugh.i64, newugh.i64);
 }
-#else
-/* XXX: These are not correct, but suffice for the above uses. */
-int
-double_cas(double* p, double oldval, double newval)
+double
+take_double (double *p)
 {
-  int out = 0;
-  OMP("omp critical (CAS)") {
-    double v = *p;
-    if (v == oldval) {
-      *p = newval;
-      out = 1;
+  double oldval;
+
+  do {
+    __sync_synchronize ();
+    oldval = *p;
+  } while (!(oldval >= 0.0 && double_cas (p, oldval, -1.0)));
+}
+void
+release_double (double *p, double val)
+{
+  //assert (*p == -1.0);
+  *p = val;
+  __sync_synchronize ();
+}
+#else
+/* XXX: These suffice for the above uses. */
+void
+init_take_release (void)
+{
+  int k;
+  for (k = 0; k < NMEMLOCK; ++k)
+    omp_init_nest_lock (&memlock[k]);
+}
+double
+take_double (double *p)
+{
+  double out;
+  do {
+    OMP("omp critical (TAKE)") {
+      out = *p;
+      if (out >= 0.0)
+	*p = -1.0;
     }
-  }
+  } while (out < 0.0);
   OMP("omp flush (p)");
   return out;
 }
+void
+release_double (double *p, double val)
+{
+  //assert (*p == -1.0);
+  OMP("omp critical (TAKE)") {
+    *p = val;
+    OMP("omp flush (p)");
+  }
+  return;
+}
 #endif
 #elif defined(__MTA__)
+void
+init_take_release (void)
+{
+}
 int
 double_cas(double* p, double oldval, double newval)
 {
@@ -291,6 +289,16 @@ double_cas(double* p, double oldval, double newval)
   }
   writeef (p, v);
   return out;
+}
+double
+take_double (double *p)
+{
+  return readfe (p);
+}
+void
+release_double (double *p, double val)
+{
+  writeef (p, val);
 }
 #else
 /* double_cas isn't used sequentially. */
