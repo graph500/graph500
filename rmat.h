@@ -1,4 +1,6 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
+/* Copyright 2010, , Georgia Institute of Technology, USA. */
+/* See COPYING for license. */
 #if !defined(RMAT_HEADER_)
 #define RMAT_HEADER_
 

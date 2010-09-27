@@ -1,4 +1,6 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
+/* Copyright 2010, , Georgia Institute of Technology, USA. */
+/* See COPYING for license. */
 #define _FILE_OFFSET_BITS 64
 #define _THREAD_SAFE
 #include <stdlib.h>

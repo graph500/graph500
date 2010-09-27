@@ -1,3 +1,6 @@
+/* -*- mode: C; mode: folding; fill-column: 70; -*- */
+/* Copyright 2010, , Georgia Institute of Technology, USA. */
+/* See COPYING for license. */
 #if !defined(VERIFY_HEADER_)
 #define VERIFY_HEADER_
 
