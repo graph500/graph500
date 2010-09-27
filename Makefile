@@ -3,7 +3,7 @@ BUILD_OPENMP = No
 BUILD_XMT = No
 include make.inc
 
-GRAPH500_SOURCES=graph500.c rmat.c verify.c prng.c xalloc.c timer.c 
+GRAPH500_SOURCES=graph500.c options.c rmat.c verify.c prng.c xalloc.c timer.c 
 
 BIN=seq-list/seq-list seq-csr/seq-csr
 
