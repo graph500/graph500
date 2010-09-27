@@ -15,7 +15,6 @@
 #include "prng.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
-static void init_take_release (void);
 static double take_double (double* p);
 static void release_double (double* p, double val);
 #endif
@@ -208,10 +207,6 @@ union punny {
   int64_t i64;
   double d;
 };
-void
-init_take_release (void)
-{
-}
 int
 double_cas(double* p, double oldval, double newval)
 {
@@ -239,13 +234,6 @@ release_double (double *p, double val)
 }
 #else
 /* XXX: These suffice for the above uses. */
-void
-init_take_release (void)
-{
-  int k;
-  for (k = 0; k < NMEMLOCK; ++k)
-    omp_init_nest_lock (&memlock[k]);
-}
 double
 take_double (double *p)
 {
@@ -272,10 +260,6 @@ release_double (double *p, double val)
 }
 #endif
 #elif defined(__MTA__)
-void
-init_take_release (void)
-{
-}
 int
 double_cas(double* p, double oldval, double newval)
 {
