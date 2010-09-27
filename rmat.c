@@ -181,7 +181,7 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
   double * restrict R;
   double D = 1.0 - (A + B + C);
  
-  R = xmalloc_large (NRAND(nedge) * sizeof (*R) + (1L<<SCALE) * sizeof (*iwork));
+  R = xmalloc_large_ext (NRAND(nedge) * sizeof (*R) + (1L<<SCALE) * sizeof (*iwork));
   iwork = (int64_t*)&R[NRAND(nedge)];
 
   OMP("omp parallel") {
