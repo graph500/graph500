@@ -1,4 +1,6 @@
 # -*- Makefile -*-
+# Copyright 2010,  Georgia Institute of Technology, USA.
+# See COPYING for license.
 BUILD_OPENMP = No
 BUILD_XMT = No
 include make.inc
