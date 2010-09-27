@@ -224,6 +224,7 @@ take_double (double *p)
     __sync_synchronize ();
     oldval = *p;
   } while (!(oldval >= 0.0 && double_cas (p, oldval, -1.0)));
+  return oldval;
 }
 void
 release_double (double *p, double val)
