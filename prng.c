@@ -92,8 +92,17 @@ void
 random_vector (double *R, int64_t n)
 {
   int64_t k;
-  OMP("omp single")
-  for (k = 0; k < n; ++k)
-    R[k] = mrg_get_double_orig (&prng_state_store);
+  if (omp_get_num_threads () > 1) {
+    OMP("omp for")
+      for (k = 0; k < n; ++k) {
+	mrg_state new_st = prng_state_store;
+	mrg_skip(&new_st, 1, k, 0);
+	R[k] = mrg_get_double_orig (&new_st);
+      }
+    mrg_skip(&prng_state_store, 1, n, 0);
+  } else {
+    for (k = 0; k < n; ++k)
+      R[k] = mrg_get_double_orig (&prng_state_store);
+  }
 }
 #endif

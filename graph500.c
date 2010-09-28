@@ -28,6 +28,7 @@ static int64_t nvtx_scale;
 
 static int64_t bfs_root[NBFS_max];
 
+static double generation_time;
 static double construction_time;
 static double bfs_time[NBFS_max];
 static int64_t bfs_nedge[NBFS_max];
@@ -40,6 +41,7 @@ static void output_results (const int64_t SCALE, int64_t nvtx_scale,
 			    int64_t edgefactor,
 			    const double A, const double B,
 			    const double C, const double D,
+			    const double generation_time,
 			    const double construction_time,
 			    const int NBFS,
 			    const double *bfs_time, const int64_t *bfs_nedge);
@@ -68,9 +70,9 @@ main (int argc, char **argv)
 
   if (VERBOSE) fprintf (stderr, "Generating edge list...");
   if (use_RMAT)
-    rmat_edgelist (IJ, nedge, SCALE, A, B, C);
+    TIME(generation_time, rmat_edgelist (IJ, nedge, SCALE, A, B, C));
   else
-    kronecker_edgelist (IJ, nedge, SCALE, A, B, C);
+    TIME(generation_time, kronecker_edgelist (IJ, nedge, SCALE, A, B, C));
   if (VERBOSE) fprintf (stderr, " done.\n");
 
   if (getenv ("DUMPGRAPH")) {
@@ -93,7 +95,7 @@ main (int argc, char **argv)
   xfree_large (IJ);
 
   output_results (SCALE, nvtx_scale, edgefactor, A, B, C, D,
-		  construction_time, NBFS, bfs_time, bfs_nedge);
+		  generation_time, construction_time, NBFS, bfs_time, bfs_nedge);
 
   return EXIT_SUCCESS;
 }
@@ -277,6 +279,7 @@ statistics (double *out, double *data, int64_t n)
 void
 output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
 		const double A, const double B, const double C, const double D,
+		const double generation_time,
 		const double construction_time,
 		const int NBFS, const double *bfs_time, const int64_t *bfs_nedge)
 {
@@ -292,11 +295,12 @@ output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
     abort ();
   }
 
-  sz = (1L << SCALE) * edgefactor * sizeof (int64_t);
+  sz = (1L << SCALE) * edgefactor * 2 * sizeof (int64_t);
   printf ("SCALE: %" PRId64 "\nnvtx: %" PRId64 "\nedgefactor: %" PRId64 "\n"
-	  "tebisize: %20.17e\n",
+	  "terasize: %20.17e\n",
 	  SCALE, nvtx_scale, edgefactor, sz/1.0e12);
   printf ("A: %20.17e\nB: %20.17e\nC: %20.17e\nD: %20.17e\n", A, B, C, D);
+  printf ("generation_time: %20.17e\n", generation_time);
   printf ("construction_time: %20.17e\n", construction_time);
   printf ("nbfs: %d\n", NBFS);
 
