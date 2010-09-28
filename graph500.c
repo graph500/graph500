@@ -104,7 +104,7 @@ main (int argc, char **argv)
 void
 run_bfs (void)
 {
-  int *has_adj;
+  int * restrict has_adj;
   int k, m, err;
   int64_t t;
   double R[2*NBFS];
@@ -118,13 +118,17 @@ run_bfs (void)
   }
 
   has_adj = xmalloc_large (nvtx_scale * sizeof (*has_adj));
-  for (k = 0; k < nvtx_scale; ++k)
-    has_adj[k] = 0;
-  for (k = 0; k < 2*nedge; k+=2) {
-    const int64_t i = IJ[k];
-    const int64_t j = IJ[k+1];
-    if (i != j)
-      has_adj[i] = has_adj[j] = 1;
+  OMP("omp parallel") {
+    OMP("omp for")
+      for (k = 0; k < nvtx_scale; ++k)
+        has_adj[k] = 0;
+    MTA("mta assert nodep") OMP("omp for")
+      for (k = 0; k < 2*nedge; k+=2) {
+        const int64_t i = IJ[k];
+        const int64_t j = IJ[k+1];
+        if (i != j)
+          has_adj[i] = has_adj[j] = 1;
+      }
   }
 
   /* Sample from {0, ..., nvtx_scale-1} without replacement. */

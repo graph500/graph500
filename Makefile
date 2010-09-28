@@ -15,7 +15,7 @@ BIN += omp-csr/omp-csr
 endif
 
 ifeq ($(BUILD_XMT), Yes)
-BIN = xmt-csr/xmt-csr
+BIN = xmt-csr/xmt-csr xmt-csr-local/xmt-csr-local
 endif
 
 GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
@@ -33,6 +33,10 @@ omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES) libgenerator-omp.a
 
 xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
 xmt-csr/xmt-csr: xmt-csr/xmt-csr.c $(GRAPH500_SOURCES) \
+	$(addprefix generator/,$(patsubst %.o,%.c,$(GENERATOR_OBJS_SEQ)))
+
+xmt-csr-local/xmt-csr-local: CFLAGS:=$(CFLAGS) -pl xmt-csr-local/xmt-csr-local.pl
+xmt-csr-local/xmt-csr-local: xmt-csr-local/xmt-csr-local.c $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(patsubst %.o,%.c,$(GENERATOR_OBJS_SEQ)))
 
 generator/generator_test_seq: generator/generator_test_seq.c libgenerator-seq.a

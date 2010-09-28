@@ -11,12 +11,13 @@
 #include "generator/graph_generator.h"
 
 void
-kronecker_edgelist (int64_t *IJ, int64_t nedge, int64_t SCALE,
+kronecker_edgelist (int64_t *IJ_in, int64_t nedge, int64_t SCALE,
 		    double A, double B, double C)
 {
   const int64_t nvtx = 1L<<SCALE;
   mrg_state state;
-  int64_t *vperm = NULL;
+  int64_t * restrict IJ = IJ_in;
+  int64_t * restrict vperm = NULL;
   int64_t k;
   double D;
 

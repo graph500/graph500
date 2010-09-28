@@ -184,6 +184,9 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
     for (k = k1; k < oldk2; ++k) {
       const int64_t v = vlist[k];
       const int64_t veo = XENDOFF(v);
+#define NPACK 64
+      int kpack = 0;
+      int64_t vpack[NPACK];
       int64_t vo;
       MTA("mta loop serial")
       for (vo = XOFF(v); vo < veo; ++vo) {
@@ -192,10 +195,22 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
 	  int64_t t = readfe (&bfs_tree[j]);
 	  if (t == -1) {
 	    t = v;
-	    vlist[int_fetch_add (&k2, 1)] = j;
+	    vpack[kpack++] = j;
+	    if (kpack == NPACK) {
+	      int64_t dstk = int_fetch_add (&k2, NPACK), k;
+	      for (k = 0; k < NPACK; ++k)
+		vlist[dstk + k] = vpack[k];
+	      kpack = 0;
+	    }
 	  }
 	  writeef (&bfs_tree[j], t);
 	}
+      }
+      if (kpack) {
+	int64_t dstk = int_fetch_add (&k2, kpack);
+	int k;
+	for (k = 0; k < kpack; ++k)
+	  vlist[dstk + k] = vpack[k];
       }
     }
     k1 = oldk2;
