@@ -14,8 +14,8 @@
 #include <inttypes.h>
 #elif defined(__MTA__)
 #include <stdint.h>
-#define PRId64 "ld"
-#define SCNd64 "ld"
+#define PRId64 "d"
+#define SCNd64 "d"
 #else
 #warning "Defining long as int64_t."
 typedef long int64_t;

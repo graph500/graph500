@@ -10,6 +10,7 @@
 #include <time.h>
 
 #if defined(__MTA__)
+#include <sys/mta_task.h>
 long tic_ts;
 #elif defined(__MacOSX__)
 static AbsoluteTime tic_ts;
@@ -48,7 +49,8 @@ toc (void)
   long ts;
   MTA("mta fence")
   ts = mta_get_clock (tic_ts);
-  out = ((double)ts) / mta_clock_freq ();
+  out = ((double)ts) * mta_clock_period ();
+  /*fprintf (stderr, "%ld %g %g %g\n", ts, out, mta_clock_period(), mta_clock_freq());*/
 #elif defined(__MacOSX__)
   AbsoluteTime ts;
   ts = UpTime ();
