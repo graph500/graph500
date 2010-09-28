@@ -41,7 +41,7 @@ kronecker_edgelist (int64_t *IJ, int64_t nedge, int64_t SCALE,
 
   rand_sort_shared ((mrg_state*)prng_state, nvtx, vperm);
 
-  OMP("parallel omp for")
+  OMP("omp parallel for")
     for (k = 0; k < 2*nedge; ++k)
       if (IJ[k] >= 0)
 	IJ[k] = vperm[IJ[k]];
