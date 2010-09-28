@@ -10,6 +10,7 @@
 #ifndef PERMUTATION_GEN_H
 #define PERMUTATION_GEN_H
 
+#include <stdint.h>
 #include "splittable_mrg.h"
 #include "graph_generator.h"
 
@@ -18,13 +19,13 @@
 #endif
 
 /* This version is for sequential machines and the XMT. */
-void rand_sort_shared(mrg_state* st, count_type n, count_type* result /* Array of size n */);
+void rand_sort_shared(mrg_state* st, int64_t n, int64_t* result /* Array of size n */);
 
 #ifdef GRAPH_GENERATOR_MPI
 /* For MPI distributed memory. */
-void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
-                   count_type* result_size_ptr,
-                   count_type** result_ptr /* Allocated using malloc() by
+void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
+                   int64_t* result_size_ptr,
+                   int64_t** result_ptr /* Allocated using malloc() by
                    rand_sort_mpi(), must be free()d by user */);
 #endif
 

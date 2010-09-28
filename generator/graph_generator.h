@@ -27,20 +27,7 @@
 /* #define MODIFY_PARAMS_AT_EACH_LEVEL */
 #endif
 
-/* Global numbers of vertices, edges, indices of those */
-typedef uint64_t count_type;
-#define PRIcount_type PRIu64 /* printf format for count_type */
-#define COUNT_MPI_TYPE MPI_UNSIGNED_LONG_LONG /* Should be MPI_UINT64_T */
-
-static count_type count_pow(count_type base, unsigned int e) {
-  count_type result = 1, cur_pow_2 = base;
-  while (e > 0) {
-    if (e % 2 == 1) result *= cur_pow_2;
-    cur_pow_2 *= cur_pow_2;
-    e /= 2;
-  }
-  return result;
-}
+#define INT64_T_MPI_TYPE MPI_LONG_LONG /* Should be MPI_INT64_T */
 
 /* End of user settings ----------------------------------- */
 
@@ -76,21 +63,21 @@ static count_type count_pow(count_type base, unsigned int e) {
 
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
 typedef struct generated_edge {
-  count_type src;
-  count_type tgt;
-  count_type multiplicity;
+  int64_t src;
+  int64_t tgt;
+  int64_t multiplicity;
 } generated_edge;
 #endif
 
-count_type compute_edge_array_size(
+int64_t compute_edge_array_size(
        int rank, int size,
-       count_type M);
+       int64_t M);
 
 void generate_kronecker(
        int rank, int size,
        const uint_fast32_t seed[5] /* All values in [0, 2^31 - 1) */,
-       count_type logN /* In base initiator_size */,
-       count_type M,
+       int logN /* In base initiator_size */,
+       int64_t M,
        const double initiator[ /* initiator_size * initiator_size */ ],
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
        generated_edge* const edges /* Size >= compute_edge_array_size(rank,
@@ -98,10 +85,10 @@ void generate_kronecker(
        when output_array_is_local is 1 and beginning of global array when
        output_array_is_local is 0 */
 #else
-       count_type* const edges /* Size >= 2 * compute_edge_array_size(rank,
-       size, M); two endpoints per edge (= (count_type)(-1) when slot is
-       unused); points to beginning of local chunk when output_array_is_local
-       is 1 and beginning of global array when output_array_is_local is 0 */
+       int64_t* const edges /* Size >= 2 * compute_edge_array_size(rank, size,
+       M); two endpoints per edge (= -1 when slot is unused); points to
+       beginning of local chunk when output_array_is_local is 1 and beginning
+       of global array when output_array_is_local is 0 */
 #endif
 );
 

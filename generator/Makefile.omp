@@ -1,0 +1,18 @@
+AR = ar
+RANLIB = ranlib
+CC = cc -fopenmp
+CFLAGS = -g -Wall -Drestrict=__restrict__ -O3 -DNDEBUG -ffast-math -DGRAPH_GENERATOR_OMP # -g -pg
+# CFLAGS = -g -Wall -Drestrict=__restrict__
+LDFLAGS = -g # -g -pg
+
+all: libgraph_generator_omp.a generator_test_omp
+
+generator_test_omp: generator_test_omp.c libgraph_generator_omp.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -o generator_test_omp generator_test_omp.c -L. -lgraph_generator_omp -lm
+
+libgraph_generator_omp.a: btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
+	$(AR) cruv libgraph_generator_omp.a btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
+	$(RANLIB) libgraph_generator_omp.a
+
+clean:
+	-rm -f generator_test_omp libgraph_generator_omp.a *.o

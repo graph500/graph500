@@ -24,6 +24,9 @@
 #ifdef GRAPH_GENERATOR_MPI
 #include <mpi.h>
 #endif
+#ifdef GRAPH_GENERATOR_OMP
+#include <omp.h>
+#endif
 
 static inline void* safe_malloc(size_t n) {
   void* p = malloc(n);
@@ -75,14 +78,14 @@ static inline uint_fast64_t random_up_to(mrg_state* st, uint_fast64_t n) {
 }
 
 typedef struct slot_data {
-  count_type index, value;
+  int64_t index, value;
 } slot_data;
 
 /* Compare-and-swap; return 1 if successful or 0 otherwise. */
 #ifdef __MTA__
 #pragma mta inline
-static inline int count_type_cas(volatile count_type* p, count_type oldval, count_type newval) {
-  count_type val = readfe(p);
+static inline int int64_t_cas(volatile int64_t* p, int64_t oldval, int64_t newval) {
+  int64_t val = readfe(p);
   if (val == oldval) {
     writeef(p, newval);
     return 1;
@@ -93,7 +96,7 @@ static inline int count_type_cas(volatile count_type* p, count_type oldval, coun
 }
 #elif defined(GRAPH_GENERATOR_MPI) || defined(GRAPH_GENERATOR_SEQ)
 /* Sequential */
-static inline int count_type_cas(count_type* p, count_type oldval, count_type newval) {
+static inline int int64_t_cas(int64_t* p, int64_t oldval, int64_t newval) {
   if (*p == oldval) {
     *p = newval;
     return 1;
@@ -101,8 +104,13 @@ static inline int count_type_cas(count_type* p, count_type oldval, count_type ne
     return 0;
   }
 }
+#elif defined(GRAPH_GENERATOR_OMP)
+/* GCC intrinsic */
+static inline int int64_t_cas(volatile int64_t* p, int64_t oldval, int64_t newval) {
+  return __sync_bool_compare_and_swap(p, oldval, newval);
+}
 #else
-#error "Need to define count_type_cas() for your system"
+#error "Need to define int64_t_cas() for your system"
 #endif
 
 /* This code defines a simple closed-indexing hash table.  It is used to speed
@@ -112,16 +120,16 @@ static inline int count_type_cas(count_type* p, count_type oldval, count_type ne
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static inline void hashtable_insert(slot_data* ht, count_type ht_size, count_type index, count_type value, count_type hashval) {
-  count_type i;
+static inline void hashtable_insert(slot_data* ht, int64_t ht_size, int64_t index, int64_t value, int64_t hashval) {
+  int64_t i;
   for (i = hashval; i < ht_size; ++i) {
-    if (count_type_cas(&ht[i].index, (count_type)(-1), index)) {
+    if (int64_t_cas(&ht[i].index, (int64_t)(-1), index)) {
       ht[i].value = value;
       return;
     }
   }
   for (i = 0; i < hashval; ++i) {
-    if (count_type_cas(&ht[i].index, (count_type)(-1), index)) {
+    if (int64_t_cas(&ht[i].index, (int64_t)(-1), index)) {
       ht[i].value = value;
       return;
     }
@@ -132,14 +140,14 @@ static inline void hashtable_insert(slot_data* ht, count_type ht_size, count_typ
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static inline int hashtable_count_key(const slot_data* ht, count_type ht_size, count_type index, count_type hashval) {
+static inline int hashtable_count_key(const slot_data* ht, int64_t ht_size, int64_t index, int64_t hashval) {
   int c = 0;
-  count_type i;
-  for (i = hashval; i < ht_size && ht[i].index != (count_type)(-1); ++i) {
+  int64_t i;
+  for (i = hashval; i < ht_size && ht[i].index != (int64_t)(-1); ++i) {
     if (ht[i].index == index) ++c;
   }
   if (i == ht_size) {
-    for (i = 0; i < hashval && ht[i].index != (count_type)(-1); ++i) {
+    for (i = 0; i < hashval && ht[i].index != (int64_t)(-1); ++i) {
       if (ht[i].index == index) ++c;
     }
   }
@@ -151,16 +159,16 @@ static inline int hashtable_count_key(const slot_data* ht, count_type ht_size, c
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static inline int hashtable_get_values(const slot_data* ht, count_type ht_size, count_type index, count_type hashval, count_type* result) {
+static inline int hashtable_get_values(const slot_data* ht, int64_t ht_size, int64_t index, int64_t hashval, int64_t* result) {
   int x = 0;
-  count_type i;
-  for (i = hashval; i < ht_size && ht[i].index != (count_type)(-1); ++i) {
+  int64_t i;
+  for (i = hashval; i < ht_size && ht[i].index != (int64_t)(-1); ++i) {
     if (ht[i].index == index) {
       result[x++] = ht[i].value;
     }
   }
   if (i == ht_size) {
-    for (i = 0; i < hashval && ht[i].index != (count_type)(-1); ++i) {
+    for (i = 0; i < hashval && ht[i].index != (int64_t)(-1); ++i) {
       if (ht[i].index == index) {
         result[x++] = ht[i].value;
       }
@@ -172,16 +180,16 @@ static inline int hashtable_get_values(const slot_data* ht, count_type ht_size, 
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static inline void selection_sort(count_type* a, count_type n) {
-  count_type i, j;
+static inline void selection_sort(int64_t* a, int64_t n) {
+  int64_t i, j;
   if (n <= 1) return;
   for (i = 0; i + 1 < n; ++i) {
-    count_type minpos = i;
+    int64_t minpos = i;
     for (j = i + 1; j < n; ++j) {
       if (a[j] < a[minpos]) minpos = j;
     }
     if (minpos != i) {
-      count_type t = a[minpos];
+      int64_t t = a[minpos];
       a[minpos] = a[i];
       a[i] = t;
     }
@@ -192,13 +200,13 @@ static inline void selection_sort(count_type* a, count_type n) {
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static inline void randomly_permute(count_type* a, count_type n, mrg_state* st) {
-  count_type i, j;
+static inline void randomly_permute(int64_t* a, int64_t n, mrg_state* st) {
+  int64_t i, j;
   if (n <= 1) return;
   for (i = n - 1; i > 0; --i) {
     j = random_up_to(st, i + 1);
     if (i != j) {
-      count_type t = a[i];
+      int64_t t = a[i];
       a[i] = a[j];
       a[j] = t;
     }
@@ -224,44 +232,54 @@ static inline int int_prefix_sum(int* out, const int* in, size_t n) {
  * also the reason for the extra sort immediately before scrambling all
  * elements with the same key, as well as the expensive PRNG operations. */
 
-/* This version is for sequential machines and the XMT. */
-void rand_sort_shared(mrg_state* st, count_type n, count_type* result /* Array of size n */) {
-  count_type hash_table_size = 2 * n + 128; /* Must be >n, preferably larger for performance */
+/* This version is for sequential machines, OpenMP, and the XMT. */
+void rand_sort_shared(mrg_state* st, int64_t n, int64_t* result /* Array of size n */) {
+  int64_t hash_table_size = 2 * n + 128; /* Must be >n, preferably larger for performance */
   slot_data* ht = (slot_data*)safe_malloc(hash_table_size * sizeof(slot_data));
-  count_type i;
+  int64_t i;
 #ifdef __MTA__
 #pragma mta block schedule
 #endif
-  for (i = 0; i < hash_table_size; ++i) ht[i].index = (count_type)(-1); /* Unused */
+#ifdef GRAPH_GENERATOR_OMP
+#pragma omp parallel for
+#endif
+  for (i = 0; i < hash_table_size; ++i) ht[i].index = (int64_t)(-1); /* Unused */
 #ifdef __MTA__
 #pragma mta assert parallel
 #pragma mta block schedule
+#endif
+#ifdef GRAPH_GENERATOR_OMP
+#pragma omp parallel for
 #endif
   /* Put elements into the hash table with random keys. */
   for (i = 0; i < n; ++i) {
     mrg_state new_st = *st;
     mrg_skip(&new_st, 1, i, 0);
-    count_type index = (count_type)random_up_to(&new_st, hash_table_size);
+    int64_t index = (int64_t)random_up_to(&new_st, hash_table_size);
     hashtable_insert(ht, hash_table_size, index, i, index);
   }
   /* Count elements with each key in order to sort them by key. */
-  count_type* bucket_counts = (count_type*)safe_calloc(hash_table_size, sizeof(count_type)); /* Uses zero-initialization */
+  int64_t* bucket_counts = (int64_t*)safe_calloc(hash_table_size, sizeof(int64_t)); /* Uses zero-initialization */
 #ifdef __MTA__
 #pragma mta assert parallel
 #pragma mta block schedule
+#endif
+#ifdef GRAPH_GENERATOR_OMP
+#pragma omp parallel for
 #endif
   for (i = 0; i < hash_table_size; ++i) {
     /* Count all elements with same index. */
     bucket_counts[i] = hashtable_count_key(ht, hash_table_size, i, i);
   }
   /* bucket_counts replaced by its prefix sum (start of each bucket in output array) */
-  count_type* bucket_starts_in_result = bucket_counts;
-  count_type running_sum = 0;
+  int64_t* bucket_starts_in_result = bucket_counts;
+  int64_t running_sum = 0;
 #ifdef __MTA__
 #pragma mta block schedule
 #endif
+  /* FIXME: parallelize this on OpenMP */
   for (i = 0; i < hash_table_size; ++i) {
-    count_type old_running_sum = running_sum;
+    int64_t old_running_sum = running_sum;
     running_sum += bucket_counts[i];
     bucket_counts[i] = old_running_sum;
   }
@@ -271,11 +289,14 @@ void rand_sort_shared(mrg_state* st, count_type n, count_type* result /* Array o
 #pragma mta assert parallel
 #pragma mta block schedule
 #endif
+#ifdef GRAPH_GENERATOR_OMP
+#pragma omp parallel for
+#endif
   for (i = 0; i < hash_table_size; ++i) {
-    count_type result_start_idx = bucket_starts_in_result[i];
-    count_type* temp = result + result_start_idx;
+    int64_t result_start_idx = bucket_starts_in_result[i];
+    int64_t* temp = result + result_start_idx;
     /* Gather up all elements with same key. */
-    count_type bi = (count_type)hashtable_get_values(ht, hash_table_size, i, i, temp);
+    int64_t bi = (int64_t)hashtable_get_values(ht, hash_table_size, i, i, temp);
     if (bi > 1) {
       /* Selection sort them (for consistency in parallel implementations). */
       selection_sort(temp, bi);
@@ -290,9 +311,9 @@ void rand_sort_shared(mrg_state* st, count_type n, count_type* result /* Array o
 }
 
 #ifdef GRAPH_GENERATOR_MPI
-void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
-                   count_type* result_size_ptr,
-                   count_type** result_ptr /* Allocated using safe_malloc() by
+void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
+                   int64_t* result_size_ptr,
+                   int64_t** result_ptr /* Allocated using safe_malloc() by
                    rand_sort_mpi */) {
   int size, rank;
   MPI_Comm_size(comm, &size);
@@ -309,25 +330,25 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
     MPI_Get_address(&temp.value, &indices[1]);
     indices[0] -= temp_base;
     indices[1] -= temp_base;
-    MPI_Datatype old_types[] = {COUNT_MPI_TYPE, COUNT_MPI_TYPE};
+    MPI_Datatype old_types[] = {INT64_T_MPI_TYPE, INT64_T_MPI_TYPE};
     MPI_Type_struct(2, blocklens, indices, old_types, &slot_data_type);
     MPI_Type_commit(&slot_data_type);
   }
 
-  count_type total_hash_table_size = 2 * n + 128; /* Must be >n, preferably larger for performance */
+  int64_t total_hash_table_size = 2 * n + 128; /* Must be >n, preferably larger for performance */
 
   /* Hash table is distributed by blocks: first (total_hash_table_size % size)
    * are of size (total_hash_table_size / size + 1), rest are of size
    * (total_hash_table_size / size).  This distribution is necessary so that
    * the permutation can easily be assembled at the end of the function. */
-  count_type ht_base_block_size = total_hash_table_size / size;
+  int64_t ht_base_block_size = total_hash_table_size / size;
   int ht_block_size_cutoff_rank = total_hash_table_size % size;
-  count_type ht_block_size_cutoff_index = ht_block_size_cutoff_rank * (ht_base_block_size + 1);
-  count_type ht_my_size = ht_base_block_size + (rank < ht_block_size_cutoff_rank);
-  count_type ht_my_start = (rank < ht_block_size_cutoff_rank) ?
+  int64_t ht_block_size_cutoff_index = ht_block_size_cutoff_rank * (ht_base_block_size + 1);
+  int64_t ht_my_size = ht_base_block_size + (rank < ht_block_size_cutoff_rank);
+  int64_t ht_my_start = (rank < ht_block_size_cutoff_rank) ?
                            rank * (ht_base_block_size + 1) :
                            ht_block_size_cutoff_index + (rank - ht_block_size_cutoff_rank) * ht_base_block_size;
-  count_type ht_my_end = ht_my_start + ht_my_size;
+  int64_t ht_my_end = ht_my_start + ht_my_size;
 #define HT_OWNER(e) \
     (((e) < ht_block_size_cutoff_index) ? \
      (e) / (ht_base_block_size + 1) : \
@@ -336,9 +357,9 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
 
   /* Input elements to scramble are distributed cyclically for simplicity;
    * their distribution does not matter. */
-  count_type elt_my_size = (n / size) + (rank < n % size);
+  int64_t elt_my_size = (n / size) + (rank < n % size);
 
-  count_type i;
+  int64_t i;
 
   /* Cache the key-value pairs to avoid PRNG skip operations.  Count the number
    * of pairs going to each destination processor. */
@@ -347,8 +368,8 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
   for (i = 0; i < elt_my_size; ++i) {
     mrg_state new_st = *st;
     mrg_skip(&new_st, 1, i * size + rank, 0);
-    count_type index = (count_type)random_up_to(&new_st, total_hash_table_size);
-    count_type owner = HT_OWNER(index);
+    int64_t index = (int64_t)random_up_to(&new_st, total_hash_table_size);
+    int64_t owner = HT_OWNER(index);
     assert (owner < size);
     ++outcounts[owner];
     kv_pairs[i].index = index;
@@ -365,8 +386,8 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
   /* Put the key-value pairs into the output buffer, sorted by destination, to
    * get ready for MPI_Alltoallv. */
   for (i = 0; i < elt_my_size; ++i) {
-    count_type index = kv_pairs[i].index;
-    count_type owner = HT_OWNER(index);
+    int64_t index = kv_pairs[i].index;
+    int64_t owner = HT_OWNER(index);
     outdata[outoffsets[owner]] = kv_pairs[i];
     ++outoffsets[owner];
   }
@@ -398,10 +419,10 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
   /* Create the local part of the hash table. */
   slot_data* ht = (slot_data*)safe_malloc(ht_my_size * sizeof(slot_data));
   for (i = ht_my_start; i < ht_my_end; ++i) {
-    ht[HT_LOCAL(i)].index = (count_type)(-1); /* Unused */
+    ht[HT_LOCAL(i)].index = (int64_t)(-1); /* Unused */
   }
   for (i = 0; i < total_incount; ++i) {
-    count_type index = indata[i].index, value = indata[i].value;
+    int64_t index = indata[i].index, value = indata[i].value;
     assert (HT_OWNER(index) == rank);
     hashtable_insert(ht, ht_my_size, index, value, HT_LOCAL(index));
   }
@@ -410,30 +431,30 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
 
   /* Make the local part of the result.  Most of the rest of this code is
    * similar to the shared-memory/XMT version above. */
-  count_type* result = (count_type*)safe_malloc(total_incount * sizeof(count_type));
+  int64_t* result = (int64_t*)safe_malloc(total_incount * sizeof(int64_t));
   *result_ptr = result;
   *result_size_ptr = total_incount;
 
-  count_type* bucket_counts = (count_type*)safe_calloc(ht_my_size, sizeof(count_type)); /* Uses zero-initialization */
+  int64_t* bucket_counts = (int64_t*)safe_calloc(ht_my_size, sizeof(int64_t)); /* Uses zero-initialization */
   for (i = ht_my_start; i < ht_my_end; ++i) {
     /* Count all elements with same index. */
     bucket_counts[HT_LOCAL(i)] = hashtable_count_key(ht, ht_my_size, i, HT_LOCAL(i));
   }
   /* bucket_counts replaced by its prefix sum (start of each bucket in output array) */
-  count_type* bucket_starts_in_result = bucket_counts;
-  count_type running_sum = 0;
+  int64_t* bucket_starts_in_result = bucket_counts;
+  int64_t running_sum = 0;
   for (i = 0; i < ht_my_size; ++i) {
-    count_type old_running_sum = running_sum;
+    int64_t old_running_sum = running_sum;
     running_sum += bucket_counts[i];
     bucket_counts[i] = old_running_sum;
   }
   assert (running_sum == total_incount);
   bucket_counts = NULL;
   for (i = ht_my_start; i < ht_my_end; ++i) {
-    count_type result_start_idx = bucket_starts_in_result[HT_LOCAL(i)];
-    count_type* temp = result + result_start_idx;
+    int64_t result_start_idx = bucket_starts_in_result[HT_LOCAL(i)];
+    int64_t* temp = result + result_start_idx;
     /* Gather up all elements with same key. */
-    count_type bi = (count_type)hashtable_get_values(ht, ht_my_size, i, HT_LOCAL(i), temp);
+    int64_t bi = (int64_t)hashtable_get_values(ht, ht_my_size, i, HT_LOCAL(i), temp);
     if (bi > 1) {
       /* Selection sort them (for consistency in parallel implementations). */
       selection_sort(temp, bi);
@@ -455,9 +476,9 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, count_type n,
 #if 0
 int main(int argc, char** argv) {
   MPI_Init(&argc, &argv);
-  const count_type n = 200000;
-  count_type* result = NULL;
-  count_type result_size;
+  const int64_t n = 200000;
+  int64_t* result = NULL;
+  int64_t result_size;
   mrg_state st;
   mrg_seed(&st, 1, 2, 3, 4, 5);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -466,14 +487,14 @@ int main(int argc, char** argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   double time = MPI_Wtime() - start;
 #if 0
-  count_type i;
-  printf("My count = %" PRIcount_type "\n", result_size);
-  for (i = 0; i < result_size; ++i) printf("%" PRIcount_type "\n", result[i]);
+  int64_t i;
+  printf("My count = %" PRId64 "\n", result_size);
+  for (i = 0; i < result_size; ++i) printf("%" PRId64 "\n", result[i]);
 #endif
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   if (rank == 0) {
-    printf("Shuffle of %" PRIcount_type " element(s) took %f second(s).\n", n, time);
+    printf("Shuffle of %" PRId64 " element(s) took %f second(s).\n", n, time);
   }
   free(result); result = NULL;
   MPI_Finalize();
@@ -483,8 +504,8 @@ int main(int argc, char** argv) {
 
 #if 0
 int main(int argc, char** argv) {
-  const count_type n = 5000000;
-  count_type* result = (count_type*)safe_malloc(n * sizeof(count_type));
+  const int64_t n = 5000000;
+  int64_t* result = (int64_t*)safe_malloc(n * sizeof(int64_t));
   mrg_state st;
   mrg_seed(&st, 1, 2, 3, 4, 5);
   unsigned long time;
@@ -494,10 +515,30 @@ int main(int argc, char** argv) {
 #pragma mta fence
   time = mta_get_clock(time);
 #if 0
-  count_type i;
-  for (i = 0; i < n; ++i) printf("%" PRIcount_type "\n", result[i]);
+  int64_t i;
+  for (i = 0; i < n; ++i) printf("%" PRId64 "\n", result[i]);
 #endif
-  printf("Shuffle of %" PRIcount_type " element(s) took %f second(s).\n", n, time * mta_clock_period());
+  printf("Shuffle of %" PRId64 " element(s) took %f second(s).\n", n, time * mta_clock_period());
+  free(result); result = NULL;
+  return 0;
+}
+#endif
+
+#if 0
+int main(int argc, char** argv) {
+  const int64_t n = 5000000;
+  int64_t* result = (int64_t*)safe_malloc(n * sizeof(int64_t));
+  mrg_state st;
+  mrg_seed(&st, 1, 2, 3, 4, 5);
+  double time;
+  time = omp_get_wtime();
+  rand_sort_shared(&st, n, result);
+  time = omp_get_wtime() - time;
+#if 0
+  int64_t i;
+  for (i = 0; i < n; ++i) printf("%" PRId64 "\n", result[i]);
+#endif
+  printf("Shuffle of %" PRId64 " element(s) took %f second(s).\n", n, time);
   free(result); result = NULL;
   return 0;
 }

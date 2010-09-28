@@ -42,10 +42,10 @@ uint_fast32_t mrg_get_uint(const mrg_transition_matrix* mat, mrg_state* state);
 /* Returns real value in [0, 1) */
 double mrg_get_double(const mrg_transition_matrix* mat, mrg_state* state);
 
-/* Returns integer value in [0, 2^31-1) */
+/* Returns integer value in [0, 2^31-1) using original transition matrix */
 uint_fast32_t mrg_get_uint_orig(mrg_state* state);
 
-/* Returns real value in [0, 1) */
+/* Returns real value in [0, 1) using original transition matrix */
 double mrg_get_double_orig(mrg_state* state);
 
 void mrg_init(mrg_transition_matrix* tm, mrg_state* st);

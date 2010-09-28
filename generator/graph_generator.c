@@ -24,12 +24,12 @@
 
 typedef struct generator_settings { /* Internal settings */
   double initiator[GRAPHGEN_INITIATOR_SIZE2];
-  count_type my_first_edge, my_last_edge;
-  count_type total_nverts;
+  int64_t my_first_edge, my_last_edge;
+  int64_t total_nverts;
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
   generated_edge* out; /* Start of local (when GRAPHGEN_DISTRIBUTED_MEMORY is defined) or global (when GRAPHGEN_DISTRIBUTED_MEMORY is undefined) output edge list */
 #else
-  count_type* out; /* Start of local (when GRAPHGEN_DISTRIBUTED_MEMORY is defined) or global (when GRAPHGEN_DISTRIBUTED_MEMORY is undefined) output edge list */
+  int64_t* out; /* Start of local (when GRAPHGEN_DISTRIBUTED_MEMORY is defined) or global (when GRAPHGEN_DISTRIBUTED_MEMORY is undefined) output edge list */
 #endif
 } generator_settings;
 
@@ -49,11 +49,11 @@ static int generate_nway_bernoulli(const generator_settings* s, mrg_state* st) {
 }
 
 static
-void make_square_counts(count_type num_edges, mrg_state* st, const generator_settings* s, count_type* square_counts) {
+void make_square_counts(int64_t num_edges, mrg_state* st, const generator_settings* s, int64_t* square_counts) {
   /* fprintf(stderr, "make_square_counts %zu with (%lf, %lf, %lf, %lf)\n", num_edges, a, b, c, d); */
   if (num_edges <= 20) {
     int i;
-    count_type ii;
+    int64_t ii;
     for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
       square_counts[i] = 0;
     }
@@ -71,7 +71,7 @@ void make_square_counts(count_type num_edges, mrg_state* st, const generator_set
       }
     }
   } else {
-    count_type num_edges_left = num_edges;
+    int64_t num_edges_left = num_edges;
     double divisor = 1.;
     int i;
     for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2 - 1; ++i) {
@@ -98,11 +98,11 @@ static void alter_params(generator_settings* s, const mrg_transition_matrix* tra
 #endif
 
 static
-void make_one_edge(count_type base_src, count_type base_tgt, count_type nverts, mrg_state* st, const generator_settings* s,
+void make_one_edge(int64_t base_src, int64_t base_tgt, int64_t nverts, mrg_state* st, const generator_settings* s,
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
                    generated_edge* result
 #else
-                   count_type* result
+                   int64_t* result
 #endif
                    ) {
 #ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
@@ -146,78 +146,79 @@ void make_one_edge(count_type base_src, count_type base_tgt, count_type nverts, 
 
 static void generate_kronecker_internal(
   const mrg_state* orig_state,
-  count_type first_edge_index,
-  count_type num_edges,
-  count_type nverts,
+  int64_t first_edge_index,
+  int64_t num_edges,
+  int64_t nverts,
   const generator_settings* s,
-  count_type base_src,
-  count_type base_tgt) {
+  int64_t base_src,
+  int64_t base_tgt) {
 #if 0
   if (num_edges >= 10000000 || nverts >= 15000000)
     fprintf(stderr, "do_one_work_queue_entry(%4zx, %4zx, %2d : %zu)\n", base_src >> 20, base_tgt >> 20, log_nverts, num_edges);
 #endif
   mrg_state state = *orig_state;
   mrg_skip(&state, 0, (base_src + s->total_nverts) / nverts, (base_tgt + s->total_nverts) / nverts);
-  count_type my_first_edge = s->my_first_edge;
-  count_type my_last_edge = s->my_last_edge;
+  int64_t my_first_edge = s->my_first_edge;
+  int64_t my_last_edge = s->my_last_edge;
 #ifdef GRAPHGEN_UNDIRECTED
   assert (base_src <= base_tgt);
 #endif /* GRAPHGEN_UNDIRECTED */
   if (nverts == 1) {
     assert (num_edges != 0);
-    if (first_edge_index >= my_first_edge && first_edge_index < my_last_edge) {
+    int i;
+    for (i = 0; i < num_edges; ++i) {
+      /* Write all edges, filling all slots except the first with edges marked
+       * as removed duplicates; the complexity of the loop here is to deal with
+       * cases of overflows between nodes (i.e., some of the copies of an edge
+       * on one node and some on another). */
+      if (first_edge_index + i >= my_first_edge && first_edge_index + i < my_last_edge) {
 #ifdef GRAPHGEN_DISTRIBUTED_MEMORY
-      count_type write_offset = first_edge_index - my_first_edge;
+        int64_t write_offset = first_edge_index + i - my_first_edge;
 #else
-      count_type write_offset = first_edge_index;
+        int64_t write_offset = first_edge_index + i;
 #endif
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-      {
-        generated_edge* out_loc = &(s->out[write_offset]);
-        out_loc->src = base_src;
-        out_loc->tgt = base_tgt;
-        out_loc->multiplicity = num_edges;
-      }
-#else
-      {
-        int i;
-        count_type* out_loc = &(s->out[2 * write_offset]);
-        out_loc[0] = base_src;
-        out_loc[1] = base_tgt;
-        /* Mark these as deleted duplicates */
-        for (i = 1; i < num_edges; ++i) {
-          out_loc[2 * i + 0] = (count_type)(-1);
-          out_loc[2 * i + 1] = (count_type)(-1);
+        {
+          generated_edge* out_loc = &(s->out[write_offset]);
+          out_loc->src = base_src;
+          out_loc->tgt = base_tgt;
+          out_loc->multiplicity = (i == 0 ? num_edges : 0);
         }
-      }
+#else
+        {
+          int64_t* out_loc = &(s->out[2 * write_offset]);
+          out_loc[0] = (i == 0 ? base_src : -1);
+          out_loc[1] = (i == 0 ? base_tgt : -1);
+        }
 #endif
+      }
     }
   } else if (num_edges == 1) {
     if (first_edge_index >= my_first_edge && first_edge_index < my_last_edge) {
 #ifdef GRAPHGEN_DISTRIBUTED_MEMORY
-      count_type write_offset = first_edge_index - my_first_edge;
+      int64_t write_offset = first_edge_index - my_first_edge;
 #else
-      count_type write_offset = first_edge_index;
+      int64_t write_offset = first_edge_index;
 #endif
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
       generated_edge* out_loc = &(s->out[write_offset]);
 #else
-      count_type* out_loc = &(s->out[2 * write_offset]);
+      int64_t* out_loc = &(s->out[2 * write_offset]);
 #endif
       make_one_edge(base_src, base_tgt, nverts, &state, s, out_loc);
     }
   } else {
-    count_type new_nverts;
+    int64_t new_nverts;
 #ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
     generator_settings new_settings_data;
     const generator_settings* new_settings = &new_settings_data;
 #else
     const generator_settings* new_settings = s;
 #endif
-    count_type fei;
+    int64_t fei;
     int i;
 
-    count_type square_counts[GRAPHGEN_INITIATOR_SIZE2];
+    int64_t square_counts[GRAPHGEN_INITIATOR_SIZE2];
     make_square_counts(num_edges, &state, s, square_counts);
 #ifdef GRAPHGEN_UNDIRECTED
     if (base_src == base_tgt) {
@@ -257,34 +258,32 @@ static void generate_kronecker_internal(
   }
 }
 
-count_type compute_edge_array_size(
+int64_t compute_edge_array_size(
        int rank, int size,
-       count_type M) {
-  count_type rankc = (count_type)(rank);
-  count_type sizec = (count_type)(size);
-  count_type my_start_edge = rankc * (M / sizec) + (rankc < (M % sizec) ? rankc : (M % sizec));
-  count_type my_end_edge = (rankc + 1) * (M / sizec) + (rankc + 1 < (M % sizec) ? rankc + 1 : (M % sizec));
+       int64_t M) {
+  int64_t rankc = (int64_t)(rank);
+  int64_t sizec = (int64_t)(size);
+  int64_t my_start_edge = rankc * (M / sizec) + (rankc < (M % sizec) ? rankc : (M % sizec));
+  int64_t my_end_edge = (rankc + 1) * (M / sizec) + (rankc + 1 < (M % sizec) ? rankc + 1 : (M % sizec));
   return my_end_edge - my_start_edge;
 }
 
 void generate_kronecker(
        int rank, int size,
        const uint_fast32_t seed[5] /* All values in [0, 2^31 - 1), not all zero */,
-       count_type logN /* In base GRAPHGEN_INITIATOR_SIZE */,
-       count_type M,
+       int logN /* In base GRAPHGEN_INITIATOR_SIZE */,
+       int64_t M,
        const double initiator[GRAPHGEN_INITIATOR_SIZE2],
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
        generated_edge* const edges /* Size >= compute_edge_array_size(rank, size, M), must be zero-initialized */
 #else
-       count_type* const edges /* Size >= 2 * compute_edge_array_size(rank, size, M) */
+       int64_t* const edges /* Size >= 2 * compute_edge_array_size(rank, size, M) */
 #endif
 ) {
 
   mrg_state state;
-  count_type rankc = (count_type)(rank);
-  count_type sizec = (count_type)(size);
-  count_type my_start_edge = rankc * (M / sizec) + (rankc < (M % sizec) ? rankc : (M % sizec));
-  count_type my_end_edge = (rankc + 1) * (M / sizec) + (rankc + 1 < (M % sizec) ? rankc + 1 : (M % sizec));
+  int64_t my_start_edge = rank * (M / size) + (rank < (M % size) ? rank : (M % size));
+  int64_t my_end_edge = (rank + 1) * (M / size) + (rank + 1 < (M % size) ? rank + 1 : (M % size));
   unsigned int i;
   generator_settings settings_data;
 
@@ -295,14 +294,14 @@ void generate_kronecker(
   }
   settings_data.my_first_edge = my_start_edge;
   settings_data.my_last_edge = my_end_edge;
-  settings_data.total_nverts = count_pow(GRAPHGEN_INITIATOR_SIZE, logN);
+  settings_data.total_nverts = (int64_t)pow(GRAPHGEN_INITIATOR_SIZE, logN);
   settings_data.out = edges;
 
   generate_kronecker_internal(
     &state,
     0,
     M,
-    count_pow(GRAPHGEN_INITIATOR_SIZE, logN),
+    (int64_t)pow(GRAPHGEN_INITIATOR_SIZE, logN),
     &settings_data,
     0,
     0);

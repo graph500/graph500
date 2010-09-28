@@ -15,34 +15,34 @@
 #endif
 #include <inttypes.h>
 #include <stdio.h>
-#include <sys/time.h>
-#include <time.h>
+#include <omp.h>
 
 #include "make_graph.h"
-
-inline double get_time() {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return tv.tv_sec + tv.tv_usec * 1.e-6;
-}
 
 int main(int argc, char* argv[]) {
   int log_numverts;
   double start, time_taken;
-  uint64_t nedges;
+  int64_t i;
+  uint64_t nedges, actual_nedges;
   uint64_t* result;
 
   log_numverts = 16; /* In base GRAPHGEN_INITIATOR_SIZE */
   if (argc >= 2) log_numverts = atoi(argv[1]);
 
   /* Start of graph generation timing */
-  start = get_time();
+  start = omp_get_wtime();
+
   double initiator[] = {.57, .19, .19, .05};
   make_graph(log_numverts, 8. * pow(2., log_numverts), 1, 2, initiator, &nedges, &result);
-  time_taken = get_time() - start;
+
+  time_taken = omp_get_wtime() - start;
   /* End of graph generation timing */
 
-  fprintf(stderr, "%" PRIu64 " edge%s generated and permuted in %fs (%f Medges/s)\n", nedges, (nedges == 1 ? "" : "s"), time_taken, 1. * nedges / time_taken * 1.e-6);
+  actual_nedges = 0;
+#pragma omp parallel for reduction(+: actual_nedges)
+  for (i = 0; i < nedges; ++i) if (result[i * 2] != (uint64_t)(-1)) ++actual_nedges;
+
+  fprintf(stderr, "%" PRIu64 " edge%s generated and permuted in %fs (%f Medges/s)\n", actual_nedges, (actual_nedges == 1 ? "" : "s"), time_taken, 1. * actual_nedges / time_taken * 1.e-6);
 
   free(result);
 

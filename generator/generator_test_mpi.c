@@ -42,7 +42,8 @@ int main(int argc, char* argv[]) {
   start = MPI_Wtime();
   uint64_t nedges;
   uint64_t* result;
-  make_graph(log_numverts, 1, 2, &nedges, &result);
+  double initiator[] = {.57, .19, .19, .05};
+  make_graph(log_numverts, 8. * pow(2., log_numverts), 1, 2, initiator, &nedges, &result);
   MPI_Barrier(MPI_COMM_WORLD);
   stop = MPI_Wtime();
   /* End of graph generation timing */
