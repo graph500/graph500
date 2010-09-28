@@ -35,7 +35,7 @@ kronecker_edgelist (int64_t *IJ, int64_t nedge, int64_t SCALE,
   int64_t rank, size;
   MTA("mta use 100 streams") MTA("mta for all streams rank of size") {
     double tinitiator[] = {A, B, C, D};
-    generate_kronecker (rank, size, prng_seed, SCALE, nedge, initiator, IJ);
+    generate_kronecker (rank, size, prng_seed, SCALE, nedge, tinitiator, IJ);
   }
 #endif
 

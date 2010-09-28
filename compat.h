@@ -13,6 +13,7 @@
 #if __STDC_VERSION__ >= 199901L
 #include <inttypes.h>
 #elif defined(__MTA__)
+#include <stdint.h>
 #define PRId64 "ld"
 #define SCNd64 "ld"
 #else

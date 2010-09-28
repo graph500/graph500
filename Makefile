@@ -15,8 +15,12 @@ BIN += omp-csr/omp-csr
 endif
 
 ifeq ($(BUILD_XMT), Yes)
-BIN += xmt-csr/xmt-csr
+BIN = xmt-csr/xmt-csr
 endif
+
+GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
+	mrg_transitions.o graph_generator.o permutation_gen.o		\
+	make_graph.o
 
 .PHONY: all
 all: $(BIN)
@@ -28,12 +32,8 @@ omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
 omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES) libgenerator-omp.a
 
 xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
-#xmt-csr/xmt-csr: CPPFLAGS:=$(CPPFLAGS) -Drestrict=
-xmt-csr/xmt-csr: xmt-csr/xmt-csr.c $(GRAPH500_SOURCES)
-
-GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
-	mrg_transitions.o graph_generator.o permutation_gen.o		\
-	make_graph.o
+xmt-csr/xmt-csr: xmt-csr/xmt-csr.c $(GRAPH500_SOURCES) \
+	$(addprefix generator/,$(patsubst %.o,%.c,$(GENERATOR_OBJS_SEQ)))
 
 generator/generator_test_seq: generator/generator_test_seq.c libgenerator-seq.a
 
@@ -52,4 +52,6 @@ libgenerator-omp.a($(addprefix generator/,$(GENERATOR_OBJS_SEQ))): CPPFLAGS=-DGR
 
 .PHONY:	clean
 clean:
-	rm -f libgenerator-seq.a generator/generator_test_seq $(BIN)
+	rm -f libgenerator-omp.a libgenerator-seq.a \
+		generator/generator_test_seq generator/generator_test_omp \
+		$(BIN)
