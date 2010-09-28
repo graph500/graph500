@@ -49,6 +49,7 @@ void
 random_vector (double *R, int64_t n)
 {
   int64_t k;
+  OMP("omp single")
   for (k = 0; k < n; ++k)
     R[k] = drand48 ();
 }
