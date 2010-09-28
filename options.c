@@ -14,7 +14,7 @@
 #include "options.h"
 
 int VERBOSE = 0;
-int use_RMAT = 1; /* XXX: Fix to link in Kronecker generator... */
+int use_RMAT = 0;
 
 double A = A_PARAM;
 double B = B_PARAM;

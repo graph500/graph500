@@ -60,8 +60,8 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
     xoff[k] = 0;
   for (k = 0; k < 2*nedge; k+=2)
     if (IJ[k] != IJ[k+1]) { /* Skip self-edges. */
-      ++XOFF(IJ[k]);
-      ++XOFF(IJ[k+1]);
+      if (IJ[k] >= 0) ++XOFF(IJ[k]);
+      if (IJ[k+1] >= 0) ++XOFF(IJ[k+1]);
     }
   accum = 0;
   for (k = 0; k < nv; ++k) {
@@ -130,7 +130,7 @@ gather_edges (const int64_t * restrict IJ, int64_t nedge)
   int64_t k;
 
   for (k = 0; k < 2*nedge; k += 2)
-    if (IJ[k] != IJ[k+1]) {
+    if (IJ[k] >= 0 && IJ[k+1] >= 0 && IJ[k] != IJ[k+1]) {
       scatter_edge (IJ[k], IJ[k+1]);
       scatter_edge (IJ[k+1], IJ[k]);
     }

@@ -46,7 +46,7 @@ create_graph_from_edgelist (int64_t *IJ_in, int64_t nedge)
     const int64_t j = IJ[2*k+1];
     int64_t t_head, t;
 
-    if (i != j) {
+    if (i >= 0 && j >= 0 && i != j) {
       next[2*k] = -1;
       next[1+2*k] = -1;
       t = 2*k+1; /* Point at the *other* end. */

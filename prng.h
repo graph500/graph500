@@ -10,4 +10,9 @@ void init_random (void);
 /** Fill a double-precision vector with samples from U(0,1), parallel context. */
 void random_vector (double *, int64_t);
 
+#if !defined(DONT_USE_INTERNAL)
+extern uint_fast32_t prng_seed[5];
+extern void *prng_state;
+#endif
+
 #endif /* PRNG_HEADER_ */

@@ -119,6 +119,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 	int64_t lvldiff;
 	terr = err;
 
+	if (i < 0 || j < 0) continue;
 	if (i > max_bfsvtx && j <= max_bfsvtx) terr = -10;
 	if (j > max_bfsvtx && i <= max_bfsvtx) terr = -11;
 	if (terr) { err = terr; OMP("omp flush(err)"); }

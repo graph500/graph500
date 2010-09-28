@@ -18,6 +18,7 @@
 #else
 #warning "Defining long as int64_t."
 typedef long int64_t;
+typedef unsigned uint32_fast_t;
 #define PRId64 "ld"
 #define SCNd64 "ld"
 #if !defined(restrict)
@@ -30,6 +31,8 @@ typedef long int64_t;
 #include <omp.h>
 #else
 #define OMP(x)
+static int omp_get_thread_num (void) { return 0; }
+static int omp_get_num_threads (void) { return 1; }
 #endif
 
 #if defined(__MTA__)

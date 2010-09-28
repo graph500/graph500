@@ -111,8 +111,8 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
     OMP("omp for")
       for (k = 0; k < 2*nedge; k+=2)
 	if (IJ[k] != IJ[k+1]) { /* Skip self-edges. */
-	  OMP("omp atomic") ++XOFF(IJ[k]);
-	  OMP("omp atomic") ++XOFF(IJ[k+1]);
+	  if (IJ[k] >= 0) OMP("omp atomic") ++XOFF(IJ[k]);
+	  if (IJ[k+1] >= 0) OMP("omp atomic") ++XOFF(IJ[k+1]);
 	}
     OMP("omp single") {
       buf = alloca (omp_get_num_threads () * sizeof (*buf));
@@ -196,7 +196,7 @@ gather_edges (const int64_t * restrict IJ, int64_t nedge)
 
     OMP("omp for")
       for (k = 0; k < 2*nedge; k += 2)
-	if (IJ[k] != IJ[k+1]) {
+	if (IJ[k] >= 0 && IJ[k+1] >= 0 && IJ[k] != IJ[k+1]) {
 	  scatter_edge (IJ[k], IJ[k+1]);
 	  scatter_edge (IJ[k+1], IJ[k]);
 	}

@@ -17,6 +17,7 @@
 
 #include "graph500.h"
 #include "rmat.h"
+#include "kronecker.h"
 #include "verify.h"
 #include "prng.h"
 #include "timer.h"
@@ -66,7 +67,10 @@ main (int argc, char **argv)
   IJ = xmalloc_large_ext (2 * nedge * sizeof (*IJ));
 
   if (VERBOSE) fprintf (stderr, "Generating edge list...");
-  rmat_edgelist (IJ, nedge, SCALE, A, B, C);
+  if (use_RMAT)
+    rmat_edgelist (IJ, nedge, SCALE, A, B, C);
+  else
+    kronecker_edgelist (IJ, nedge, SCALE, A, B, C);
   if (VERBOSE) fprintf (stderr, " done.\n");
 
   if (getenv ("DUMPGRAPH")) {
