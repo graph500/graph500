@@ -13,10 +13,13 @@
 
 #include "xalloc.h"
 #include "prng.h"
+#include "generator/splittable_mrg.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
 static double take_double (volatile double* p);
 static void release_double (volatile double* p, double val);
+static int64_t take_i64 (volatile int64_t* p);
+static void release_i64 (volatile int64_t* p, int64_t val);
 #endif
 
 /* Recursively divide a grid of N x N by four to a single point, (i, j).
@@ -79,63 +82,68 @@ rmat_edge (int64_t *iout, int64_t *jout, int SCALE,
 #if defined(_OPENMP)||defined(__MTA__)
 static void
 randpermute (int64_t *A_in, int64_t nelem, int nper,
-	     double * restrict R)
+	     mrg_state * restrict st)
 {
   int64_t * restrict A = A_in;
   int64_t k;
 
   assert (nper <= 2);
-
-  random_vector (R, nelem);
 
   OMP("omp for") MTA("mta assert nodep")
     for (k = 0; k < nelem; ++k) {
       int k2;
       int64_t place;
       double Rk, Rplace;
+      int64_t Ak, Aplace;
 
-      Rk = take_double (&R[k]);
+      Ak = take_i64 (&A[k*nper]);
 
-      assert (Rk >= 0.0 && Rk <= 1.0);
+      assert (Ak >= 0);
 
-      place = k + (int64_t)floor (Rk * (nelem - k));
+      mrg_skip (st, 1, k, 0);
+      place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k));
       if (k != place) {
 	assert (place > k);
 	assert (place < nelem);
 
-	Rplace = take_double (&R[place]);
+	Aplace = take_i64 (&A[place*nper]);
 
-	assert (Rplace >= 0.0 && Rplace <= 1.0);
+	assert (Aplace >= 0);
 
-	for (k2 = 0; k2 < nper; ++k2) {
+	for (k2 = 1; k2 < nper; ++k2) {
 	  int64_t t;
 	  t = A[place*nper + k2];
 	  A[place*nper + k2] = A[k*nper + k2];
 	  A[k*nper + k2] = t;
 	}
 
-	release_double (&R[place], Rplace);
+	{
+	  int64_t t;
+	  t = Aplace;
+	  Aplace = Ak;
+	  Ak = t;
+	}
+
+	release_i64 (&A[place*nper], Aplace);
       }
-      release_double (&R[k], Rk);
+      release_i64 (&A[k*nper], Ak);
   }
 }
 #else
 static void
 randpermute (int64_t *A_in, int64_t nelem, int nper,
-	     double * restrict R)
+	     mrg_state * restrict st)
 {
   int64_t * restrict A = A_in;
   int64_t k;
 
   assert (nper <= 2);
 
-  random_vector (R, nelem);
-
   for (k = 0; k < nelem; ++k) {
     int k2;
     int64_t place;
 
-    place = k + (int64_t)floor (R[k] * (nelem - k));
+    place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k));
 
     if (k != place)
       for (k2 = 0; k2 < nper; ++k2) {
@@ -150,7 +158,7 @@ randpermute (int64_t *A_in, int64_t nelem, int nper,
 
 static void
 permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
-		       double * restrict R, int64_t * restrict newlabel)
+		       mrg_state * restrict st, int64_t * restrict newlabel)
 {
   int64_t k;
 
@@ -158,7 +166,7 @@ permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
   for (k = 0; k < max_nvtx; ++k)
     newlabel[k] = k;
 
-  randpermute (newlabel, max_nvtx, 1, R);
+  randpermute (newlabel, max_nvtx, 1, st);
 
   OMP("omp for")
   for (k = 0; k < 2*nedge; ++k)
@@ -166,9 +174,9 @@ permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
 }
 
 static void
-permute_edgelist (int64_t * restrict IJ, int64_t nedge, double *R)
+permute_edgelist (int64_t * restrict IJ, int64_t nedge, mrg_state *st)
 {
-  randpermute (IJ, nedge, 2, R);
+  randpermute (IJ, nedge, 2, st);
 }
 
 #define NRAND(ne) (5 * SCALE * (ne))
@@ -178,26 +186,43 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 	       double A, double B, double C)
 {
   int64_t * restrict IJ = IJ_in, * restrict iwork;
-  double * restrict R;
   double D = 1.0 - (A + B + C);
  
-  R = xmalloc_large_ext (NRAND(nedge) * sizeof (*R) + (1L<<SCALE) * sizeof (*iwork));
-  iwork = (int64_t*)&R[NRAND(nedge)];
+  iwork = xmalloc_large_ext ((1L<<SCALE) * sizeof (*iwork));
 
   OMP("omp parallel") {
     int64_t k;
-
-    random_vector (R, NRAND(nedge));
+#if !defined(__MTA__)
+    double * restrict Rlocal = alloca (NRAND(1) * sizeof (*Rlocal));
+#endif
+    mrg_state new_st = *(mrg_state*)prng_state;
 
     OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
-      for (k = 0; k < nedge; ++k)
-	rmat_edge (&I(k), &J(k), SCALE, A, B, C, D, &R[NRAND(k)]);
+      for (k = 0; k < nedge; ++k) {
+	int k2;
+#if defined(__MTA__)
+	double * restrict Rlocal = alloca (NRAND(1) * sizeof (*Rlocal));
+#endif
+	mrg_skip (&new_st, 1, NRAND(1), 0);
+	for (k2 = 0; k2 < NRAND(1); ++k2)
+	  Rlocal[k2] = mrg_get_double_orig (&new_st);
+	rmat_edge (&I(k), &J(k), SCALE, A, B, C, D, Rlocal);
+      }
 
-    permute_vertex_labels (IJ, nedge, (1L<<SCALE), R, iwork);
-    permute_edgelist (IJ, nedge, R);
+    OMP("omp single")
+      mrg_skip (prng_state, 1, NRAND(nedge), 0);
+    OMP("omp barrier");
+    new_st = *(mrg_state*)prng_state;
+    permute_vertex_labels (IJ, nedge, (1L<<SCALE), &new_st, iwork);
+    OMP("omp single")
+      mrg_skip (prng_state, 1, (1L<<SCALE), 0);
+    OMP("omp barrier");
+    new_st = *(mrg_state*)prng_state;
+    permute_edgelist (IJ, nedge, &new_st);
   }
+  mrg_skip (prng_state, 1, nedge, 0);
 
-  xfree_large (R);
+  xfree_large (iwork);
 }
 
 #if defined(_OPENMP)
@@ -228,6 +253,22 @@ void
 release_double (volatile double *p, double val)
 {
   assert (*p == -1.0);
+  *p = val;
+}
+int64_t
+take_i64 (volatile int64_t *p)
+{
+  int64_t oldval;
+
+  do {
+    oldval = *p;
+  } while (!(oldval >= 0 && __sync_bool_compare_and_swap (p, oldval, -1)));
+  return oldval;
+}
+void
+release_i64 (volatile int64_t *p, int64_t val)
+{
+  assert (*p == -1);
   *p = val;
 }
 #else

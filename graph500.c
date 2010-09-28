@@ -23,6 +23,7 @@
 #include "timer.h"
 #include "xalloc.h"
 #include "options.h"
+#include "generator/splittable_mrg.h"
 
 static int64_t nvtx_scale;
 
@@ -129,22 +130,19 @@ run_bfs (void)
   /* Sample from {0, ..., nvtx_scale-1} without replacement. */
   m = 0;
   t = 0;
-  while (m < NBFS) {
-    random_vector (R, 2*NBFS);
-    k = 0;
-    while (m < NBFS && k < 2*NBFS && t < nvtx_scale) {
-      if (!has_adj[t] || (nvtx_scale - t)*R[k++] > NBFS - m) ++t;
-      else bfs_root[m++] = t++;
-    }
-    if (t >= nvtx_scale && m < NBFS) {
-      if (m > 0) {
-	fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
-		 NBFS, m);
-	NBFS = m;
-      } else {
-	fprintf (stderr, "Cannot find any sample roots of non-self degree > 0.\n");
-	exit (EXIT_FAILURE);
-      }
+  while (m < NBFS && t < nvtx_scale) {
+    double R = mrg_get_double_orig (prng_state);
+    if (!has_adj[t] || (nvtx_scale - t)*R > NBFS - m) ++t;
+    else bfs_root[m++] = t++;
+  }
+  if (t >= nvtx_scale && m < NBFS) {
+    if (m > 0) {
+      fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
+	       NBFS, m);
+      NBFS = m;
+    } else {
+      fprintf (stderr, "Cannot find any sample roots of non-self degree > 0.\n");
+      exit (EXIT_FAILURE);
     }
   }
 
