@@ -16,8 +16,6 @@
 #include "generator/splittable_mrg.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
-static double take_double (volatile double* p);
-static void release_double (volatile double* p, double val);
 static int64_t take_i64 (volatile int64_t* p);
 static void release_i64 (volatile int64_t* p, int64_t val);
 #endif
@@ -227,34 +225,6 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 
 #if defined(_OPENMP)
 #if defined(__GNUC__)||defined(__INTEL_COMPILER)
-union punny {
-  int64_t i64;
-  double d;
-};
-int
-double_cas(volatile double* p, double oldval, double newval)
-{
-  union punny oldugh, newugh;
-  oldugh.d = oldval;
-  newugh.d = newval;
-  return __sync_bool_compare_and_swap ((int64_t*)p, oldugh.i64, newugh.i64);
-}
-double
-take_double (volatile double *p)
-{
-  double oldval;
-
-  do {
-    oldval = *p;
-  } while (!(oldval >= 0.0 && double_cas (p, oldval, -1.0)));
-  return oldval;
-}
-void
-release_double (volatile double *p, double val)
-{
-  assert (*p == -1.0);
-  *p = val;
-}
 int64_t
 take_i64 (volatile int64_t *p)
 {
@@ -273,24 +243,24 @@ release_i64 (volatile int64_t *p, int64_t val)
 }
 #else
 /* XXX: These suffice for the above uses. */
-double
-take_double (volatile double *p)
+int64_t
+take_i64 (volatile int64_t *p)
 {
-  double out;
+  int64_t out;
   do {
     OMP("omp critical (TAKE)") {
       out = *p;
-      if (out >= 0.0)
-	*p = -1.0;
+      if (out >= 0)
+	*p = -1;
     }
-  } while (out < 0.0);
+  } while (out < 0);
   OMP("omp flush (p)");
   return out;
 }
 void
-release_double (volatile double *p, double val)
+release_i64 (volatile int64_t *p, int64_t val)
 {
-  assert (*p == -1.0);
+  assert (*p == -1);
   OMP("omp critical (TAKE)") {
     *p = val;
     OMP("omp flush (p)");
@@ -299,13 +269,13 @@ release_double (volatile double *p, double val)
 }
 #endif
 #elif defined(__MTA__)
-double
-take_double (volatile double *p)
+int64_t
+take_i64 (volatile int64_t *p)
 {
   return readfe (p);
 }
 void
-release_double (volatile double *p, double val)
+release_i64 (volatile int64_t *p, int64_t val)
 {
   writeef (p, val);
 }
