@@ -15,8 +15,8 @@
 #include "prng.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
-static double take_double (double* p);
-static void release_double (double* p, double val);
+static double take_double (volatile double* p);
+static void release_double (volatile double* p, double val);
 #endif
 
 /* Recursively divide a grid of N x N by four to a single point, (i, j).
@@ -201,14 +201,13 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 }
 
 #if defined(_OPENMP)
-#if 1&&(defined(__GNUC__)||defined(__INTEL_COMPILER))
-/* XXX: These are not completely reliable. */
+#if defined(__GNUC__)||defined(__INTEL_COMPILER)
 union punny {
   int64_t i64;
   double d;
 };
 int
-double_cas(double* p, double oldval, double newval)
+double_cas(volatile double* p, double oldval, double newval)
 {
   union punny oldugh, newugh;
   oldugh.d = oldval;
@@ -216,27 +215,25 @@ double_cas(double* p, double oldval, double newval)
   return __sync_bool_compare_and_swap ((int64_t*)p, oldugh.i64, newugh.i64);
 }
 double
-take_double (double *p)
+take_double (volatile double *p)
 {
   double oldval;
 
   do {
-    __sync_synchronize ();
     oldval = *p;
   } while (!(oldval >= 0.0 && double_cas (p, oldval, -1.0)));
   return oldval;
 }
 void
-release_double (double *p, double val)
+release_double (volatile double *p, double val)
 {
-  //assert (*p == -1.0);
+  assert (*p == -1.0);
   *p = val;
-  __sync_synchronize ();
 }
 #else
 /* XXX: These suffice for the above uses. */
 double
-take_double (double *p)
+take_double (volatile double *p)
 {
   double out;
   do {
@@ -250,9 +247,9 @@ take_double (double *p)
   return out;
 }
 void
-release_double (double *p, double val)
+release_double (volatile double *p, double val)
 {
-  //assert (*p == -1.0);
+  assert (*p == -1.0);
   OMP("omp critical (TAKE)") {
     *p = val;
     OMP("omp flush (p)");
@@ -261,27 +258,13 @@ release_double (double *p, double val)
 }
 #endif
 #elif defined(__MTA__)
-int
-double_cas(double* p, double oldval, double newval)
-{
-  int out = 0;
-  double v;
-
-  v = readfe (p);
-  if (v == oldval) {
-    v = newval;
-    out = 1;
-  }
-  writeef (p, v);
-  return out;
-}
 double
-take_double (double *p)
+take_double (volatile double *p)
 {
   return readfe (p);
 }
 void
-release_double (double *p, double val)
+release_double (volatile double *p, double val)
 {
   writeef (p, val);
 }
