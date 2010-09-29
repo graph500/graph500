@@ -62,13 +62,14 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
   int64_t k, accum;
   for (k = 0; k < 2*nv+2; ++k)
     xoff[k] = 0;
-  MTA("mta assert nodep")
+  MTA("mta assert nodep") MTA("mta use 100 streams")
   for (k = 0; k < 2*nedge; k+=2)
     if (IJ[k] != IJ[k+1]) { /* Skip self-edges. */
       int_fetch_add (&XOFF(IJ[k]), 1);
       int_fetch_add (&XOFF(IJ[k+1]), 1);
     }
   accum = 0;
+  MTA("mta use 100 streams")
   for (k = 0; k < nv; ++k) {
     int64_t tmp = XOFF(k);
     if (tmp < MINVECT_SIZE) tmp = MINVECT_SIZE;
@@ -76,6 +77,7 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
     accum += tmp;
   }
   XOFF(nv) = accum;
+  MTA("mta use 100 streams")
   for (k = 0; k < nv; ++k)
     XENDOFF(k) = XOFF(k);
   if (!(xadjstore = malloc ((accum + MINVECT_SIZE) * sizeof (*xadjstore))))
@@ -134,6 +136,7 @@ gather_edges (const int64_t * restrict IJ, int64_t nedge)
   int64_t k;
 
   MTA("mta assert nodep")
+  MTA("mta use 100 streams")
   for (k = 0; k < 2*nedge; k += 2)
     if (IJ[k] != IJ[k+1]) {
       scatter_edge (IJ[k], IJ[k+1]);
