@@ -232,12 +232,14 @@ The input parameter settings for each class are given in Table \ref{tbl:classes}
 
 #+CAPTION: Problem class definitions and required storage for the edge list assuming 64-bit integers.
 #+LABEL: tbl:classes
-| Problem class | SCALE | edge factor | Approx. storage size in TB |
-|---------------+-------+-------------+----------------------------|
-| Small         |    32 |          16 |                       1.10 |
-| Medium        |    39 |          16 |                     140.74 |
-| Large         |    42 |          16 |                    1125.90 |
-#+TBLFM: $4=2^$2*$3*2*8/1e12;%.2f
+| Problem class     | SCALE | edge factor | Approx. storage size in TB |
+|-------------------+-------+-------------+----------------------------|
+| Toy (level 10)    |    22 |          16 |                     0.0011 |
+| Small (level 12)  |    32 |          16 |                     1.0995 |
+| Medium (level 13) |    36 |          16 |                    17.5922 |
+| Large (level 14)  |    39 |          16 |                   140.7375 |
+| Huge (level 15)   |    42 |          16 |                  1125.8999 |
+#+TBLFM: $4=2^$2*$3*2*8/1e12;%.4f
 
 ** References
 
