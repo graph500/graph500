@@ -1,0 +1,69 @@
+Graph500 sequentual and shared-memory reference implementation
+
+See COPYING for the general license.  Portions copyright 2010 by
+the Georgia Institute of Technology, and portions copyright 2009-2010
+by he Trustees of Indiana University.
+
+The specification is included both in plain text format (Graph500.org,
+with Emacs Org mode annotations) and exported HTML (Graph500.html).
+
+Included implementations:
+  octave/Graph500.m : GNU Octave (may be Matlab(TM) compatible) from
+    the specification.
+  seq-list/seq-list : Sequential list-based implementation
+  seq-csr/seq-csr : Sequential compressed-sparse-row implementation
+  omp-csr/omp-csr : OpenMP compressed-sparse-row implementation
+  xmt-csr/xmt-csr : Cray XMT compressed-sparse-row implementation
+  xmt-csr-local/xmt-csr-local : Cray XMT compressed-sparse-row
+    implementation accumulating vertices into a small buffer before
+    storing globally
+
+BUILDING INSTRUCTIONS
+
+The Makefile includes make.inc to define compiler and flag variables.
+Some sample make.inc files are in the make-incs directory.  The
+Makefile relies heavily on implicit rules and is known to work using
+GNU Make.
+
+RUNNING INSTRUCTIONS
+
+Options:
+  v   : version
+  h|? : this message
+  R   : use R-MAT from SSCA2 (default: use Kronecker generator)
+  s   : R-MAT scale (default 14)
+  e   : R-MAT edge factor (default 16)
+  A|a : R-MAT A (default 0.57) >= 0
+  B|b : R-MAT B (default 0.19) >= 0
+  C|c : R-MAT C (default 0.19) >= 0
+  D|d : R-MAT D (default 0.05) >= 0
+        Note: Setting 3 of A,B,C,D requires the arguments to sum to
+        at most 1.  Otherwise, the parameters are added and normalized
+        so that the sum is 1.
+  V   : Enable extra (Verbose) output
+
+Outputs take the form of "key: value", with keys:
+  SCALE
+  edgefactor
+  construction_time
+  min_time
+  firstquartile_time
+  median_time
+  thirdquartile_time
+  max_time
+  mean_time
+  stddev_time
+  min_nedge
+  firstquartile_nedge
+  median_nedge
+  thirdquartile_nedge
+  max_nedge
+  mean_nedge
+  stddev_nedge
+  min_TEPS
+  firstquartile_TEPS
+  median_TEPS
+  thirdquartile_TEPS
+  max_TEPS
+  harmonic_mean_TEPS
+  harmonic_stddev_TEPS

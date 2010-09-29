@@ -1,0 +1,1097 @@
+﻿<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+               "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+lang="en" xml:lang="en">
+<head>
+<title>Graph 500 Benchmark 1 (“Search”)</title>
+<meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
+<meta name="generator" content="Org-mode"/>
+<meta name="generated" content="2010-09-29 14:29:11 EDT"/>
+<meta name="author" content="Graph 500 Steering Committee"/>
+<meta name="description" content=""/>
+<meta name="keywords" content=""/>
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  html { font-family: Times, serif; font-size: 12pt; }
+  .title  { text-align: center; }
+  .todo   { color: red; }
+  .done   { color: green; }
+  .tag    { background-color: #add8e6; font-weight:normal }
+  .target { }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  p.verse { margin-left: 3% }
+  pre {
+	border: 1pt solid #AEBDCC;
+	background-color: #F3F5F7;
+	padding: 5pt;
+	font-family: courier, monospace;
+        font-size: 90%;
+        overflow:auto;
+  }
+  table { border-collapse: collapse; }
+  td, th { vertical-align: top; }
+  dt { font-weight: bold; }
+  div.figure { padding: 0.5em; }
+  div.figure p { text-align: center; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size:smaller }
+  .code-highlighted {background-color:#ffff00;}
+  .org-info-js_info-navigation { border-style:none; }
+  #org-info-js_console-label { font-size:10px; font-weight:bold;
+                               white-space:nowrap; }
+  .org-info-js_search-highlight {background-color:#ffff00; color:#000000;
+                                 font-weight:bold; }
+  /*]]>*/-->
+</style>
+<style>body {margin-left: 10%; margin-right: 10%;} table {margin-left:auto; margin-right:auto;}</style>
+<script type="text/javascript">
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+
+</head>
+<body>
+<div id="content">
+
+<h1 class="title">Graph 500 Benchmark 1 (“Search”)</h1>
+
+<p>Contributors: David A. Bader (Georgia Institute of Technology),
+Jonathan Berry (Sandia National Laboratories), Simon Kahan (Pacific
+Northwest National Laboratory and University of Washington), Richard
+Murphy (Sandia National Laboratories), E. Jason Riedy (Georgia
+Institute of Technology), and Jeremiah Willcock (Indiana University).
+</p>
+<p>
+Version History:
+</p><dl>
+<dt>V0.1</dt><dd>
+Draft, created 28 July 2010
+</dd>
+<dt>V0.2</dt><dd>
+Draft, created 29 September 2010
+
+</dd>
+</dl>
+
+<p>Version 0.1 of this document was part of the Graph 500 community
+benchmark effort, led by Richard Murphy (Sandia National
+Laboratories).  The intent is that there will be at least three
+variants of implementations, on shared memory and threaded systems, on
+distributed memory clusters, and on external memory map-reduce
+clouds. This specification is for the first of potentially several
+benchmark problems.
+</p>
+<p>
+Reference: “Introducing the Graph 500,” Richard C. Murphy Kyle
+B. Wheeler Brian W. Barrett, James A. Ang, Cray User’s Group (CUG),
+May 5, 2010.
+</p>
+
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#sec-1">1 Brief Description of the Graph 500 Benchmark </a>
+<ul>
+<li><a href="#sec-1_1">1.1 References </a></li>
+</ul>
+</li>
+<li><a href="#sec-2">2 Overall benchmark </a></li>
+<li><a href="#sec-3">3 Generating the edge list </a>
+<ul>
+<li><a href="#sec-3_1">3.1 Brief Description </a></li>
+<li><a href="#sec-3_2">3.2 Detailed Text Description </a></li>
+<li><a href="#sec-3_3">3.3 Sample high-level implementation of the Kronecker generator </a></li>
+<li><a href="#sec-3_4">3.4 Parameter settings </a></li>
+<li><a href="#sec-3_5">3.5 References </a></li>
+</ul>
+</li>
+<li><a href="#sec-4">4 Kernel 1 – Graph Construction </a>
+<ul>
+<li><a href="#sec-4_1">4.1 Description </a></li>
+<li><a href="#sec-4_2">4.2 References </a></li>
+</ul>
+</li>
+<li><a href="#sec-5">5 Sampling 64 search keys </a></li>
+<li><a href="#sec-6">6 Kernel 2 – Breadth-First Search </a>
+<ul>
+<li><a href="#sec-6_1">6.1 Description </a></li>
+<li><a href="#sec-6_2">6.2 Kernel 2 Output </a></li>
+</ul>
+</li>
+<li><a href="#sec-7">7 Validation </a></li>
+<li><a href="#sec-8">8 Computing and outputting performance information </a>
+<ul>
+<li><a href="#sec-8_1">8.1 Timing </a></li>
+<li><a href="#sec-8_2">8.2 Performance Metric (TEPS) </a></li>
+<li><a href="#sec-8_3">8.3 Output </a></li>
+<li><a href="#sec-8_4">8.4 References </a></li>
+</ul>
+</li>
+<li><a href="#sec-9">9 Sample driver </a></li>
+<li><a href="#sec-10">10 Evaluation Criteria </a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-1" class="outline-2">
+<h2 id="sec-1"><span class="section-number-2">1</span> Brief Description of the Graph 500 Benchmark </h2>
+<div class="outline-text-2" id="text-1">
+
+
+<p>
+Graph 500 Description from ISC 2010 Birds-of-a-Feather session: Data
+intensive supercomputer applications are an increasingly important
+workload, but are ill suited for platforms designed for 3D physics
+simulations. Application performance cannot be improved without a
+meaningful benchmark. Graphs are a core part of most of analytics
+workloads. Backed by a steering committee of 30 international HPC
+experts from academia, industry, and national laboratories, this
+effort will establish a large-scale benchmark for these
+applications. This BOF will introduce the Graph 500 benchmark, and
+announce the first ranking at Supercomputing 2010 (SC10, New Orleans,
+November 2010). It will offer a forum for community and provide a
+rallying point for data intensive supercomputing problems. This is the
+first serious approach to augment the Top 500 with data intensive
+applications. Additionally, we are working with the SPEC committee to
+include our benchmark in their CPU benchmark suite.  We anticipate the
+list will rotate between ISC and SC in future years.
+</p>
+<p>
+The intent of this benchmark problem (“Search”) is to develop a
+compact application that has multiple analysis techniques (multiple
+kernels) accessing a single data structure representing a weighted,
+undirected graph. In addition to a kernel to construct the graph from
+the input tuple list, there will be one additional computational
+kernel to operate on the graph.
+</p>
+<p>
+This benchmark includes a scalable data generator that produces edge
+tuples containing the start vertex, end vertex, and weight for each
+directed edge. The first kernel constructs the graph in a format
+usable by all subsequent kernels. No subsequent modifications are
+permitted to benefit specific kernels. The second kernel performs a
+breadth-first search of the graph. All the kernels are timed.
+</p>
+
+</div>
+
+<div id="outline-container-1_1" class="outline-3">
+<h3 id="sec-1_1"><span class="section-number-3">1.1</span> References </h3>
+<div class="outline-text-3" id="text-1_1">
+
+
+<p>
+D.A. Bader, J. Feo, J. Gilbert, J. Kepner, D. Koester, E. Loh,
+K. Madduri, W. Mann, Theresa Meuse, HPCS Scalable Synthetic Compact
+Applications #2 Graph Analysis (SSCA#2 v2.2 Specification), 5
+September 2007.
+</p>
+</div>
+</div>
+
+</div>
+
+<div id="outline-container-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> Overall benchmark </h2>
+<div class="outline-text-2" id="text-2">
+
+
+<p>
+The benchmark performs the following steps:
+</p>
+<ol>
+<li>
+Generate the edge list.
+</li>
+<li>
+Construct a graph from the edge list (<b>timed</b>, kernel 1).
+</li>
+<li>
+Randomly sample 64 unique search keys with degree at least one,
+not counting self-loops.
+</li>
+<li>
+For each search key:
+<ol>
+<li>
+Compute the parent array (<b>timed</b>, kernel 2).
+</li>
+<li>
+Validate that the parent array is a correct BFS search tree
+for the given search tree.
+</li>
+</ol>
+</li>
+<li>
+Compute and output performance information.
+
+</li>
+</ol>
+
+<p>Only the sections marked as <b>timed</b> are included in the performance
+information.  Note that all uses of "random" permit pseudorandom
+number generation.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-3" class="outline-2">
+<h2 id="sec-3"><span class="section-number-2">3</span> Generating the edge list </h2>
+<div class="outline-text-2" id="text-3">
+
+
+
+</div>
+
+<div id="outline-container-3_1" class="outline-3">
+<h3 id="sec-3_1"><span class="section-number-3">3.1</span> Brief Description </h3>
+<div class="outline-text-3" id="text-3_1">
+
+
+<p>
+The scalable data generator will construct a list of edge tuples
+containing vertex identifiers. Each edge is undirected with its
+endpoints given in the tuple as StartVertex and EndVertex. 
+</p>
+<p>
+The intent of the first kernel below is to convert a list with no
+locality into a more optimized form.  The generated list of input
+tuples must not exhibit any locality that can be exploited by the
+computational kernels.  Thus, the vertex numbers must be randomized
+and a random ordering of tuples must be presented to subsequent
+kernels. The data generator may be parallelized, but the vertex names
+must be globally consistent and care must be taken to minimize effects
+of data locality at the processor level.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-3_2" class="outline-3">
+<h3 id="sec-3_2"><span class="section-number-3">3.2</span> Detailed Text Description </h3>
+<div class="outline-text-3" id="text-3_2">
+
+
+<p>
+The edge tuples will have the form &lt;StartVertex, EndVertex&gt; where
+StartVertex is the one endpoint vertex label and EndVertex is the
+other endpoint vertex label.  The space of labels are integers
+beginning with <b>zero</b> up to but not including the number of vertices N
+(defined below).
+</p>
+<p>
+The input values required to describe the graph are as follows: 
+</p>
+<dl>
+<dt>SCALE</dt><dd>
+The log base two of the number of vertices.
+
+</dd>
+<dt>edgefactor</dt><dd>
+The average degree of a vertex in the graph.
+
+</dd>
+</dl>
+
+<p>These inputs determine the graph's size:
+</p>
+<dl>
+<dt>N</dt><dd>
+the total number of vertices, 2<sup>SCALE</sup>. An implementation may
+use any set of N distinct integers to number the vertices, but at
+least 48 bits must be allocated per vertex number. Other parameters
+may be assumed to fit within the natural word of the machine. N is
+derived from the problem’s scaling parameter.
+
+</dd>
+<dt>M</dt><dd>
+the number of edges. M = edgefactor * N.
+
+</dd>
+</dl>
+
+<p>The graph generator is a Kronecker generator similar to the Recursive
+MATrix (R-MAT) scale-free graph generation algorithm [Chakrabarti, et
+al., 2004]. For ease of discussion, the description of this R-MAT
+generator uses an adjacency matrix data structure; however,
+implementations may use any alternate approach that outputs the
+equivalent list of edge tuples. This model recursively sub-divides the
+adjacency matrix of the graph into four equal-sized partitions and
+distributes edges within these partitions with unequal
+probabilities. Initially, the adjacency matrix is empty, and edges are
+added one at a time. Each edge chooses one of the four partitions with
+probabilities A, B, C, and D, respectively.  These probabilities, the
+initiator parameters, are provided in Table <a href="#tbl:initiator">initiator</a>.
+</p>
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<a name="tbl:initiator" id="tbl:initiator"></a>
+<caption>Initiator parameters for the Kronecker graph generator</caption>
+<colgroup><col align="left" /><col align="left" />
+</colgroup>
+<tbody>
+<tr><td>A = 0.57</td><td>B = 0.19</td></tr>
+<tr><td>C = 0.19</td><td>D = 1-(A+B+C) = 0.05</td></tr>
+</tbody>
+</table>
+
+
+<p>
+The next section details a high-level implementation for this
+generator.  High-performance, parallel implementations are included in
+the reference implementation.
+</p>
+<p>
+The graph generator creates a small number of multiple edges between
+two vertices as well as self-loops. Multiple edges, self-loops, and
+isolated vertices, may be ignored in the subsequent kernels but must
+be included in the edge list provided to the first kernel. The
+algorithm also generates the data tuples with high degrees of
+locality. Thus, as a final step, vertex numbers must be randomly
+permuted, and then edge tuples randomly shuffled.
+</p>
+<p>
+It is permissible to run the data generator in parallel. In this case,
+it is necessary to ensure that the vertices are named globally, and
+that the generated data does not possess any locality in the local
+and/or global memory system.
+</p>
+<p>
+The scalable data generator may be run in conjunction with kernels 1
+through 2, or the data generator may be run separately with the data
+stored to disk.  If stored to disk, the data may be retrieved before
+starting kernel 1. The data generator operations need not be timed.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-3_3" class="outline-3">
+<h3 id="sec-3_3"><span class="section-number-3">3.3</span> Sample high-level implementation of the Kronecker generator </h3>
+<div class="outline-text-3" id="text-3_3">
+
+
+<p>
+The GNU Octave routine in Algorithm <a href="#alg:generator">generator</a> is is an
+attractive implementation in that it is embarrassingly parallel and
+does not require the explicit formation the adjacency matrix.  The
+code in Algorithm <a href="#alg:generator">generator</a> should be Matlab(TM) compatible.
+</p>
+
+
+
+<pre class="src src-Octave">function ij = kronecker_generator (SCALE, edgefactor)
+%% Generate an edgelist according to the Graph500
+%% parameters.  In this sample, the edge list is
+%% returned in an array with two rows, where StartVertex
+%% is first row and EndVertex is the second.  The vertex
+%% labels start at zero.
+%%
+%% Example, creating a sparse matrix for viewing:
+%%   ij = kronecker_generator (10, 16);
+%%   G = sparse (ij(1,:)+1, ij(2,:)+1, ones (1, size (ij, 2)));
+%%   spy (G);
+%% The spy plot should appear fairly dense. Any locality
+%% is removed by the final permutations.
+
+  %% Set number of vertices.
+  N = 2^SCALE;
+
+  %% Set number of edges.
+  M = edgefactor * N;
+
+  %% Set initiator probabilities.
+  [A, B, C] = deal (0.57, 0.19, 0.19);
+
+  %% Create index arrays.
+  ij = ones (2, M);
+  %% Loop over each order of bit.
+  ab = A + B;
+  c_norm = C/(1 - (A + B));
+  a_norm = A/(A + B);
+
+  for ib = 1:SCALE,
+    %% Compare with probabilities and set bits of indices.
+    ii_bit = rand (1, M) &gt; ab;
+    jj_bit = rand (1, M) &gt; ( c_norm * ii_bit + a_norm * not (ii_bit) );
+    ij = ij + 2^(ib-1) * [ii_bit; jj_bit];
+  end
+
+  %% Permute vertex labels
+  p = randperm (N);
+  ij = p(ij);
+
+  %% Permute the edge list
+  p = randperm (M);
+  ij = ij(:, p);
+
+  %% Adjust to zero-based labels.
+  ij = ij - 1;
+</pre>
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-3_4" class="outline-3">
+<h3 id="sec-3_4"><span class="section-number-3">3.4</span> Parameter settings </h3>
+<div class="outline-text-3" id="text-3_4">
+
+
+<p>
+The input parameter settings for each class are given in Table <a href="#tbl:classes">classes</a>.
+</p>
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<a name="tbl:classes" id="tbl:classes"></a>
+<caption>High-level generator code Problem class definitions and required storage for the edge list assuming 64-bit integers.</caption>
+<colgroup><col align="left" /><col align="right" /><col align="right" /><col align="right" />
+</colgroup>
+<thead>
+<tr><th scope="col">Problem class</th><th scope="col">SCALE</th><th scope="col">edge factor</th><th scope="col">Approx. storage size in TB</th></tr>
+</thead>
+<tbody>
+<tr><td>Small</td><td>32</td><td>16</td><td>1.10</td></tr>
+<tr><td>Medium</td><td>39</td><td>16</td><td>140.74</td></tr>
+<tr><td>Large</td><td>42</td><td>16</td><td>1125.90</td></tr>
+</tbody>
+</table>
+
+
+</div>
+
+</div>
+
+<div id="outline-container-3_5" class="outline-3">
+<h3 id="sec-3_5"><span class="section-number-3">3.5</span> References </h3>
+<div class="outline-text-3" id="text-3_5">
+
+
+<p>
+D. Chakrabarti, Y. Zhan, and C. Faloutsos, R-MAT: A recursive model
+for graph mining, SIAM Data Mining 2004.
+</p>
+<p>
+Section 17.6, Algorithms in C (third edition). Part 5 Graph
+Algorithms, Robert Sedgewick (Programs 17.7 and 17.8)
+</p>
+<p>
+P. Sanders, Random Permutations on Distributed, External and
+Hierarchical Memory, Information Processing Letters 67 (1988) pp
+305-309.
+</p>
+</div>
+</div>
+
+</div>
+
+<div id="outline-container-4" class="outline-2">
+<h2 id="sec-4"><span class="section-number-2">4</span> Kernel 1 – Graph Construction </h2>
+<div class="outline-text-2" id="text-4">
+
+
+
+</div>
+
+<div id="outline-container-4_1" class="outline-3">
+<h3 id="sec-4_1"><span class="section-number-3">4.1</span> Description </h3>
+<div class="outline-text-3" id="text-4_1">
+
+
+<p>
+The first kernel may transform the edge list to any data structures
+(held in internal or external memory) that are used for the remaining
+kernels. For instance, Kernel 1 may construct a (sparse) graph from a
+list of tuples; each tuple contains endpoint vertex identifiers for an
+edge, and a weight that represents data assigned to the edge.
+</p>
+<p>
+XXX: Unsure about this part.  I'd rather permit strutural
+optimizations here so long as they're used for <b>all</b> kernels.
+</p><ul>
+<li>
+However, any layout or arrangement computations intended to
+increase locality, improve load-balance, or reduce hot-spotting
+must be counted in the benchmark execution time.  Therefore, /no
+comparison of or binning by vertex degrees is permitted during this
+kernel 1 (graph construction)/.
+
+</li>
+</ul>
+
+<p>The graph can be represented in any manner, but it cannot be modified
+by or between subsequent kernels. Space may be reserved in the data
+structure for marking or locking. Only one copy of a kernel will be
+run at a time; that kernel has exclusive access to any such marking or
+locking space.
+</p>
+<p>
+There are various internal memory representations for sparse graphs,
+including (but not limited to) sparse matrices and (multi-level)
+linked lists. For the purposes of this application, the kernel is
+provided only the edge list and the edge list's size.  Further
+information like the number of vertices must be computed within this
+kernel.  Algorithm <a href="#alg:kernel1">kernel1</a> provides high-level sample
+implementation of kernel 1.
+</p>
+<p>
+The process of constructing the graph data structure (in internal or
+external memory) from the set of tuples will be timed.
+</p>
+
+
+
+<pre class="src src-Octave">function G = kernel_1 (ij)
+%% Compute a sparse adjacency matrix representation
+%% of the graph with edges from ij.
+
+  %% Remove self-edges.
+  ij(:, ij(1,:) == ij(2,:)) = [];
+  %% Adjust away from zero labels.
+  ij = ij + 1;
+  %% Find the maximum label for sizing.
+  N = max (max (ij));
+  %% Create the matrix, ensuring it is square.
+  G = sparse (ij(1,:), ij(2,:), ones (1, size (ij, 2)), N, N);
+  %% Symmetrize to model an undirected graph.
+  G = spones (G + G.');
+</pre>
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-4_2" class="outline-3">
+<h3 id="sec-4_2"><span class="section-number-3">4.2</span> References </h3>
+<div class="outline-text-3" id="text-4_2">
+
+
+<p>
+Section 17.6 Algorithms in C third edition Part 5 Graph Algorithms,
+Robert Sedgewick (Program 17.9)
+</p>
+</div>
+</div>
+
+</div>
+
+<div id="outline-container-5" class="outline-2">
+<h2 id="sec-5"><span class="section-number-2">5</span> Sampling 64 search keys </h2>
+<div class="outline-text-2" id="text-5">
+
+
+<p>
+The search keys must be randomly sampled from the vertices in the
+graph.  To avoid trivial searches, sample only from vertices that are
+connected to some other vertex.  Their degree not counting self-loops
+must be at least one.  If there are fewer than 64 such vertices, run
+fewer than 64 searches.  This should never occur with the graph sizes
+in this benchmark, but there is a non-zero probability of producing a
+trivial or nearly trivial graph.  The number of search keys used is
+included in the output, but this step is untimed.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-6" class="outline-2">
+<h2 id="sec-6"><span class="section-number-2">6</span> Kernel 2 – Breadth-First Search </h2>
+<div class="outline-text-2" id="text-6">
+
+
+
+</div>
+
+<div id="outline-container-6_1" class="outline-3">
+<h3 id="sec-6_1"><span class="section-number-3">6.1</span> Description </h3>
+<div class="outline-text-3" id="text-6_1">
+
+
+<p>
+A Breadth-First Search (BFS) of a graph starts with a single source
+vertex, then, in phases, finds and labels its neighbors, then the
+neighbors of its neighbors, etc.  This is a fundamental method on
+which many graph algorithms are based. A formal description of BFS can
+be found in Cormen, Leiserson, and Rivest.  Below, we specify the
+input and output for a BFS benchmark, and we impose some constraints
+on the computation.  However, we do not constrain the choice BFS
+algorithm itself.
+</p>
+<p>
+This benchmark's memory access pattern (internal or external) is data
+dependent with small average prefetch depth.  As in a simple
+concurrent linked-list traversal benchmark, performance reflects an
+architecture's throughput when executing concurrent threads each of
+low memory concurrency and high memory reference density.  Unlike such
+a benchmark, this one also measures resilience to hot-spotting when
+many of the memory references are to the same location; efficiency
+when every thread's execution path depends on the asynchronous
+side-effects of others; and the ability to dynamically load balance
+unpredictably sized work units.  Measuring synchronization performance
+is not a primary goal here.
+</p>
+<p>
+You may not search from multiple search keys concurrently.
+</p>
+<p>
+<b>ALGORITHM NOTE</b> We allow a benign race condition when vertices at BFS
+level k are discovering vertices at level k+1.  Specifically, we do
+not require synchronization to ensure that the first visitor must
+become the parent while locking out subsequent visitors.  As long as
+the discovered BFS tree is correct at the end, the algorithm is
+considered to be correct.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-6_2" class="outline-3">
+<h3 id="sec-6_2"><span class="section-number-3">6.2</span> Kernel 2 Output </h3>
+<div class="outline-text-3" id="text-6_2">
+
+
+<p>
+For each search key, the routine must return an array containing valid
+breadth-first search parent information (per vertex).  The parent of
+the search<sub>key</sub> is itself, and the parent of any vertex not included in
+the tree is -1.  Algorithm <a href="#alg:kernel2">kernel2</a> provides a sample (and
+inefficient) high-level implementation of kernel two.
+</p>
+
+
+
+<pre class="src src-Octave">function parent = kernel_2 (G, root)
+%% Compute a sparse adjacency matrix representation
+%% of the graph with edges from ij.
+
+  N = size (G, 1);
+  %% Adjust from zero labels.
+  root = root + 1;
+  parent = zeros (N, 1);
+  parent (root) = root;
+
+  vlist = zeros (N, 1);
+  vlist(1) = root;
+  lastk = 1;
+  for k = 1:N,
+    v = vlist(k);
+    if v == 0, break; end
+    [I,J,V] = find (G(:, v));
+    nxt = I(parent(I) == 0);
+    parent(nxt) = v;
+    vlist(lastk + (1:length (nxt))) = nxt;
+    lastk = lastk + length (nxt);
+  end
+
+  %% Adjust to zero labels.
+  parent = parent - 1;
+
+</pre>
+
+
+
+</div>
+</div>
+
+</div>
+
+<div id="outline-container-7" class="outline-2">
+<h2 id="sec-7"><span class="section-number-2">7</span> Validation </h2>
+<div class="outline-text-2" id="text-7">
+
+
+<p>
+It is not intended that the results of full-scale runs of this
+benchmark can be validated by exact comparison to a standard reference
+result. At full scale, the data set is enormous; and its exact details
+depend on the pseudo-random number generator used. Therefore, the
+validation of an implementation of the benchmark uses soft checking of
+the results.
+</p>
+<p>
+We emphasize that the intent of this benchmark is to exercise these
+algorithms on the largest data sets that will fit on machines being
+evaluated. However, for debugging purposes it may be desirable to run
+on small data sets, and it may be desirable to verify parallel results
+against serial results, or even against results from the executable
+spec.
+</p>
+<p>
+The executable specification verifies its results by comparing them
+with results computed directly from the tuple list.
+</p>
+<p>
+Kernel 2 validation: after each search, run (but do not time) a
+function that ensures that the discovered breadth-first tree is
+correct by ensuring that 1) each tree edge connects vertices whose BFS
+levels differ by exactly one, and 2) there are no visited vertices
+that are unreachable via a tree-walk from the search root, and 3) a
+node and its parent are joined by an edge of the original graph.
+Algorithm <a href="#alg:validate">validate</a> 
+</p>
+
+
+
+<pre class="src src-Octave">function out = validate (parent, ij, search_key)
+  out = 1;
+  parent = parent + 1;
+  search_key = search_key + 1;
+
+  if parent (search_key) != search_key,
+    out = 0;
+    return;
+  end
+
+  ij = ij + 1;
+  N = max (max (ij));
+  slice = find (parent &gt; 0);
+
+  level = zeros (size (parent));
+  level (slice) = 1;
+  P = parent (slice);
+  mask = P != search_key;
+  k = 0;
+  while any (mask),
+    level(slice(mask)) = level(slice(mask)) + 1;
+    P = parent (P);
+    mask = P != search_key;
+    k = k + 1;
+    if k &gt; N,
+      %% There must be a cycle in the tree.
+      out = -3;
+      return;
+    end
+  end
+
+  lij = level (ij);
+  neither_in = lij(1,:) == 0 &amp; lij(2,:) == 0;
+  both_in = lij(1,:) &gt; 0 &amp; lij(2,:) &gt; 0;
+  if any (not (neither_in | both_in)),
+    out = -4;
+    return
+  end
+  respects_tree_level = abs (lij(1,:) - lij(2,:)) &lt;= 1;
+  if any (not (neither_in | respects_tree_level)),
+    out = -5;
+    return
+  end
+</pre>
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-8" class="outline-2">
+<h2 id="sec-8"><span class="section-number-2">8</span> Computing and outputting performance information </h2>
+<div class="outline-text-2" id="text-8">
+
+
+
+</div>
+
+<div id="outline-container-8_1" class="outline-3">
+<h3 id="sec-8_1"><span class="section-number-3">8.1</span> Timing </h3>
+<div class="outline-text-3" id="text-8_1">
+
+
+<p>
+Start the time for a search immediately prior to visiting the search
+root.  Stop the time for that search when the output has been written
+to memory.  Do not time any I/O outside of the search routine.  If
+your algorithm relies on problem-specific data structures (by our
+definition, these are informed by vertex degree), you must include the
+setup time for such structures in <i>each search</i>. The spirit of the
+benchmark is to gauge the performance of a single search.  We run many
+of these in order to compute mean and variance, not to amortize data
+structure setup time.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-8_2" class="outline-3">
+<h3 id="sec-8_2"><span class="section-number-3">8.2</span> Performance Metric (TEPS) </h3>
+<div class="outline-text-3" id="text-8_2">
+
+
+<p>
+In order to compare the performance of Graph 500 “Search”
+implementations across a variety of architectures, programming models,
+and productivity languages and frameworks, we adopt a new performance
+metric described in this section. In the spirit of well-known
+computing rates floating-point operations per second (flops) measured
+by the Linpack benchmark and global updates per second (GUPs) measured
+by the RandomAccess benchmark, we define a new rate called traversed
+edges per second (TEPS). We measure TEPS through the benchmarking of
+kernel 2 as follows. Let time<sub>K2</sub>(n) be the measured execution time for kernel
+</p><ol>
+<li>
+Let m be the number of edge tuples within the input edge list
+</li>
+</ol>
+
+<p>graph edges traversed is directly proportional to m. We define the
+normalized performance rate (number of edge traversals per second) as
+</p>
+
+<div style="text-align: center">
+<p>TEPS(n) = m / time<sub>K2</sub>(n)
+</p>
+</div>
+
+</div>
+
+</div>
+
+<div id="outline-container-8_3" class="outline-3">
+<h3 id="sec-8_3"><span class="section-number-3">8.3</span> Output </h3>
+<div class="outline-text-3" id="text-8_3">
+
+
+<p>
+The output must contain the following information:
+</p><dl>
+<dt>SCALE</dt><dd>
+Graph generation parameter
+</dd>
+<dt>edgefactor</dt><dd>
+Graph generation parameter
+</dd>
+<dt>NBFS</dt><dd>
+Number of BFS searches run, 64 for non-trivial graphs
+</dd>
+<dt>construction_time</dt><dd>
+The single kernel 1 time
+</dd>
+<dt>min_time, firstquartile_time, median_time, thirdquartile_time, max_time</dt><dd>
+Quartiles for the kernel 2 times
+</dd>
+<dt>mean_time, stddev_time</dt><dd>
+Mean and standard deviation of the kernel 2 times
+</dd>
+<dt>min_nedge, firstquartile_nedge, median_nedge, thirdquartile_nedge, max_nedge</dt><dd>
+Quartiles for the number of
+input edges visited by kernel 2, see TEPS section above.
+</dd>
+<dt>mean_nedge, stddev_nedge</dt><dd>
+Mean and standard deviation of the number of
+input edges visited by kernel 2, see TEPS section above.
+</dd>
+<dt>min_TEPS, firstquartile_TEPS, median_TEPS, thirdquartile_TEPS, max_TEPS</dt><dd>
+Quartiles for the kernel 2 TEPS
+</dd>
+<dt>harmonic_mean_TEPS, harmonic_stddev_TEPS</dt><dd>
+Mean and standard
+deviation of the kernel 2 TEPS.  <b>Note</b>: Because TEPS is a
+rate, the rates are compared using <b>harmonic</b> means.
+
+</dd>
+</dl>
+
+<p>Additional fields are permitted.  Algorithm <a href="#alg:output">output</a> provides
+a high-level sample.
+</p>
+
+
+
+<pre class="src src-Octave">function output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge)
+  printf (<span style="color: #8b2252;">"SCALE: %d\n"</span>, SCALE);
+  printf (<span style="color: #8b2252;">"edgefactor: %d\n"</span>, edgefactor);
+  printf (<span style="color: #8b2252;">"NBFS: %d\n"</span>, NBFS);
+  printf (<span style="color: #8b2252;">"construction_time: %20.17e\n"</span>, kernel_1_time);
+
+  S = statistics (kernel_2_time);
+  printf (<span style="color: #8b2252;">"min_time: %20.17e\n"</span>, S(1));
+  printf (<span style="color: #8b2252;">"firstquartile_time: %20.17e\n"</span>, S(2));
+  printf (<span style="color: #8b2252;">"median_time: %20.17e\n"</span>, S(3));
+  printf (<span style="color: #8b2252;">"thirdquartile_time: %20.17e\n"</span>, S(4));
+  printf (<span style="color: #8b2252;">"max_time: %20.17e\n"</span>, S(5));
+  printf (<span style="color: #8b2252;">"mean_time: %20.17e\n"</span>, S(6));
+  printf (<span style="color: #8b2252;">"stddev_time: %20.17e\n"</span>, S(7));
+
+  S = statistics (kernel_2_nedge);
+  printf (<span style="color: #8b2252;">"min_nedge: %20.17e\n"</span>, S(1));
+  printf (<span style="color: #8b2252;">"firstquartile_nedge: %20.17e\n"</span>, S(2));
+  printf (<span style="color: #8b2252;">"median_nedge: %20.17e\n"</span>, S(3));
+  printf (<span style="color: #8b2252;">"thirdquartile_nedge: %20.17e\n"</span>, S(4));
+  printf (<span style="color: #8b2252;">"max_nedge: %20.17e\n"</span>, S(5));
+  printf (<span style="color: #8b2252;">"mean_nedge: %20.17e\n"</span>, S(6));
+  printf (<span style="color: #8b2252;">"stddev_nedge: %20.17e\n"</span>, S(7));
+
+  TEPS = kernel_2_nedge ./ kernel_2_time;
+  N = length (TEPS);
+  S = statistics (TEPS);
+  S(6) = mean (TEPS, 'h');
+  %% Harmonic standard deviation from:
+  %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
+  %% Means and Their Application to Index Numbers, 1940.
+  %% http://www.jstor.org/stable/2235723
+  tmp = zeros (N, 1);
+  tmp(TEPS &gt; 0) = 1./TEPS(TEPS &gt; 0);
+  tmp = tmp - 1/S(6);
+  S(7) = (sqrt (sum (tmp.^2)) / (N-1)) * S(6)^2;
+
+  printf (<span style="color: #8b2252;">"min_TEPS: %20.17e\n"</span>, S(1));
+  printf (<span style="color: #8b2252;">"firstquartile_TEPS: %20.17e\n"</span>, S(2));
+  printf (<span style="color: #8b2252;">"median_TEPS: %20.17e\n"</span>, S(3));
+  printf (<span style="color: #8b2252;">"thirdquartile_TEPS: %20.17e\n"</span>, S(4));
+  printf (<span style="color: #8b2252;">"max_TEPS: %20.17e\n"</span>, S(5));
+  printf (<span style="color: #8b2252;">"harmonic_mean_TEPS: %20.17e\n"</span>, S(6));
+  printf (<span style="color: #8b2252;">"harmonic_stddev_TEPS: %20.17e\n"</span>, S(7));
+</pre>
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-8_4" class="outline-3">
+<h3 id="sec-8_4"><span class="section-number-3">8.4</span> References </h3>
+<div class="outline-text-3" id="text-8_4">
+
+
+<p>
+Nilan Norris, The Standard Errors of the Geometric and Harmonic Means
+and Their Application to Index Numbers, The Annals of Mathematical
+Statistics, vol. 11, num. 4, 1940.
+<a href="http://www.jstor.org/stable/2235723">http://www.jstor.org/stable/2235723</a>
+</p>
+</div>
+</div>
+
+</div>
+
+<div id="outline-container-9" class="outline-2">
+<h2 id="sec-9"><span class="section-number-2">9</span> Sample driver </h2>
+<div class="outline-text-2" id="text-9">
+
+
+<p>
+A high-level sample driver for the above routines is given in
+Algorithm <a href="#alg:driver">driver</a>.
+</p>
+
+
+
+<pre class="src src-Octave">SCALE = 10;
+edgefactor = 16;
+NBFS = 64;
+
+rand (<span style="color: #8b2252;">"seed"</span>, 103);
+
+ij = kronecker_generator (SCALE, edgefactor);
+
+tic;
+G = kernel_1 (ij);
+kernel_1_time = toc;
+
+N = size (G, 1);
+coldeg = full (spstats (G));
+search_key = randperm (N);
+search_key(coldeg(search_key) == 0) = [];
+if length (search_key) &gt; NBFS,
+  search_key = search_key(1:NBFS);
+else
+  NBFS = length (search_key);
+end
+search_key = search_key - 1;  
+
+kernel_2_time = Inf * ones (NBFS, 1);
+kernel_2_nedge = zeros (NBFS, 1);
+
+for k = 1:NBFS,
+  tic;
+  [parent, numvisited] = kernel_2 (G, search_key(k));
+  kernel_2_time(k) = toc;
+  err = validate (parent, numvisited, ij, search_key (k));
+  if err &lt;= 0,
+    error (sprintf (<span style="color: #8b2252;">"BFS %d from search key %d failed to validate: %d"</span>,
+                    k, search_key(k), err));
+  end
+  slice = parent(parent &gt;= 0) + 1;
+  kernel_2_nedge(k) = nnz (G(slice, slice))/2;
+end
+
+output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
+</pre>
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-10" class="outline-2">
+<h2 id="sec-10"><span class="section-number-2">10</span> Evaluation Criteria </h2>
+<div class="outline-text-2" id="text-10">
+
+
+<p>
+In approximate order of importance, the goals of this benchmark are:
+</p><ul>
+<li>
+Fair adherence to the intent of the benchmark specification
+</li>
+<li>
+Maximum problem size for a given machine
+</li>
+<li>
+Minimum execution time for a given problem size
+
+</li>
+</ul>
+
+<p>Less important goals:
+</p><ul>
+<li>
+Minimum code size (not including validation code)
+</li>
+<li>
+Minimal development time
+</li>
+<li>
+Maximal maintainability
+</li>
+<li>
+Maximal extensibility
+</li>
+</ul>
+
+</div>
+</div>
+<div id="postamble">
+<p class="author"> Author: Graph 500 Steering Committee
+</p>
+<p class="date"> Date: 2010-09-29 14:29:11 EDT</p>
+<p class="creator">HTML generated by org-mode 7.01trans in emacs 24</p>
+</div>
+</div>
+</body>
+</html>
