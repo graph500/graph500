@@ -15,6 +15,7 @@ Institute of Technology), and Jeremiah Willcock (Indiana University).
 Version History:
  - V0.1 :: Draft, created 28 July 2010
  - V0.2 :: Draft, created 29 September 2010
+ - V0.3 :: Draft, created 30 September 2010
 
 Version 0.1 of this document was part of the Graph 500 community
 benchmark effort, led by Richard Murphy (Sandia National
@@ -30,36 +31,41 @@ May 5, 2010.
 
 * Brief Description of the Graph 500 Benchmark
 
-Graph 500 Description from ISC 2010 Birds-of-a-Feather session: Data
-intensive supercomputer applications are an increasingly important
-workload, but are ill suited for platforms designed for 3D physics
-simulations. Application performance cannot be improved without a
-meaningful benchmark. Graphs are a core part of most of analytics
-workloads. Backed by a steering committee of 30 international HPC
-experts from academia, industry, and national laboratories, this
-effort will establish a large-scale benchmark for these
-applications. This BOF will introduce the Graph 500 benchmark, and
-announce the first ranking at Supercomputing 2010 (SC10, New Orleans,
-November 2010). It will offer a forum for community and provide a
-rallying point for data intensive supercomputing problems. This is the
-first serious approach to augment the Top 500 with data intensive
-applications. Additionally, we are working with the SPEC committee to
-include our benchmark in their CPU benchmark suite.  We anticipate the
-list will rotate between ISC and SC in future years.
+Data intensive supercomputer applications are an increasingly
+important workload, but are ill suited for platforms designed for 3D
+physics simulations. Application performance cannot be improved
+without a meaningful benchmark. Graphs are a core part of most of
+analytics workloads. Backed by a steering committee of 30
+international HPC experts from academia, industry, and national
+laboratories, this specification establishes a large-scale benchmark
+for these applications. It will offer a forum for community and
+provide a rallying point for data intensive supercomputing
+problems. This is the first serious approach to augment the Top 500
+with data intensive applications.
 
 The intent of this benchmark problem (“Search”) is to develop a
 compact application that has multiple analysis techniques (multiple
 kernels) accessing a single data structure representing a weighted,
 undirected graph. In addition to a kernel to construct the graph from
-the input tuple list, there will be one additional computational
+the input tuple list, there is one additional computational
 kernel to operate on the graph.
 
 This benchmark includes a scalable data generator that produces edge
-tuples containing the start vertex, end vertex, and weight for each
-directed edge. The first kernel constructs the graph in a format
+tuples containing the start vertex and end vertex for each
+edge. The first kernel constructs an /undirected/ graph in a format
 usable by all subsequent kernels. No subsequent modifications are
 permitted to benefit specific kernels. The second kernel performs a
-breadth-first search of the graph. All the kernels are timed.
+breadth-first search of the graph. Both kernels are timed.
+
+There are five problem classes defined by their input size:
+  - toy :: 10GB or around 10^10 bytes, which we also call level 10,
+  - small :: 1TB (10^12 bytes, level 12),
+  - medium :: 17TB (10^13 bytes, level 13),
+  - large :: 140TB (10^14 bytes, level 14), and
+  - huge :: 1.1PB (10^15 bytes, level 15).
+
+Table \ref{tbl:classes} provides the parameters used by the graph
+generator specified below.
 
 ** References
 
@@ -109,7 +115,8 @@ The edge tuples will have the form <StartVertex, EndVertex> where
 StartVertex is the one endpoint vertex label and EndVertex is the
 other endpoint vertex label.  The space of labels are integers
 beginning with *zero* up to but not including the number of vertices N
-(defined below).
+(defined below).  The kernels are not provided the size N explicitly
+but must discover it.
 
 The input values required to describe the graph are as follows: 
 
@@ -171,8 +178,7 @@ starting kernel 1. The data generator operations need not be timed.
 
 The GNU Octave routine in Algorithm \ref{alg:generator} is is an
 attractive implementation in that it is embarrassingly parallel and
-does not require the explicit formation the adjacency matrix.  The
-code in Algorithm \ref{alg:generator} should be Matlab(TM) compatible.
+does not require the explicit formation the adjacency matrix.
 
 #+CAPTION: High-level generator code
 #+LABEL: alg:generator
@@ -417,11 +423,17 @@ with results computed directly from the tuple list.
 
 Kernel 2 validation: after each search, run (but do not time) a
 function that ensures that the discovered breadth-first tree is
-correct by ensuring that 1) each tree edge connects vertices whose BFS
-levels differ by exactly one, and 2) there are no visited vertices
-that are unreachable via a tree-walk from the search root, and 3) a
-node and its parent are joined by an edge of the original graph.
-Algorithm \ref{alg:validate} 
+correct by ensuring that 
+
+  1) the BFS tree is a tree and does not contain cycles,
+  2) each tree edge connects vertices whose BFS levels differ by
+     exactly one,
+  3) every edge in the input list has vertices with levels that differ
+     by at most one or that both are not in the BFS tree,
+  4) the BFS tree spans an entire connected component's vertices, and
+  5) a node and its parent are joined by an edge of the original graph.
+
+Algorithm \ref{alg:validate} shows a sample validation routine.
 
 #+CAPTION: High-level implementation of kernel 2 validation
 #+LABEL: alg:validate

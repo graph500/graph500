@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Graph 500 Benchmark 1 (“Search”)</title>
 <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2010-09-29 14:36:36 EDT"/>
+<meta name="generated" content="2010-09-30 19:22:33 EDT"/>
 <meta name="author" content="Graph 500 Steering Committee"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -89,6 +89,9 @@ Draft, created 28 July 2010
 </dd>
 <dt>V0.2</dt><dd>
 Draft, created 29 September 2010
+</dd>
+<dt>V0.3</dt><dd>
+Draft, created 30 September 2010
 
 </dd>
 </dl>
@@ -160,38 +163,57 @@ May 5, 2010.
 
 
 <p>
-Graph 500 Description from ISC 2010 Birds-of-a-Feather session: Data
-intensive supercomputer applications are an increasingly important
-workload, but are ill suited for platforms designed for 3D physics
-simulations. Application performance cannot be improved without a
-meaningful benchmark. Graphs are a core part of most of analytics
-workloads. Backed by a steering committee of 30 international HPC
-experts from academia, industry, and national laboratories, this
-effort will establish a large-scale benchmark for these
-applications. This BOF will introduce the Graph 500 benchmark, and
-announce the first ranking at Supercomputing 2010 (SC10, New Orleans,
-November 2010). It will offer a forum for community and provide a
-rallying point for data intensive supercomputing problems. This is the
-first serious approach to augment the Top 500 with data intensive
-applications. Additionally, we are working with the SPEC committee to
-include our benchmark in their CPU benchmark suite.  We anticipate the
-list will rotate between ISC and SC in future years.
+Data intensive supercomputer applications are an increasingly
+important workload, but are ill suited for platforms designed for 3D
+physics simulations. Application performance cannot be improved
+without a meaningful benchmark. Graphs are a core part of most of
+analytics workloads. Backed by a steering committee of 30
+international HPC experts from academia, industry, and national
+laboratories, this specification establishes a large-scale benchmark
+for these applications. It will offer a forum for community and
+provide a rallying point for data intensive supercomputing
+problems. This is the first serious approach to augment the Top 500
+with data intensive applications.
 </p>
 <p>
 The intent of this benchmark problem (“Search”) is to develop a
 compact application that has multiple analysis techniques (multiple
 kernels) accessing a single data structure representing a weighted,
 undirected graph. In addition to a kernel to construct the graph from
-the input tuple list, there will be one additional computational
+the input tuple list, there is one additional computational
 kernel to operate on the graph.
 </p>
 <p>
 This benchmark includes a scalable data generator that produces edge
-tuples containing the start vertex, end vertex, and weight for each
-directed edge. The first kernel constructs the graph in a format
+tuples containing the start vertex and end vertex for each
+edge. The first kernel constructs an <i>undirected</i> graph in a format
 usable by all subsequent kernels. No subsequent modifications are
 permitted to benefit specific kernels. The second kernel performs a
-breadth-first search of the graph. All the kernels are timed.
+breadth-first search of the graph. Both kernels are timed.
+</p>
+<p>
+There are five problem classes defined by their input size:
+</p><dl>
+<dt>toy</dt><dd>
+10GB or around 10<sup>10</sup> bytes, which we also call level 10,
+</dd>
+<dt>small</dt><dd>
+1TB (10<sup>12</sup> bytes, level 12),
+</dd>
+<dt>medium</dt><dd>
+17TB (10<sup>13</sup> bytes, level 13),
+</dd>
+<dt>large</dt><dd>
+140TB (10<sup>14</sup> bytes, level 14), and
+</dd>
+<dt>huge</dt><dd>
+1.1PB (10<sup>15</sup> bytes, level 15).
+
+</dd>
+</dl>
+
+<p>Table <a href="#tbl:classes">classes</a> provides the parameters used by the graph
+generator specified below.
 </p>
 
 </div>
@@ -299,7 +321,8 @@ The edge tuples will have the form &lt;StartVertex, EndVertex&gt; where
 StartVertex is the one endpoint vertex label and EndVertex is the
 other endpoint vertex label.  The space of labels are integers
 beginning with <b>zero</b> up to but not including the number of vertices N
-(defined below).
+(defined below).  The kernels are not provided the size N explicitly
+but must discover it.
 </p>
 <p>
 The input values required to describe the graph are as follows: 
@@ -395,8 +418,7 @@ starting kernel 1. The data generator operations need not be timed.
 <p>
 The GNU Octave routine in Algorithm <a href="#alg:generator">generator</a> is is an
 attractive implementation in that it is embarrassingly parallel and
-does not require the explicit formation the adjacency matrix.  The
-code in Algorithm <a href="#alg:generator">generator</a> should be Matlab(TM) compatible.
+does not require the explicit formation the adjacency matrix.
 </p>
 
 
@@ -749,11 +771,30 @@ with results computed directly from the tuple list.
 <p>
 Kernel 2 validation: after each search, run (but do not time) a
 function that ensures that the discovered breadth-first tree is
-correct by ensuring that 1) each tree edge connects vertices whose BFS
-levels differ by exactly one, and 2) there are no visited vertices
-that are unreachable via a tree-walk from the search root, and 3) a
-node and its parent are joined by an edge of the original graph.
-Algorithm <a href="#alg:validate">validate</a> 
+correct by ensuring that 
+</p>
+<ol>
+<li>
+the BFS tree is a tree and does not contain cycles,
+</li>
+<li>
+each tree edge connects vertices whose BFS levels differ by
+exactly one,
+</li>
+<li>
+every edge in the input list has vertices with levels that differ
+by at most one or that both are not in the BFS tree,
+</li>
+<li>
+the BFS tree spans an entire connected component's vertices, and
+</li>
+<li>
+a node and its parent are joined by an edge of the original graph.
+
+</li>
+</ol>
+
+<p>Algorithm <a href="#alg:validate">validate</a> shows a sample validation routine.
 </p>
 
 
@@ -1091,7 +1132,7 @@ Maximal extensibility
 <div id="postamble">
 <p class="author"> Author: Graph 500 Steering Committee
 </p>
-<p class="date"> Date: 2010-09-29 14:36:36 EDT</p>
+<p class="date"> Date: 2010-09-30 19:22:33 EDT</p>
 <p class="creator">HTML generated by org-mode 7.01trans in emacs 24</p>
 </div>
 </div>
