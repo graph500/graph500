@@ -8,4 +8,6 @@
 void rmat_edgelist (int64_t *IJ, int64_t nedge, int SCALE,
 		    double A, double B, double C);
 
+void permute_edgelist (int64_t * restrict IJ, int64_t nedge, void *st);
+
 #endif /* RMAT_HEADER_ */

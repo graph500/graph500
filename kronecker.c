@@ -6,6 +6,7 @@
 
 #include "xalloc.h"
 #include "prng.h"
+#include "rmat.h"
 #include "generator/splittable_mrg.h"
 #include "generator/permutation_gen.h"
 #include "generator/graph_generator.h"
@@ -48,4 +49,6 @@ kronecker_edgelist (int64_t *IJ_in, int64_t nedge, int64_t SCALE,
 	IJ[k] = vperm[IJ[k]];
 
   xfree_large (vperm);
+
+  permute_edgelist (IJ, nedge, prng_state);
 }

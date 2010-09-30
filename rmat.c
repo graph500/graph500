@@ -171,7 +171,7 @@ permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
     IJ[k] = newlabel[IJ[k]];
 }
 
-static void
+void
 permute_edgelist (int64_t * restrict IJ, int64_t nedge, mrg_state *st)
 {
   randpermute (IJ, nedge, 2, st);
