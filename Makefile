@@ -20,7 +20,7 @@ endif
 
 GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
 	mrg_transitions.o graph_generator.o permutation_gen.o		\
-	make_graph.o
+	make_graph.o scramble_edges.o utils.o
 
 .PHONY: all
 all: $(BIN)

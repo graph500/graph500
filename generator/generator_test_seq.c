@@ -29,8 +29,8 @@ inline double get_time() {
 int main(int argc, char* argv[]) {
   int log_numverts;
   double start, time_taken;
-  uint64_t nedges;
-  uint64_t* result;
+  int64_t nedges;
+  int64_t* result;
 
   log_numverts = 16; /* In base GRAPHGEN_INITIATOR_SIZE */
   if (argc >= 2) log_numverts = atoi(argv[1]);

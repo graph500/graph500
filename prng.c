@@ -34,6 +34,5 @@ init_random (void)
 
   if (seed < 0) seed = 0xDECAFBAD;
   make_mrg_seed (seed, prng_seed);
-  mrg_seed(&prng_state_store, prng_seed[0], prng_seed[1], prng_seed[2],
-	   prng_seed[3], prng_seed[4]);
+  mrg_seed(&prng_state_store, prng_seed);
 }

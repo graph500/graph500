@@ -19,6 +19,10 @@
 #endif
 #include <inttypes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Settings for user modification ----------------------------------- */
 
 #ifndef MODIFY_PARAMS_AT_EACH_LEVEL
@@ -56,8 +60,17 @@
 #define GRAPHGEN_UNDIRECTED
 
 /* Define to return graph edges in a struct that contains multiplicities,
- * rather than just as an array of endpoints. */
+ * rather than just as an array of endpoints with duplicates and self-loops
+ * removed. */
 /* #define GRAPHGEN_KEEP_MULTIPLICITIES */
+
+/* Define to keep self-loops in output array rather than marking them as unused
+ * slots. */
+#define GRAPHGEN_KEEP_SELF_LOOPS
+
+/* Define to keep duplicate edges in output array rather than marking them as
+ * unused slots. */
+#define GRAPHGEN_KEEP_DUPLICATES
 
 #endif /* GRAPHGEN_SETTINGS_DEFINED */
 
@@ -91,5 +104,9 @@ void generate_kronecker(
        of global array when output_array_is_local is 0 */
 #endif
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GRAPH_GENERATOR_H */

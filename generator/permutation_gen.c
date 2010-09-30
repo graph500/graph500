@@ -13,6 +13,7 @@
 #include "splittable_mrg.h"
 #include "graph_generator.h"
 #include "permutation_gen.h"
+#include "utils.h"
 #include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -28,90 +29,9 @@
 #include <omp.h>
 #endif
 
-static inline void* safe_malloc(size_t n) {
-  void* p = malloc(n);
-  if (!p) {
-    fprintf(stderr, "Out of memory trying to allocate %zu byte(s)\n", n);
-    abort();
-  }
-  return p;
-}
-
-static inline void* safe_calloc(size_t n, size_t k) {
-  void* p = calloc(n, k);
-  if (!p) {
-    fprintf(stderr, "Out of memory trying to allocate %zu byte(s)\n", n);
-    abort();
-  }
-  return p;
-}
-
-/* Get a number in [0, n) in an unbiased way. */
-#ifdef __MTA__
-#pragma mta inline
-#endif
-static inline uint_fast64_t random_up_to(mrg_state* st, uint_fast64_t n) {
-  /* PRNG returns values in [0, 0x7FFFFFFF) */
-  /* Two iters returns values in [0, 0x3FFFFFFF00000001) */
-  assert (n > 0 && n <= UINT64_C(0x3FFFFFFF00000001));
-  if (n == 1) {
-    return 0;
-  } else if (n <= UINT64_C(0x7FFFFFFF)) {
-    uint_fast64_t acc_value_limit = (UINT64_C(0x7FFFFFFF) / n) * n; /* Round down to multiple of n */
-    while (1) {
-      uint_fast64_t acc = mrg_get_uint_orig(st);
-      if (acc >= acc_value_limit) continue;
-      return acc % n;
-    }
-  } else if (n <= UINT64_C(0x3FFFFFFF00000001)) {
-    uint_fast64_t acc_value_limit = (UINT64_C(0x3FFFFFFF00000001) / n) * n; /* Round down to multiple of n */
-    while (1) {
-      uint_fast64_t acc = mrg_get_uint_orig(st) * UINT64_C(0x7FFFFFFF);
-      acc += mrg_get_uint_orig(st); /* Do this separately to get fixed ordering. */
-      if (acc >= acc_value_limit) continue;
-      return acc % n;
-    }
-  } else {
-    /* Should have been caught before */
-    return 0;
-  }
-}
-
 typedef struct slot_data {
   int64_t index, value;
 } slot_data;
-
-/* Compare-and-swap; return 1 if successful or 0 otherwise. */
-#ifdef __MTA__
-#pragma mta inline
-static inline int int64_t_cas(volatile int64_t* p, int64_t oldval, int64_t newval) {
-  int64_t val = readfe(p);
-  if (val == oldval) {
-    writeef(p, newval);
-    return 1;
-  } else {
-    writeef(p, val);
-    return 0;
-  }
-}
-#elif defined(GRAPH_GENERATOR_MPI) || defined(GRAPH_GENERATOR_SEQ)
-/* Sequential */
-static inline int int64_t_cas(int64_t* p, int64_t oldval, int64_t newval) {
-  if (*p == oldval) {
-    *p = newval;
-    return 1;
-  } else {
-    return 0;
-  }
-}
-#elif defined(GRAPH_GENERATOR_OMP)
-/* GCC intrinsic */
-static inline int int64_t_cas(volatile int64_t* p, int64_t oldval, int64_t newval) {
-  return __sync_bool_compare_and_swap(p, oldval, newval);
-}
-#else
-#error "Need to define int64_t_cas() for your system"
-#endif
 
 /* This code defines a simple closed-indexing hash table.  It is used to speed
  * up the rand_sort algorithm given below.  Elements with -1 as index are
@@ -235,7 +155,7 @@ static inline int int_prefix_sum(int* out, const int* in, size_t n) {
 /* This version is for sequential machines, OpenMP, and the XMT. */
 void rand_sort_shared(mrg_state* st, int64_t n, int64_t* result /* Array of size n */) {
   int64_t hash_table_size = 2 * n + 128; /* Must be >n, preferably larger for performance */
-  slot_data* ht = (slot_data*)safe_malloc(hash_table_size * sizeof(slot_data));
+  slot_data* ht = (slot_data*)xmalloc(hash_table_size * sizeof(slot_data));
   int64_t i;
 #ifdef __MTA__
 #pragma mta block schedule
@@ -259,7 +179,7 @@ void rand_sort_shared(mrg_state* st, int64_t n, int64_t* result /* Array of size
     hashtable_insert(ht, hash_table_size, index, i, index);
   }
   /* Count elements with each key in order to sort them by key. */
-  int64_t* bucket_counts = (int64_t*)safe_calloc(hash_table_size, sizeof(int64_t)); /* Uses zero-initialization */
+  int64_t* bucket_counts = (int64_t*)xcalloc(hash_table_size, sizeof(int64_t)); /* Uses zero-initialization */
 #ifdef __MTA__
 #pragma mta assert parallel
 #pragma mta block schedule
@@ -313,7 +233,7 @@ void rand_sort_shared(mrg_state* st, int64_t n, int64_t* result /* Array of size
 #ifdef GRAPH_GENERATOR_MPI
 void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
                    int64_t* result_size_ptr,
-                   int64_t** result_ptr /* Allocated using safe_malloc() by
+                   int64_t** result_ptr /* Allocated using xmalloc() by
                    rand_sort_mpi */) {
   int size, rank;
   MPI_Comm_size(comm, &size);
@@ -363,24 +283,24 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
 
   /* Cache the key-value pairs to avoid PRNG skip operations.  Count the number
    * of pairs going to each destination processor. */
-  slot_data* kv_pairs = (slot_data*)safe_malloc(elt_my_size * sizeof(slot_data));
-  int* outcounts = (int*)safe_calloc(size, sizeof(int)); /* Relies on zero-init */
+  slot_data* kv_pairs = (slot_data*)xmalloc(elt_my_size * sizeof(slot_data));
+  int* outcounts = (int*)xcalloc(size, sizeof(int)); /* Relies on zero-init */
   for (i = 0; i < elt_my_size; ++i) {
     mrg_state new_st = *st;
     mrg_skip(&new_st, 1, i * size + rank, 0);
     int64_t index = (int64_t)random_up_to(&new_st, total_hash_table_size);
     int64_t owner = HT_OWNER(index);
-    assert (owner < size);
+    assert (owner >= 0 && owner < size);
     ++outcounts[owner];
     kv_pairs[i].index = index;
     kv_pairs[i].value = i * size + rank;
   }
 
-  int* outdispls = (int*)safe_malloc(size * sizeof(int));
+  int* outdispls = (int*)xmalloc(size * sizeof(int));
   int total_outcount = int_prefix_sum(outdispls, outcounts, size);
 
-  slot_data* outdata = (slot_data*)safe_malloc(total_outcount * sizeof(slot_data));
-  int* outoffsets = (int*)safe_malloc(size * sizeof(int));
+  slot_data* outdata = (slot_data*)xmalloc(total_outcount * sizeof(slot_data));
+  int* outoffsets = (int*)xmalloc(size * sizeof(int));
   memcpy(outoffsets, outdispls, size * sizeof(int));
 
   /* Put the key-value pairs into the output buffer, sorted by destination, to
@@ -392,17 +312,20 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
     ++outoffsets[owner];
   }
   free(kv_pairs); kv_pairs = NULL;
+  for (i = 0; i < size; ++i) {
+    assert (outoffsets[i] == outdispls[i] + outcounts[i]);
+  }
   free(outoffsets); outoffsets = NULL;
 
-  int* incounts = (int*)safe_malloc(size * sizeof(int));
+  int* incounts = (int*)xmalloc(size * sizeof(int));
 
   /* Send data counts. */
   MPI_Alltoall(outcounts, 1, MPI_INT, incounts, 1, MPI_INT, comm);
 
-  int* indispls = (int*)safe_malloc(size * sizeof(int));
+  int* indispls = (int*)xmalloc(size * sizeof(int));
   int total_incount = int_prefix_sum(indispls, incounts, size);
 
-  slot_data* indata = (slot_data*)safe_malloc(total_incount * sizeof(slot_data));
+  slot_data* indata = (slot_data*)xmalloc(total_incount * sizeof(slot_data));
 
   /* Send data to put into hash table. */
   MPI_Alltoallv(outdata, outcounts, outdispls, slot_data_type,
@@ -417,7 +340,7 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
   MPI_Type_free(&slot_data_type);
 
   /* Create the local part of the hash table. */
-  slot_data* ht = (slot_data*)safe_malloc(ht_my_size * sizeof(slot_data));
+  slot_data* ht = (slot_data*)xmalloc(ht_my_size * sizeof(slot_data));
   for (i = ht_my_start; i < ht_my_end; ++i) {
     ht[HT_LOCAL(i)].index = (int64_t)(-1); /* Unused */
   }
@@ -431,11 +354,11 @@ void rand_sort_mpi(MPI_Comm comm, mrg_state* st, int64_t n,
 
   /* Make the local part of the result.  Most of the rest of this code is
    * similar to the shared-memory/XMT version above. */
-  int64_t* result = (int64_t*)safe_malloc(total_incount * sizeof(int64_t));
+  int64_t* result = (int64_t*)xmalloc(total_incount * sizeof(int64_t));
   *result_ptr = result;
   *result_size_ptr = total_incount;
 
-  int64_t* bucket_counts = (int64_t*)safe_calloc(ht_my_size, sizeof(int64_t)); /* Uses zero-initialization */
+  int64_t* bucket_counts = (int64_t*)xmalloc(ht_my_size * sizeof(int64_t));
   for (i = ht_my_start; i < ht_my_end; ++i) {
     /* Count all elements with same index. */
     bucket_counts[HT_LOCAL(i)] = hashtable_count_key(ht, ht_my_size, i, HT_LOCAL(i));
@@ -480,7 +403,8 @@ int main(int argc, char** argv) {
   int64_t* result = NULL;
   int64_t result_size;
   mrg_state st;
-  mrg_seed(&st, 1, 2, 3, 4, 5);
+  uint_fast32_t seed[5] = {1, 2, 3, 4, 5};
+  mrg_seed(&st, seed);
   MPI_Barrier(MPI_COMM_WORLD);
   double start = MPI_Wtime();
   rand_sort_mpi(MPI_COMM_WORLD, &st, n, &result_size, &result);
@@ -505,9 +429,10 @@ int main(int argc, char** argv) {
 #if 0
 int main(int argc, char** argv) {
   const int64_t n = 5000000;
-  int64_t* result = (int64_t*)safe_malloc(n * sizeof(int64_t));
+  int64_t* result = (int64_t*)xmalloc(n * sizeof(int64_t));
   mrg_state st;
-  mrg_seed(&st, 1, 2, 3, 4, 5);
+  uint_fast32_t seed[5] = {1, 2, 3, 4, 5};
+  mrg_seed(&st, seed);
   unsigned long time;
 #pragma mta fence
   time = mta_get_clock(0);
@@ -527,9 +452,10 @@ int main(int argc, char** argv) {
 #if 0
 int main(int argc, char** argv) {
   const int64_t n = 5000000;
-  int64_t* result = (int64_t*)safe_malloc(n * sizeof(int64_t));
+  int64_t* result = (int64_t*)xmalloc(n * sizeof(int64_t));
   mrg_state st;
-  mrg_seed(&st, 1, 2, 3, 4, 5);
+  uint_fast32_t seed[5] = {1, 2, 3, 4, 5};
+  mrg_seed(&st, seed);
   double time;
   time = omp_get_wtime();
   rand_sort_shared(&st, n, result);

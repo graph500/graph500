@@ -10,8 +10,8 @@ all: libgraph_generator_omp.a generator_test_omp
 generator_test_omp: generator_test_omp.c libgraph_generator_omp.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -o generator_test_omp generator_test_omp.c -L. -lgraph_generator_omp -lm
 
-libgraph_generator_omp.a: btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
-	$(AR) cruv libgraph_generator_omp.a btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o
+libgraph_generator_omp.a: btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o utils.o scramble_edges.o
+	$(AR) cruv libgraph_generator_omp.a btrd_binomial_distribution.o splittable_mrg.o mrg_transitions.o graph_generator.o permutation_gen.o make_graph.o utils.o scramble_edges.o
 	$(RANLIB) libgraph_generator_omp.a
 
 clean:

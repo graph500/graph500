@@ -37,15 +37,14 @@ static int generate_nway_bernoulli(const generator_settings* s, mrg_state* st) {
   double random_number;
   int j;
   random_number = mrg_get_double_orig(st);
-  for (j = 0; j < GRAPHGEN_INITIATOR_SIZE2; ++j) {
+  for (j = 0; j + 1 < GRAPHGEN_INITIATOR_SIZE2; ++j) {
     double ini = s->initiator[j];
-    if (random_number < ini || j == GRAPHGEN_INITIATOR_SIZE2 - 1) {
+    if (random_number < ini) {
       return j;
     }
     random_number -= ini;
   }
-  assert (!"Should not get here");
-  return 0; /* Satisfy compiler */
+  return GRAPHGEN_INITIATOR_SIZE2 - 1;
 }
 
 static
@@ -133,14 +132,18 @@ void make_one_edge(int64_t base_src, int64_t base_tgt, int64_t nverts, mrg_state
     alter_params(my_settings, trans, st);
 #endif
   }
+#ifdef GRAPHGEN_KEEP_SELF_LOOPS
+  int is_self_loop_to_skip = 0;
+#else
+  int is_self_loop_to_skip = (base_src == base_tgt);
+#endif
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-  assert (result->multiplicity == 0); /* Slot not used previously */
   result->src = base_src;
   result->tgt = base_tgt;
-  result->multiplicity = 1;
+  result->multiplicity = is_self_loop_to_skip ? 0 : 1;
 #else
-  result[0] = base_src;
-  result[1] = base_tgt;
+  result[0] = is_self_loop_to_skip ? -1 : base_src;
+  result[1] = is_self_loop_to_skip ? -1 : base_tgt;
 #endif
 }
 
@@ -152,10 +155,6 @@ static void generate_kronecker_internal(
   const generator_settings* s,
   int64_t base_src,
   int64_t base_tgt) {
-#if 0
-  if (num_edges >= 10000000 || nverts >= 15000000)
-    fprintf(stderr, "do_one_work_queue_entry(%4zx, %4zx, %2d : %zu)\n", base_src >> 20, base_tgt >> 20, log_nverts, num_edges);
-#endif
   mrg_state state = *orig_state;
   mrg_skip(&state, 0, (base_src + s->total_nverts) / nverts, (base_tgt + s->total_nverts) / nverts);
   int64_t my_first_edge = s->my_first_edge;
@@ -165,30 +164,47 @@ static void generate_kronecker_internal(
 #endif /* GRAPHGEN_UNDIRECTED */
   if (nverts == 1) {
     assert (num_edges != 0);
+#ifdef GRAPHGEN_KEEP_SELF_LOOPS
+    int is_self_loop_to_skip = 0;
+#else
+    int is_self_loop_to_skip = (base_src == base_tgt);
+#endif
     int i;
     for (i = 0; i < num_edges; ++i) {
       /* Write all edges, filling all slots except the first with edges marked
        * as removed duplicates; the complexity of the loop here is to deal with
        * cases of overflows between nodes (i.e., some of the copies of an edge
-       * on one node and some on another). */
+       * on one node and some on another).  Also, if the edge is a self-loop
+       * and those are being removed, write -1 (or a multiplicity of 0) instead
+       * so it will be removed. */
       if (first_edge_index + i >= my_first_edge && first_edge_index + i < my_last_edge) {
 #ifdef GRAPHGEN_DISTRIBUTED_MEMORY
         int64_t write_offset = first_edge_index + i - my_first_edge;
 #else
         int64_t write_offset = first_edge_index + i;
 #endif
+#ifdef GRAPHGEN_KEEP_DUPLICATES
+        int is_duplicate_to_skip = 0;
+#else
+        int is_duplicate_to_skip = (i != 0);
+#endif
 #ifdef GRAPHGEN_KEEP_MULTIPLICITIES
         {
+#ifdef GRAPHGEN_KEEP_DUPLICATES
+          int64_t multiplicity_to_write = 1; /* Write all edges as 1 */
+#else
+          int64_t multiplicity_to_write = num_edges; /* Write first edge as num_edges and rest as 0 */
+#endif
           generated_edge* out_loc = &(s->out[write_offset]);
           out_loc->src = base_src;
           out_loc->tgt = base_tgt;
-          out_loc->multiplicity = (i == 0 ? num_edges : 0);
+          out_loc->multiplicity = ((!is_duplicate_to_skip && !is_self_loop_to_skip) ? multiplicity_to_write : 0);
         }
 #else
         {
           int64_t* out_loc = &(s->out[2 * write_offset]);
-          out_loc[0] = (i == 0 ? base_src : -1);
-          out_loc[1] = (i == 0 ? base_tgt : -1);
+          out_loc[0] = ((!is_duplicate_to_skip && !is_self_loop_to_skip) ? base_src : -1);
+          out_loc[1] = ((!is_duplicate_to_skip && !is_self_loop_to_skip) ? base_tgt : -1);
         }
 #endif
       }
@@ -287,7 +303,7 @@ void generate_kronecker(
   unsigned int i;
   generator_settings settings_data;
 
-  mrg_seed(&state, seed[0], seed[1], seed[2], seed[3], seed[4]);
+  mrg_seed(&state, seed);
 
   for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
     settings_data.initiator[i] = initiator[i];

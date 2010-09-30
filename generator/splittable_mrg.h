@@ -50,7 +50,7 @@ double mrg_get_double_orig(mrg_state* state);
 
 void mrg_init(mrg_transition_matrix* tm, mrg_state* st);
 
-void mrg_seed(mrg_state* st, uint_fast32_t seed1, uint_fast32_t seed2, uint_fast32_t seed3, uint_fast32_t seed4, uint_fast32_t seed5);
+void mrg_seed(mrg_state* st, const uint_fast32_t seed[5]);
 
 /* Split a transition matrix; the result of this function is pre-cached so it
  * does not need to be called for individual splits of the PRNG state. */

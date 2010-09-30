@@ -279,15 +279,16 @@ double mrg_get_double_orig(mrg_state* state) {
 
 void mrg_init(mrg_transition_matrix* tm, mrg_state* st) {
   mrg_make_A(tm);
-  mrg_seed(st, 1, 1, 1, 1, 1);
+  uint_fast32_t seed[5] = {1, 1, 1, 1, 1};
+  mrg_seed(st, seed);
 }
 
-void mrg_seed(mrg_state* st, uint_fast32_t seed1, uint_fast32_t seed2, uint_fast32_t seed3, uint_fast32_t seed4, uint_fast32_t seed5) {
-  st->z1 = seed1;
-  st->z2 = seed2;
-  st->z3 = seed3;
-  st->z4 = seed4;
-  st->z5 = seed5;
+void mrg_seed(mrg_state* st, const uint_fast32_t seed[5]) {
+  st->z1 = seed[0];
+  st->z2 = seed[1];
+  st->z3 = seed[2];
+  st->z4 = seed[3];
+  st->z5 = seed[4];
 }
 
 /* Split a transition matrix; the result of this function is pre-cached so it
