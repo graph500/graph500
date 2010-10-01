@@ -182,38 +182,38 @@ int main(int argc, char** argv) {
       fprintf(stdout, "No results printed for invalid run.\n");
     } else {
       int i;
-      fprintf(stdout, "SCALE:                         %d\n", SCALE);
-      fprintf(stdout, "edgefactor:                    %.2g\n", edgefactor);
-      fprintf(stdout, "NBFS:                          %d\n", num_bfs_roots);
-      fprintf(stdout, "graph_generation:              %g s\n", make_graph_time);
-      fprintf(stdout, "num_mpi_processes:             %d\n", size);
-      fprintf(stdout, "construction_time:             %g s\n", data_struct_time);
+      fprintf(stdout, "SCALE:                          %d\n", SCALE);
+      fprintf(stdout, "edgefactor:                     %.2g\n", edgefactor);
+      fprintf(stdout, "NBFS:                           %d\n", num_bfs_roots);
+      fprintf(stdout, "graph_generation:               %g s\n", make_graph_time);
+      fprintf(stdout, "num_mpi_processes:              %d\n", size);
+      fprintf(stdout, "construction_time:              %g s\n", data_struct_time);
       double stats[s_LAST];
       get_statistics(bfs_times, num_bfs_roots, stats);
-      fprintf(stdout, "min_time:                      %g s\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_time:            %g s\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_time:                   %g s\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_time:            %g s\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_time:                      %g s\n", stats[s_maximum]);
-      fprintf(stdout, "mean_time:                     %g s\n", stats[s_mean]);
-      fprintf(stdout, "stddev_time:                   %g\n", stats[s_std]);
+      fprintf(stdout, "min_time:                       %g s\n", stats[s_minimum]);
+      fprintf(stdout, "firstquartile_time:             %g s\n", stats[s_firstquartile]);
+      fprintf(stdout, "median_time:                    %g s\n", stats[s_median]);
+      fprintf(stdout, "thirdquartile_time:             %g s\n", stats[s_thirdquartile]);
+      fprintf(stdout, "max_time:                       %g s\n", stats[s_maximum]);
+      fprintf(stdout, "mean_time:                      %g s\n", stats[s_mean]);
+      fprintf(stdout, "stddev_time:                    %g\n", stats[s_std]);
       get_statistics(edge_counts, num_bfs_roots, stats);
-      fprintf(stdout, "min_nedge:                     %.11g\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_nedge:           %.11g\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_nedge:                  %.11g\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_nedge:           %.11g\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_nedge:                     %.11g\n", stats[s_maximum]);
-      fprintf(stdout, "mean_nedge:                    %.11g\n", stats[s_mean]);
-      fprintf(stdout, "stddev_nedge:                  %.11g\n", stats[s_std]);
+      fprintf(stdout, "min_nedge:                      %.11g\n", stats[s_minimum]);
+      fprintf(stdout, "firstquartile_nedge:            %.11g\n", stats[s_firstquartile]);
+      fprintf(stdout, "median_nedge:                   %.11g\n", stats[s_median]);
+      fprintf(stdout, "thirdquartile_nedge:            %.11g\n", stats[s_thirdquartile]);
+      fprintf(stdout, "max_nedge:                      %.11g\n", stats[s_maximum]);
+      fprintf(stdout, "mean_nedge:                     %.11g\n", stats[s_mean]);
+      fprintf(stdout, "stddev_nedge:                   %.11g\n", stats[s_std]);
       double* secs_per_edge = (double*)xmalloc(num_bfs_roots * sizeof(double));
       for (i = 0; i < num_bfs_roots; ++i) secs_per_edge[i] = bfs_times[i] / edge_counts[i];
       get_statistics(secs_per_edge, num_bfs_roots, stats);
-      fprintf(stdout, "min_TEPS:                      %g TEPS\n", 1. / stats[s_maximum]);
-      fprintf(stdout, "firstquartile_TEPS:            %g TEPS\n", 1. / stats[s_thirdquartile]);
-      fprintf(stdout, "median_TEPS:                   %g TEPS\n", 1. / stats[s_median]);
-      fprintf(stdout, "thirdquartile_TEPS:            %g TEPS\n", 1. / stats[s_firstquartile]);
-      fprintf(stdout, "max_TEPS:                      %g TEPS\n", 1. / stats[s_minimum]);
-      fprintf(stdout, "harmonic_mean_TEPS:            %g TEPS\n", 1. / stats[s_mean]);
+      fprintf(stdout, "min_TEPS:                       %g TEPS\n", 1. / stats[s_maximum]);
+      fprintf(stdout, "firstquartile_TEPS:             %g TEPS\n", 1. / stats[s_thirdquartile]);
+      fprintf(stdout, "median_TEPS:                    %g TEPS\n", 1. / stats[s_median]);
+      fprintf(stdout, "thirdquartile_TEPS:             %g TEPS\n", 1. / stats[s_firstquartile]);
+      fprintf(stdout, "max_TEPS:                       %g TEPS\n", 1. / stats[s_minimum]);
+      fprintf(stdout, "harmonic_mean_TEPS:             %g TEPS\n", 1. / stats[s_mean]);
       /* Formula from:
        * Title: The Standard Errors of the Geometric and Harmonic Means and
        *        Their Application to Index Numbers
@@ -222,20 +222,20 @@ int main(int argc, char** argv) {
        * Publisher(s): Institute of Mathematical Statistics
        * Stable URL: http://www.jstor.org/stable/2235723
        * (same source as in specification). */
-      fprintf(stdout, "harmonic_stddev_TEPS:          %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
+      fprintf(stdout, "harmonic_stddev_TEPS:           %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
       free(secs_per_edge); secs_per_edge = NULL;
       free(edge_counts); edge_counts = NULL;
       get_statistics(validate_times, num_bfs_roots, stats);
-      fprintf(stdout, "min_validate:                  %g s\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_validate:        %g s\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_validate:               %g s\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_validate:        %g s\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_validate:                  %g s\n", stats[s_maximum]);
-      fprintf(stdout, "mean_validate:                 %g s\n", stats[s_mean]);
-      fprintf(stdout, "stddev_validate:               %g\n", stats[s_std]);
+      fprintf(stdout, "min_validate:                   %g s\n", stats[s_minimum]);
+      fprintf(stdout, "firstquartile_validate:         %g s\n", stats[s_firstquartile]);
+      fprintf(stdout, "median_validate:                %g s\n", stats[s_median]);
+      fprintf(stdout, "thirdquartile_validate:         %g s\n", stats[s_thirdquartile]);
+      fprintf(stdout, "max_validate:                   %g s\n", stats[s_maximum]);
+      fprintf(stdout, "mean_validate:                  %g s\n", stats[s_mean]);
+      fprintf(stdout, "stddev_validate:                %g\n", stats[s_std]);
 #if 0
       for (i = 0; i < num_bfs_roots; ++i) {
-        fprintf(stdout, "Run %3d:                       %g s, validation %g s\n", i + 1, bfs_times[i], validate_times[i]);
+        fprintf(stdout, "Run %3d:                        %g s, validation %g s\n", i + 1, bfs_times[i], validate_times[i]);
       }
 #endif
     }

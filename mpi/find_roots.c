@@ -42,7 +42,14 @@ void find_bfs_roots(int* num_bfs_roots, const csr_graph* const g, const uint64_t
       if (is_duplicate) continue; /* Everyone takes the same path here */
       int root_ok;
       if (VERTEX_OWNER(root) == rank) {
-        root_ok = (g->rowstarts[VERTEX_LOCAL(root)] != g->rowstarts[VERTEX_LOCAL(root) + 1]); /* Degree > 0 */
+        root_ok = 0;
+        size_t ei, ei_end = g->rowstarts[VERTEX_LOCAL(root) + 1];
+        for (ei = g->rowstarts[VERTEX_LOCAL(root)]; ei < ei_end; ++ei) {
+          if (g->column[ei] != root) {
+            root_ok = 1;
+            break;
+          }
+        }
       }
       MPI_Bcast(&root_ok, 1, MPI_INT, VERTEX_OWNER(root), MPI_COMM_WORLD);
       if (root_ok) break;

@@ -342,9 +342,12 @@ void make_graph(int log_numverts, int64_t desired_nedges, uint64_t userseed1, ui
   *result_ptr = new_result;
   *nedges_ptr = nedges_out;
 
-#if 0
-  if (rank == 0) fprintf(stderr, "Graph generation time breakdown:\n* Unpermuted graph generation: %f s\n* Permutation generation:      %f s\n* Permutation application:     %f s\n* Edge scrambling:             %f s\n", gen_time, perm_gen_time, perm_apply_time, edge_scramble_time);
-#endif
+  if (rank == 0) {
+    fprintf(stdout, "unpermuted_graph_generation:    %f s\n", gen_time);
+    fprintf(stdout, "vertex_permutation_generation:  %f s\n", perm_gen_time);
+    fprintf(stdout, "vertex_permutation_application: %f s\n", perm_apply_time);
+    fprintf(stdout, "edge_scrambling:                %f s\n", edge_scramble_time);
+  }
 }
 #endif
 
