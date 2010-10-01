@@ -1,13 +1,13 @@
-﻿<?xml version="1.0" encoding="iso-8859-1"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
                "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
 lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 (“Search”)</title>
-<meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2010-09-30 22:08:06 EDT"/>
+<meta name="generated" content="2010-10-01 12:35:00 EDT"/>
 <meta name="author" content="Graph 500 Steering Committee"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -105,8 +105,8 @@ clouds. This specification is for the first of potentially several
 benchmark problems.
 </p>
 <p>
-Reference: “Introducing the Graph 500,” Richard C. Murphy Kyle
-B. Wheeler Brian W. Barrett, James A. Ang, Cray User’s Group (CUG),
+Reference: “Introducing the Graph 500,” Richard C. Murphy, Kyle
+B. Wheeler, Brian W. Barrett, James A. Ang, Cray User’s Group (CUG),
 May 5, 2010.
 </p>
 
@@ -163,17 +163,17 @@ May 5, 2010.
 
 
 <p>
-Data intensive supercomputer applications are an increasingly
-important workload, but are ill suited for platforms designed for 3D
+Data-intensive supercomputer applications are an increasingly
+important workload, but are ill-suited for platforms designed for 3D
 physics simulations. Application performance cannot be improved
-without a meaningful benchmark. Graphs are a core part of most of
+without a meaningful benchmark. Graphs are a core part of most
 analytics workloads. Backed by a steering committee of 30
 international HPC experts from academia, industry, and national
 laboratories, this specification establishes a large-scale benchmark
-for these applications. It will offer a forum for community and
-provide a rallying point for data intensive supercomputing
+for these applications. It will offer a forum for the community and
+provide a rallying point for data-intensive supercomputing
 problems. This is the first serious approach to augment the Top 500
-with data intensive applications.
+with data-intensive applications.
 </p>
 <p>
 The intent of this benchmark problem (“Search”) is to develop a
@@ -184,7 +184,7 @@ the input tuple list, there is one additional computational
 kernel to operate on the graph.
 </p>
 <p>
-This benchmark includes a scalable data generator that produces edge
+This benchmark includes a scalable data generator which produces edge
 tuples containing the start vertex and end vertex for each
 edge. The first kernel constructs an <i>undirected</i> graph in a format
 usable by all subsequent kernels. No subsequent modifications are
@@ -302,8 +302,8 @@ The intent of the first kernel below is to convert a list with no
 locality into a more optimized form.  The generated list of input
 tuples must not exhibit any locality that can be exploited by the
 computational kernels.  Thus, the vertex numbers must be randomized
-and a random ordering of tuples must be presented to subsequent
-kernels. The data generator may be parallelized, but the vertex names
+and a random ordering of tuples must be presented to kernel 1.
+The data generator may be parallelized, but the vertex names
 must be globally consistent and care must be taken to minimize effects
 of data locality at the processor level.
 </p>
@@ -318,22 +318,23 @@ of data locality at the processor level.
 
 <p>
 The edge tuples will have the form &lt;StartVertex, EndVertex&gt; where
-StartVertex is the one endpoint vertex label and EndVertex is the
-other endpoint vertex label.  The space of labels are integers
+StartVertex is one endpoint vertex label and EndVertex is the
+other endpoint vertex label.  The space of labels is the set of integers
 beginning with <b>zero</b> up to but not including the number of vertices N
 (defined below).  The kernels are not provided the size N explicitly
 but must discover it.
 </p>
 <p>
-The input values required to describe the graph are as follows: 
+The input values required to describe the graph are:
 </p>
 <dl>
 <dt>SCALE</dt><dd>
-The log base two of the number of vertices.
+The logarithm base two of the number of vertices.
 
 </dd>
 <dt>edgefactor</dt><dd>
-The average degree of a vertex in the graph.
+The ratio of the graph's edge count to its vertex count (i.e.,
+half the average degree of a vertex in the graph).
 
 </dd>
 </dl>
@@ -388,23 +389,24 @@ the reference implementation.
 <p>
 The graph generator creates a small number of multiple edges between
 two vertices as well as self-loops. Multiple edges, self-loops, and
-isolated vertices, may be ignored in the subsequent kernels but must
+isolated vertices may be ignored in the subsequent kernels but must
 be included in the edge list provided to the first kernel. The
 algorithm also generates the data tuples with high degrees of
 locality. Thus, as a final step, vertex numbers must be randomly
-permuted, and then edge tuples randomly shuffled.
+permuted, and then the edge tuples randomly shuffled.
 </p>
 <p>
 It is permissible to run the data generator in parallel. In this case,
 it is necessary to ensure that the vertices are named globally, and
-that the generated data does not possess any locality in the local
-and/or global memory system.
+that the generated data does not possess any locality, either in local memory
+or globally across processors.
 </p>
 <p>
-The scalable data generator may be run in conjunction with kernels 1
-through 2, or the data generator may be run separately with the data
-stored to disk.  If stored to disk, the data may be retrieved before
-starting kernel 1. The data generator operations need not be timed.
+The scalable data generator should be run before starting kernel 1, storing its
+results to either RAM or disk.
+If stored to disk, the data may be retrieved before
+starting kernel 1. The data generator and retrieval operations need not be
+timed.
 </p>
 </div>
 
@@ -416,9 +418,9 @@ starting kernel 1. The data generator operations need not be timed.
 
 
 <p>
-The GNU Octave routine in Algorithm <a href="#alg:generator">generator</a> is is an
+The GNU Octave routine in Algorithm <a href="#alg:generator">generator</a> is an
 attractive implementation in that it is embarrassingly parallel and
-does not require the explicit formation the adjacency matrix.
+does not require the explicit formation of the adjacency matrix.
 </p>
 
 
@@ -547,12 +549,12 @@ Hierarchical Memory, Information Processing Letters 67 (1988) pp
 <p>
 The first kernel may transform the edge list to any data structures
 (held in internal or external memory) that are used for the remaining
-kernels. For instance, Kernel 1 may construct a (sparse) graph from a
+kernels. For instance, kernel 1 may construct a (sparse) graph from a
 list of tuples; each tuple contains endpoint vertex identifiers for an
 edge, and a weight that represents data assigned to the edge.
 </p>
 <p>
-XXX: Unsure about this part.  I'd rather permit strutural
+XXX: Unsure about this part.  I'd rather permit structural
 optimizations here so long as they're used for <b>all</b> kernels.
 </p><ul>
 <li>
@@ -565,24 +567,25 @@ kernel 1 (graph construction)/.
 </li>
 </ul>
 
-<p>The graph can be represented in any manner, but it cannot be modified
+<p>The graph may be represented in any manner, but it may not be modified
 by or between subsequent kernels. Space may be reserved in the data
-structure for marking or locking. Only one copy of a kernel will be
+structure for marking or locking.
+Only one copy of a kernel will be
 run at a time; that kernel has exclusive access to any such marking or
-locking space.
+locking space and is permitted to modify that space (only).
 </p>
 <p>
 There are various internal memory representations for sparse graphs,
 including (but not limited to) sparse matrices and (multi-level)
 linked lists. For the purposes of this application, the kernel is
 provided only the edge list and the edge list's size.  Further
-information like the number of vertices must be computed within this
-kernel.  Algorithm <a href="#alg:kernel1">kernel1</a> provides high-level sample
+information such as the number of vertices must be computed within this
+kernel.  Algorithm <a href="#alg:kernel1">kernel1</a> provides a high-level sample
 implementation of kernel 1.
 </p>
 <p>
 The process of constructing the graph data structure (in internal or
-external memory) from the set of tuples will be timed.
+external memory) from the set of tuples must be timed.
 </p>
 
 
@@ -631,7 +634,7 @@ Robert Sedgewick (Program 17.9)
 <p>
 The search keys must be randomly sampled from the vertices in the
 graph.  To avoid trivial searches, sample only from vertices that are
-connected to some other vertex.  Their degree not counting self-loops
+connected to some other vertex.  Their degrees, not counting self-loops,
 must be at least one.  If there are fewer than 64 such vertices, run
 fewer than 64 searches.  This should never occur with the graph sizes
 in this benchmark, but there is a non-zero probability of producing a
@@ -662,14 +665,14 @@ neighbors of its neighbors, etc.  This is a fundamental method on
 which many graph algorithms are based. A formal description of BFS can
 be found in Cormen, Leiserson, and Rivest.  Below, we specify the
 input and output for a BFS benchmark, and we impose some constraints
-on the computation.  However, we do not constrain the choice BFS
-algorithm itself.
+on the computation.  However, we do not constrain the choice of BFS
+algorithm itself, as long as it produces a correct BFS tree as output.
 </p>
 <p>
-This benchmark's memory access pattern (internal or external) is data
-dependent with small average prefetch depth.  As in a simple
+This benchmark's memory access pattern (internal or external) is data-dependent
+with small average prefetch depth.  As in a simple
 concurrent linked-list traversal benchmark, performance reflects an
-architecture's throughput when executing concurrent threads each of
+architecture's throughput when executing concurrent threads, each of
 low memory concurrency and high memory reference density.  Unlike such
 a benchmark, this one also measures resilience to hot-spotting when
 many of the memory references are to the same location; efficiency
@@ -751,8 +754,9 @@ inefficient) high-level implementation of kernel two.
 <p>
 It is not intended that the results of full-scale runs of this
 benchmark can be validated by exact comparison to a standard reference
-result. At full scale, the data set is enormous; and its exact details
-depend on the pseudo-random number generator used. Therefore, the
+result. At full scale, the data set is enormous, and its exact details
+depend on the pseudo-random number generator and BFS algorithm used. Therefore,
+the
 validation of an implementation of the benchmark uses soft checking of
 the results.
 </p>
@@ -762,7 +766,7 @@ algorithms on the largest data sets that will fit on machines being
 evaluated. However, for debugging purposes it may be desirable to run
 on small data sets, and it may be desirable to verify parallel results
 against serial results, or even against results from the executable
-spec.
+specification.
 </p>
 <p>
 The executable specification verifies its results by comparing them
@@ -771,7 +775,7 @@ with results computed directly from the tuple list.
 <p>
 Kernel 2 validation: after each search, run (but do not time) a
 function that ensures that the discovered breadth-first tree is
-correct by ensuring that 
+correct by ensuring that:
 </p>
 <ol>
 <li>
@@ -871,7 +875,7 @@ your algorithm relies on problem-specific data structures (by our
 definition, these are informed by vertex degree), you must include the
 setup time for such structures in <i>each search</i>. The spirit of the
 benchmark is to gauge the performance of a single search.  We run many
-of these in order to compute mean and variance, not to amortize data
+searches in order to compute means and variances, not to amortize data
 structure setup time.
 </p>
 </div>
@@ -889,14 +893,14 @@ implementations across a variety of architectures, programming models,
 and productivity languages and frameworks, we adopt a new performance
 metric described in this section. In the spirit of well-known
 computing rates floating-point operations per second (flops) measured
-by the Linpack benchmark and global updates per second (GUPs) measured
-by the RandomAccess benchmark, we define a new rate called traversed
+by the LINPACK benchmark and global updates per second (GUPs) measured
+by the HPCC RandomAccess benchmark, we define a new rate called traversed
 edges per second (TEPS). We measure TEPS through the benchmarking of
 kernel 2 as follows. Let time<sub>K2</sub>(n) be the measured execution time for
 kernel 2. Let m be the number of input edge tuples within the
 component traversed by the search, counting any multiple edges and
 self-loops. We define the normalized performance rate (number of edge
-traversals per second) as
+traversals per second) as:
 </p>
 
 <div style="text-align: center">
@@ -1129,7 +1133,7 @@ Maximal extensibility
 <div id="postamble">
 <p class="author"> Author: Graph 500 Steering Committee
 </p>
-<p class="date"> Date: 2010-09-30 22:08:06 EDT</p>
+<p class="date"> Date: 2010-10-01 12:35:00 EDT</p>
 <p class="creator">HTML generated by org-mode 7.01trans in emacs 24</p>
 </div>
 </div>
