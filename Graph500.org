@@ -1,4 +1,4 @@
-#+TITLE:     Graph 500 Benchmark 1 (“Search”)
+#+TITLE:     Graph 500 Benchmark 1 ("Search")
 #+AUTHOR:    Graph 500 Steering Committee
 #+EMAIL:     sc@graph500.org
 #+LANGUAGE:  en
@@ -16,6 +16,7 @@ Version History:
  - V0.1 :: Draft, created 28 July 2010
  - V0.2 :: Draft, created 29 September 2010
  - V0.3 :: Draft, created 30 September 2010
+ - V1.0 :: Created 1 October 2010
 
 Version 0.1 of this document was part of the Graph 500 community
 benchmark effort, led by Richard Murphy (Sandia National
@@ -25,7 +26,7 @@ distributed memory clusters, and on external memory map-reduce
 clouds. This specification is for the first of potentially several
 benchmark problems.
 
-Reference: “Introducing the Graph 500,” Richard C. Murphy, Kyle
+Reference: "Introducing the Graph 500," Richard C. Murphy, Kyle
 B. Wheeler, Brian W. Barrett, James A. Ang, Cray User’s Group (CUG),
 May 5, 2010.
 
@@ -43,7 +44,7 @@ provide a rallying point for data-intensive supercomputing
 problems. This is the first serious approach to augment the Top 500
 with data-intensive applications.
 
-The intent of this benchmark problem (“Search”) is to develop a
+The intent of this benchmark problem ("Search") is to develop a
 compact application that has multiple analysis techniques (multiple
 kernels) accessing a single data structure representing a weighted,
 undirected graph. In addition to a kernel to construct the graph from
@@ -242,7 +243,8 @@ The input parameter settings for each class are given in Table \ref{tbl:classes}
 #+LABEL: tbl:classes
 | Problem class     | SCALE | edge factor | Approx. storage size in TB |
 |-------------------+-------+-------------+----------------------------|
-| Toy (level 10)    |    22 |          16 |                     0.0011 |
+| Toy (level 9)     |    22 |          16 |                     0.0011 |
+| Mini (level 10)   |    26 |          16 |                     0.0172 |
 | Small (level 12)  |    32 |          16 |                     1.0995 |
 | Medium (level 13) |    36 |          16 |                    17.5922 |
 | Large (level 14)  |    39 |          16 |                   140.7375 |
@@ -503,7 +505,7 @@ structure setup time.
 
 ** Performance Metric (TEPS)
 
-In order to compare the performance of Graph 500 “Search”
+In order to compare the performance of Graph 500 "Search"
 implementations across a variety of architectures, programming models,
 and productivity languages and frameworks, we adopt a new performance
 metric described in this section. In the spirit of well-known
