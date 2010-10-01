@@ -213,12 +213,13 @@ void apply_permutation_mpi(MPI_Comm comm, const int64_t local_perm_size, const i
         MPI_Irecv(incoming_perm_requests, maxpermsize, INT64_T_MPI_TYPE, src, 0, comm, &incomingreq);
       }
       int dest = (rank + delta) % size;
+      MPI_Request responsereq;
+      int output_offset = 0;
+      int64_t perm_displ_for_dest = perm_displs[dest]; /* First permutation element on dest */
       if (owner_bitmap[dest]) {
         /* Convert the needed_element_bitmap chunk for this destination into an
          * array of individual vertex indices. */
-        int64_t perm_displ_for_dest = perm_displs[dest]; /* First permutation element on dest */
         const unsigned long* bm = needed_element_bitmap + (delta - offset) * needed_element_bitmap_size;
-        int output_offset = 0;
         int64_t block;
         for (block = 0; block < needed_element_bitmap_size; ++block) {
           unsigned long val = bm[block];
@@ -229,35 +230,11 @@ void apply_permutation_mpi(MPI_Comm comm, const int64_t local_perm_size, const i
             outgoing_perm_requests[output_offset++] = perm_displ_for_dest + block * ulong_bits + bit;
           }
         }
-        MPI_Request req;
         /* Do irecv first to allow rsend on destination. */
-        MPI_Irecv(outgoing_perm_replies, output_offset, INT64_T_MPI_TYPE, dest, 1, comm, &req);
+        MPI_Irecv(outgoing_perm_replies, output_offset, INT64_T_MPI_TYPE, dest, 1, comm, &responsereq);
         /* Send the requests, using ssend for flow control (this can be changed
          * if your system has good flow control). */
         MPI_Ssend(outgoing_perm_requests, output_offset, INT64_T_MPI_TYPE, dest, 0, comm);
-        MPI_Wait(&req, MPI_STATUS_IGNORE);
-        /* Distribute the (request, reply) pairs into a large array for easy
-         * random access without searching. */
-        int i;
-        for (i = 0; i < output_offset; ++i) {
-          perm_replies_spread[outgoing_perm_requests[i] - perm_displ_for_dest] = outgoing_perm_replies[i];
-        }
-        /* For those edges that are marked as needing rescanning for this group
-         * of destinations, update any with endpoints that belong to the
-         * current destination. */
-        for (block = 0; block < rescan_bitmap_size; ++block) {
-          unsigned long val = rescan_bitmap[block];
-          if (val == 0) continue;
-          int bit;
-          for (bit = 0; bit < ulong_bits; ++bit) {
-            if (!TEST_BIT_SCALAR(val, bit)) continue;
-            int64_t i = block * ulong_bits + bit;
-            int64_t v = result[i];
-            if (v >= 0 && LOOKUP_PERM_OWNER(v) == dest) {
-              result[i] = perm_replies_spread[v - perm_displ_for_dest] - N - 1;
-            }
-          }
-        }
       }
       if (send_bitmap[src]) {
         /* Wait for and process an incoming request if send_bitmap says there
@@ -273,6 +250,32 @@ void apply_permutation_mpi(MPI_Comm comm, const int64_t local_perm_size, const i
         /* Rsend the reply for performance; note recv being before send in
          * request-sending code above. */
         MPI_Rsend(incoming_perm_replies, count, INT64_T_MPI_TYPE, src, 1, comm);
+      }
+      if (owner_bitmap[dest]) {
+        MPI_Wait(&responsereq, MPI_STATUS_IGNORE);
+        /* Distribute the (request, reply) pairs into a large array for easy
+         * random access without searching. */
+        int i;
+        for (i = 0; i < output_offset; ++i) {
+          perm_replies_spread[outgoing_perm_requests[i] - perm_displ_for_dest] = outgoing_perm_replies[i];
+        }
+        /* For those edges that are marked as needing rescanning for this group
+         * of destinations, update any with endpoints that belong to the
+         * current destination. */
+        int64_t block;
+        for (block = 0; block < rescan_bitmap_size; ++block) {
+          unsigned long val = rescan_bitmap[block];
+          if (val == 0) continue;
+          int bit;
+          for (bit = 0; bit < ulong_bits; ++bit) {
+            if (!TEST_BIT_SCALAR(val, bit)) continue;
+            int64_t i = block * ulong_bits + bit;
+            int64_t v = result[i];
+            if (v >= 0 && LOOKUP_PERM_OWNER(v) == dest) {
+              result[i] = perm_replies_spread[v - perm_displ_for_dest] - N - 1;
+            }
+          }
+        }
       }
     }
 #undef SET_BIT
