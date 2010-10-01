@@ -15,7 +15,7 @@ BIN += omp-csr/omp-csr
 endif
 
 ifeq ($(BUILD_MPI), Yes)
-BIN += mpi/graph500_mpi_simple mpi/graph500_mpi_one_sided
+BIN += mpi/graph500_mpi_simple
 endif
 
 ifeq ($(BUILD_XMT), Yes)
