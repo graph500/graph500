@@ -8,3 +8,4 @@ omp-csr/omp-csr
 *.pl
 xmt-csr/xmt-csr
 xmt-csr-local/xmt-csr-local
+*.gcda
