@@ -112,14 +112,15 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
         for (qelem_idx = 0; qelem_idx < elts_per_queue_bit; ++qelem_idx) {
           size_t v_local = first_v_local + qelem_idx;
           if (v_local >= nlocalverts) continue;
-          ++nvisited_local;
           /* Since the queue is an overapproximation, check the predecessor map
            * to be sure this vertex is grey. */
           if (pred[v_local] >= 0 && pred[v_local] < nglobalverts) {
+            ++nvisited_local;
             size_t ei, ei_end = g->rowstarts[v_local + 1];
             /* Walk the incident edges. */
             for (ei = g->rowstarts[v_local]; ei < ei_end; ++ei) {
               int64_t w = g->column[ei];
+              if (w == VERTEX_TO_GLOBAL(v_local)) continue; /* Self-loop */
               /* Set the predecessor of the other edge endpoint (note use of
                * MPI_MIN and the coding of the predecessor map). */
               MPI_Accumulate(&local_vertices[v_local], 1, INT64_T_MPI_TYPE, VERTEX_OWNER(w), VERTEX_LOCAL(w), 1, INT64_T_MPI_TYPE, MPI_MIN, pred2_win);
