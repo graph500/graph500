@@ -507,10 +507,11 @@ computing rates floating-point operations per second (flops) measured
 by the Linpack benchmark and global updates per second (GUPs) measured
 by the RandomAccess benchmark, we define a new rate called traversed
 edges per second (TEPS). We measure TEPS through the benchmarking of
-kernel 2 as follows. Let time_K2(n) be the measured execution time for kernel
-2. Let m be the number of edge tuples within the input edge list
-graph edges traversed is directly proportional to m. We define the
-normalized performance rate (number of edge traversals per second) as
+kernel 2 as follows. Let time_K2(n) be the measured execution time for
+kernel 2. Let m be the number of input edge tuples within the
+component traversed by the search, counting any multiple edges and
+self-loops. We define the normalized performance rate (number of edge
+traversals per second) as
 
 #+BEGIN_CENTER
 		       TEPS(n) = m / time_K2(n)
@@ -627,17 +628,18 @@ search_key = search_key - 1;
 kernel_2_time = Inf * ones (NBFS, 1);
 kernel_2_nedge = zeros (NBFS, 1);
 
+indeg = histc (ij(:), 1:N); % For computing the number of edges
+
 for k = 1:NBFS,
   tic;
-  [parent, numvisited] = kernel_2 (G, search_key(k));
+  parent = kernel_2 (G, search_key(k));
   kernel_2_time(k) = toc;
-  err = validate (parent, numvisited, ij, search_key (k));
+  err = validate (parent, ij, search_key (k));
   if err <= 0,
     error (sprintf ("BFS %d from search key %d failed to validate: %d",
 		    k, search_key(k), err));
   end
-  slice = parent(parent >= 0) + 1;
-  kernel_2_nedge(k) = nnz (G(slice, slice))/2;
+  kernel_2_nedge(k) = sum (indeg(parent >= 0))/2; % Volume/2
 end
 
 output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);

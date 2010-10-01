@@ -24,6 +24,8 @@ search_key = search_key - 1;
 kernel_2_time = Inf * ones (NBFS, 1);
 kernel_2_nedge = zeros (NBFS, 1);
 
+indeg = histc (ij(:), 1:N); % For computing the number of edges
+
 for k = 1:NBFS,
   tic;
   parent = kernel_2 (G, search_key(k));
@@ -33,8 +35,7 @@ for k = 1:NBFS,
     error (sprintf ("BFS %d from search key %d failed to validate: %d",
 		    k, search_key(k), err));
   end
-  slice = find (parent >= 0);
-  kernel_2_nedge(k) = nnz (G(slice, slice))/2;
+  kernel_2_nedge(k) = sum (indeg(parent >= 0))/2; % Volume/2
 end
 
 output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
