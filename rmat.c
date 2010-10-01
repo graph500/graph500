@@ -154,7 +154,7 @@ randpermute (int64_t *A_in, int64_t nelem, int nper,
 }
 #endif
 
-static void
+void
 permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
 		       mrg_state * restrict st, int64_t * restrict newlabel)
 {
