@@ -25,6 +25,16 @@ Some sample make.inc files are in the make-incs directory.  The
 Makefile relies heavily on implicit rules and is known to work using
 GNU Make.
 
+To build the MPI executables, set BUILD_MPI=Yes in your make.inc, and
+optionally set MPICC if needed.
+
+To build the OpenMP executables, set BUILD_OPENMP=Yes in your
+make.inc, and define CFLAGS_OPENMP appropriately.
+
+For the XMT, ensure the correct modules are loaded and set
+BUILD_XMT=Yes.  This disables all other builds, including the
+sequential versions.
+
 RUNNING INSTRUCTIONS
 
 Options:
