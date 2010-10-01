@@ -180,7 +180,7 @@ xmalloc_large_ext (size_t sz)
 #endif
 
   out = mmap (NULL, sz, PROT_READ|PROT_WRITE,
-	      MAP_PRIVATE|MAP_POPULATE, fd, 0);
+	      MAP_SHARED|MAP_POPULATE, fd, 0);
   if (MAP_FAILED == out || !out) {
     perror ("mmap ext failed");
     goto errout;
