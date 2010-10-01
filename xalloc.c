@@ -20,6 +20,8 @@
 #define MAP_POPULATE 0
 #endif
 
+#if 0
+/* Included in the generator. */
 void *
 xmalloc (size_t sz)
 {
@@ -30,6 +32,7 @@ xmalloc (size_t sz)
   }
   return out;
 }
+#endif
 
 #if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
 #define MAX_LARGE 32

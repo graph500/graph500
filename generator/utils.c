@@ -29,7 +29,6 @@
 #endif
 #include "utils.h"
 
-#if 0
 void* xmalloc(size_t n) {
   void* p = malloc(n);
   if (!p) {
@@ -38,7 +37,6 @@ void* xmalloc(size_t n) {
   }
   return p;
 }
-#endif
 
 void* xcalloc(size_t n, size_t k) {
   void* p = calloc(n, k);

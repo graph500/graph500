@@ -1,3 +1,6 @@
+Graph500 Benchmark: Scalable Kronecker Graph Generator
+Jeremiah Willcock and Andrew Lumsdaine
+
 This directory contains a parallel Kronecker graph generator, as well as a
 random permutation generator and code to apply a distributed permutation to the
 endpoints of the elements of an edge list.  The benefits of this approach are
@@ -21,3 +24,9 @@ top of graph_generator.h; users should not need to modify most of them, except
 for possibly data type sizes.  Developers of the benchmark specification itself
 might benefit from playing around with different initiators and other settings,
 however.
+
+Copyright (C) 2009-2010 The Trustees of Indiana University.
+
+Use, modification and distribution is subject to the Boost Software License,
+Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at
+http://www.boost.org/LICENSE_1_0.txt)
