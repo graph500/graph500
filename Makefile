@@ -14,6 +14,10 @@ ifeq ($(BUILD_OPENMP), Yes)
 BIN += omp-csr/omp-csr
 endif
 
+ifeq ($(BUILD_MPI), Yes)
+BIN += mpi/graph500_mpi_simple mpi/graph500_mpi_one_sided
+endif
+
 ifeq ($(BUILD_XMT), Yes)
 BIN = xmt-csr/xmt-csr xmt-csr-local/xmt-csr-local
 endif
@@ -54,8 +58,12 @@ libgenerator-omp.a: libgenerator-omp.a($(addprefix generator/,$(GENERATOR_OBJS_S
 
 libgenerator-omp.a($(addprefix generator/,$(GENERATOR_OBJS_SEQ))): CPPFLAGS=-DGRAPH_GENERATOR_OMP
 
+mpi/graph500_mpi_simple mpi/graph500_mpi_one_sided:
+	$(MAKE) -C mpi
+
 .PHONY:	clean
 clean:
 	rm -f libgenerator-omp.a libgenerator-seq.a \
 		generator/generator_test_seq generator/generator_test_omp \
 		$(BIN)
+	-$(MAKE) -C mpi clean

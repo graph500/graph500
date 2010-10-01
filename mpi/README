@@ -1,0 +1,36 @@
+Graph500 Benchmark: MPI Reference Implementation
+Jeremiah Willcock and Andrew Lumsdaine
+
+This directory contains an MPI-based reference implementation for the Graph500
+benchmark.  The Makefile will automatically build the supporting code, along
+with two reference implementations of breadth-first search and a skeleton
+version for users to modify.  The Makefile may need to be modified with your
+MPI location and compiler flags.  The generated programs, named graph500_mpi_*,
+take up to two parameters: the scale of the problem and the edge factor.  The
+problem scale is the logarithm, base 2, of the number of vertices in the graph;
+only graphs with power-of-2 vertex counts are supported without source code
+modification.  The edge factor is the ratio of the number of edges to the
+number of vertices; i.e., it is half the average vertex degree in the graph.
+The scale parameter is mandatory; the edge factor is optional and defaults to
+16 (the value specified by the benchmark).  Running any of the graph500_mpi_*
+programs without any arguments will produce a usage message.
+
+The code is written in C; the code compiles with GCC's default gnu89 language
+setting, but should be valid C99 and C++ (except for the use of a few C99
+headers).  The main non-C89 features used are variable declarations after
+statements in a block and the <stdint.h> and <inttypes.h> headers.
+
+A template for writing your own BFS using the reference data structures and
+infrastructure is in bfs_custom.c.  You can either modify that file in place or
+copy it (adjusting the Makefile) to create your own version.  The documentation
+for what data structures are available and how to use them is in comments in
+bfs_custom.c.  The reference implementation also contains code to convert from
+a distributed list of graph edges into a distributed compressed sparse row data
+structure, as well as code for timing the BFS run, validating the correctness
+of the results, and printing the timings in the Graph500-required format.
+
+Copyright (C) 2009-2010 The Trustees of Indiana University.
+
+Use, modification and distribution is subject to the Boost Software License,
+Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at
+http://www.boost.org/LICENSE_1_0.txt)

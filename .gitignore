@@ -9,3 +9,7 @@ omp-csr/omp-csr
 xmt-csr/xmt-csr
 xmt-csr-local/xmt-csr-local
 *.gcda
+mpi/graph500_mpi_custom
+mpi/graph500_mpi_one_sided
+mpi/graph500_mpi_simple
+generator/generator_test_mpi
