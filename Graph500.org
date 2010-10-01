@@ -59,7 +59,7 @@ permitted to benefit specific kernels. The second kernel performs a
 breadth-first search of the graph. Both kernels are timed.
 
 There are five problem classes defined by their input size:
-  - toy :: 10GB or around 10^10 bytes, which we also call level 10,
+  - toy :: 17GB or around 10^10 bytes, which we also call level 10,
   - small :: 1TB (10^12 bytes, level 12),
   - medium :: 17TB (10^13 bytes, level 13),
   - large :: 140TB (10^14 bytes, level 14), and
@@ -243,8 +243,7 @@ The input parameter settings for each class are given in Table \ref{tbl:classes}
 #+LABEL: tbl:classes
 | Problem class     | SCALE | edge factor | Approx. storage size in TB |
 |-------------------+-------+-------------+----------------------------|
-| Toy (level 9)     |    22 |          16 |                     0.0011 |
-| Mini (level 10)   |    26 |          16 |                     0.0172 |
+| Toy (level 10)    |    26 |          16 |                     0.0172 |
 | Small (level 12)  |    32 |          16 |                     1.0995 |
 | Medium (level 13) |    36 |          16 |                    17.5922 |
 | Large (level 14)  |    39 |          16 |                   140.7375 |
