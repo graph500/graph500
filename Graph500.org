@@ -17,6 +17,7 @@ Version History:
  - V0.2 :: Draft, created 29 September 2010
  - V0.3 :: Draft, created 30 September 2010
  - V1.0 :: Created 1 October 2010
+ - V1.1 :: Created 3 October 2010
 
 Version 0.1 of this document was part of the Graph 500 community
 benchmark effort, led by Richard Murphy (Sandia National
@@ -26,9 +27,15 @@ distributed memory clusters, and on external memory map-reduce
 clouds. This specification is for the first of potentially several
 benchmark problems.
 
-Reference: "Introducing the Graph 500," Richard C. Murphy, Kyle
+References: "Introducing the Graph 500," Richard C. Murphy, Kyle
 B. Wheeler, Brian W. Barrett, James A. Ang, Cray User’s Group (CUG),
 May 5, 2010.
+
+"DFS: A Simple to Write Yet Difficult to Execute Benchmark," Richard
+C. Murphy, Jonathan Berry, William McLendon, Bruce Hendrickson,
+Douglas Gregor, Andrew Lumsdaine, IEEE International Symposium on
+Workload Characterizations 2006 (IISWC06), San Jose, CA, 25-27 October
+2006.
 
 * Brief Description of the Graph 500 Benchmark
 
@@ -60,6 +67,7 @@ breadth-first search of the graph. Both kernels are timed.
 
 There are five problem classes defined by their input size:
   - toy :: 17GB or around 10^10 bytes, which we also call level 10,
+  - mini :: 140GB (10^11 bytes, level 11),
   - small :: 1TB (10^12 bytes, level 12),
   - medium :: 17TB (10^13 bytes, level 13),
   - large :: 140TB (10^14 bytes, level 14), and
@@ -244,6 +252,7 @@ The input parameter settings for each class are given in Table \ref{tbl:classes}
 | Problem class     | SCALE | edge factor | Approx. storage size in TB |
 |-------------------+-------+-------------+----------------------------|
 | Toy (level 10)    |    26 |          16 |                     0.0172 |
+| Mini (level 11)   |    29 |          16 |                     0.1374 |
 | Small (level 12)  |    32 |          16 |                     1.0995 |
 | Medium (level 13) |    36 |          16 |                    17.5922 |
 | Large (level 14)  |    39 |          16 |                   140.7375 |
@@ -272,13 +281,13 @@ kernels. For instance, kernel 1 may construct a (sparse) graph from a
 list of tuples; each tuple contains endpoint vertex identifiers for an
 edge, and a weight that represents data assigned to the edge.
 
-XXX: Unsure about this part.  I'd rather permit structural
-optimizations here so long as they're used for *all* kernels.
-  - However, any layout or arrangement computations intended to
-   increase locality, improve load-balance, or reduce hot-spotting
-   must be counted in the benchmark execution time.  Therefore, /no
-   comparison of or binning by vertex degrees is permitted during this
-   kernel 1 (graph construction)/.
+#+ XXX: Unsure about this part.  I'd rather permit structural
+#+ optimizations here so long as they're used for *all* kernels.
+#+   - However, any layout or arrangement computations intended to
+#+    increase locality, improve load-balance, or reduce hot-spotting
+#+    must be counted in the benchmark execution time.  Therefore, /no
+#+    comparison of or binning by vertex degrees is permitted during this
+#+    kernel 1 (graph construction)/.
 
 The graph may be represented in any manner, but it may not be modified
 by or between subsequent kernels. Space may be reserved in the data
