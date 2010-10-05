@@ -41,9 +41,12 @@ kronecker_edgelist (int64_t *IJ_in, int64_t nedge, int64_t SCALE,
   }
 #endif
 
-  permute_vertex_labels (IJ, nedge, nvtx, prng_state, vperm);
+  OMP("omp parallel") {
+    permute_vertex_labels (IJ, nedge, nvtx, prng_state, vperm);
 
-  xfree_large (vperm);
+    OMP("omp barrier");
+    OMP("omp master") xfree_large (vperm);
 
-  permute_edgelist (IJ, nedge, prng_state);
+    permute_edgelist (IJ, nedge, prng_state);
+  }
 }
