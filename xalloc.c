@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <time.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 
@@ -18,6 +19,9 @@
 #endif
 #if !defined(MAP_POPULATE)
 #define MAP_POPULATE 0
+#endif
+#if !defined(MAP_NOSYNC)
+#define MAP_NOSYNC 0
 #endif
 
 #if 0
@@ -178,9 +182,10 @@ xmalloc_large_ext (size_t sz)
     goto errout;
   }
 #endif
+  fcntl (fd, F_SETFD, O_ASYNC);
 
   out = mmap (NULL, sz, PROT_READ|PROT_WRITE,
-	      MAP_SHARED|MAP_POPULATE, fd, 0);
+	      MAP_SHARED|MAP_POPULATE|MAP_NOSYNC, fd, 0);
   if (MAP_FAILED == out || !out) {
     perror ("mmap ext failed");
     goto errout;
