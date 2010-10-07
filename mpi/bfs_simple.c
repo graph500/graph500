@@ -120,8 +120,10 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
     num_ranks_done = 1; /* I never send to myself, so I'm always done */
     
     /* Start the initial receive. */
-    MPI_Irecv(recvbuf, coalescing_size * 2, INT64_T_MPI_TYPE, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvreq);
-    recvreq_active = 1;
+    if (num_ranks_done < size) {
+      MPI_Irecv(recvbuf, coalescing_size * 2, INT64_T_MPI_TYPE, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvreq);
+      recvreq_active = 1;
+    }
 
     /* Step through the current level's queue. */
     size_t i;
@@ -173,7 +175,9 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
       /* Wait until all sends to this destination are done. */
       while (outgoing_reqs_active[dest]) CHECK_MPI_REQS;
       /* Tell the destination that we are done sending to them. */
-      MPI_Send(&outgoing[dest * coalescing_size * 2], 0, INT64_T_MPI_TYPE, dest, 0, MPI_COMM_WORLD); /* Signal no more sends */
+      MPI_Isend(&outgoing[dest * coalescing_size * 2], 0, INT64_T_MPI_TYPE, dest, 0, MPI_COMM_WORLD, &outgoing_reqs[dest]); /* Signal no more sends */
+      outgoing_reqs_active[dest] = 1;
+      while (outgoing_reqs_active[dest]) CHECK_MPI_REQS;
     }
     /* Wait until everyone else is done (and thus couldn't send us any more
      * messages). */
