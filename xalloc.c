@@ -36,6 +36,8 @@ xmalloc (size_t sz)
   }
   return out;
 }
+#else
+extern void *xmalloc (size_t);
 #endif
 
 #if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
