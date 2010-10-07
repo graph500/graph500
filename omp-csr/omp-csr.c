@@ -230,7 +230,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
 
   *max_vtx_out = maxvtx;
 
-  vlist = xmalloc_large (nv * sizeof (vlist));
+  vlist = xmalloc_large (nv * sizeof (*vlist));
   if (!vlist) return -1;
 
   vlist[0] = srcvtx;
