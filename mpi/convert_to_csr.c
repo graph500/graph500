@@ -19,15 +19,15 @@
 
 /* STINGER-like group of edges, forming a linked list of pages. */
 typedef struct edge_page {
-  int64_t targets[16]; /* Unused elements filled with -1 */
+  int64_t targets[16];
   struct edge_page* next; /* NULL if no more */
+  int nfilled; /* Number of targets filled */
 } edge_page;
 
 static inline edge_page* new_edge_page(void) {
   edge_page* ep = (edge_page*)xmalloc(sizeof(edge_page));
-  int i;
   ep->next = NULL;
-  for (i = 0; i < 16; ++i) ep->targets[i] = -1;
+  ep->nfilled = 0;
   return ep;
 }
 
@@ -58,25 +58,15 @@ static void grow_adj_list(adjacency_list* al, size_t min_nvertices) {
 
 static void add_adj_list_edge(adjacency_list* al, size_t src, int64_t tgt) {
   grow_adj_list(al, src + 1);
-  edge_page** p = al->data + src;
-  /* Each page is filled before we allocate another one, so we only need to
-   * check the last one in the chain. */
-  while (*p && (*p)->next) {p = &((*p)->next);}
-  if (*p) {
-    assert (!(*p)->next);
-    int i;
-    for (i = 0; i < 16; ++i) {
-      if ((*p)->targets[i] == -1) {
-        (*p)->targets[i] = tgt;
-        return;
-      }
-    }
-    p = &((*p)->next);
-    assert (!*p);
+  edge_page* p = al->data[src];
+  /* New edge pages are pushed onto the front of the chain. */
+  if (!p || p->nfilled == 16) {
+    edge_page* np = new_edge_page();
+    np->next = p;
+    np->nfilled = 0;
+    al->data[src] = p = np;
   }
-  assert (!*p);
-  *p = new_edge_page();
-  (*p)->targets[0] = tgt;
+  p->targets[p->nfilled++] = tgt;
 }
 
 static void clear_adj_list(adjacency_list* al) {
@@ -249,11 +239,9 @@ void convert_graph_to_csr(const int64_t nedges, const int64_t* const edges, csr_
     size_t deg = 0;
     edge_page* p;
     for (p = adj_list.data[i]; p; p = p->next) {
-      for (j = 0; j < 16; ++j) {
-        if (p->targets[j] != -1) {
-          ++deg;
-          if (p->targets[j] >= nverts_known) nverts_known = p->targets[j] + 1;
-        }
+      for (j = 0; j < p->nfilled; ++j) {
+        ++deg;
+        if (p->targets[j] >= nverts_known) nverts_known = p->targets[j] + 1;
       }
     }
     degrees[i] = deg;
@@ -283,12 +271,10 @@ void convert_graph_to_csr(const int64_t nedges, const int64_t* const edges, csr_
   for (i = 0; i < nlocalverts; ++i) {
     edge_page* p;
     int offset = 0;
-    for (p = adj_list.data[i]; p; p = p->next, offset += 16) {
-      size_t deg = (i >= nlocalverts_orig ? 0 : degrees[i]);
-      size_t nelts = (deg - offset > 16) ? 16 : deg - offset;
+    for (p = adj_list.data[i]; p; offset += p->nfilled, p = p->next) {
       memcpy(column + rowstarts[i] + offset,
              p->targets,
-             nelts * sizeof(int64_t));
+             p->nfilled * sizeof(int64_t));
     }
   }
   free(degrees); degrees = NULL;
