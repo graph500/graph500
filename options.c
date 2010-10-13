@@ -6,8 +6,13 @@
 #include <stdlib.h>
 #include <errno.h>
 
+/* getopt should be in unistd.h */
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#else
 #if !defined(__MTA__)
 #include <getopt.h>
+#endif
 #endif
 
 #include "graph500.h"
