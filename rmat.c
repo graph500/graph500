@@ -11,6 +11,10 @@
 
 #include <assert.h>
 
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#endif
+
 #include "xalloc.h"
 #include "prng.h"
 #include "generator/splittable_mrg.h"
