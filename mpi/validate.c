@@ -211,7 +211,8 @@ int validate_bfs_result(const csr_graph* const g, const int64_t root, const int6
      * one. */
     {
       int64_t maxlocaledges = 0;
-      MPI_Allreduce((void*)&nlocaledges, &maxlocaledges, 1, INT64_T_MPI_TYPE, MPI_MAX, MPI_COMM_WORLD);
+      maxlocaledges = nlocaledges;
+      MPI_Allreduce(MPI_IN_PLACE, &maxlocaledges, 1, INT64_T_MPI_TYPE, MPI_MAX, MPI_COMM_WORLD);
       /* We break the total list of overall edges into chunks to reduce the
        * amount of data to be sent at a time (since we are using MPI_Alltoallv
        * to send data collectively). */

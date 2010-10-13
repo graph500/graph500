@@ -184,8 +184,8 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
     while (num_ranks_done < size) CHECK_MPI_REQS;
 
     /* Test globally if all queues are empty. */
-    int64_t global_newq_count;
-    MPI_Allreduce(&newq_count, &global_newq_count, 1, INT64_T_MPI_TYPE, MPI_SUM, MPI_COMM_WORLD);
+    int64_t global_newq_count=newq_count;
+    MPI_Allreduce(MPI_IN_PLACE, &global_newq_count, 1, INT64_T_MPI_TYPE, MPI_SUM, MPI_COMM_WORLD);
 
     /* Quit if they all are empty. */
     if (global_newq_count == 0) break;
