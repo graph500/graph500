@@ -31,7 +31,12 @@ extern "C" {
 /* #define MODIFY_PARAMS_AT_EACH_LEVEL */
 #endif
 
+/* MPI_INT64_T is part of MPI 2.2 */
+#ifdef HAVE_MPI_INT64_T
+#define INT64_T_MPI_TYPE MPI_INT64_T
+#else
 #define INT64_T_MPI_TYPE MPI_LONG_LONG /* Should be MPI_INT64_T */
+#endif
 
 /* End of user settings ----------------------------------- */
 
