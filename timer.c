@@ -14,6 +14,9 @@
 long tic_ts;
 #elif defined(__MacOSX__)
 static AbsoluteTime tic_ts;
+#elif defined(HAVE_MACH_ABSOLUTE_TIME)
+#include <mach/mach_time.h>
+static uint64_t tic_ts;
 #else
 #if defined(CLOCK_MONOTONIC)
 #define TICTOC_CLOCK CLOCK_MONOTONIC
@@ -34,8 +37,8 @@ tic (void)
 #if defined(__MTA__)
   MTA("mta fence")
   tic_ts = mta_get_clock (0);
-#elif defined(__MacOSX__)
-  tic_ts = UpTime ();
+#elif defined(HAVE_MACH_ABSOLUTE_TIME)
+  tic_ts = mach_absolute_time();  
 #else
   clock_gettime (TICTOC_CLOCK, &tic_ts);
 #endif
@@ -51,10 +54,15 @@ toc (void)
   ts = mta_get_clock (tic_ts);
   out = ((double)ts) * mta_clock_period ();
   /*fprintf (stderr, "%ld %g %g %g\n", ts, out, mta_clock_period(), mta_clock_freq());*/
-#elif defined(__MacOSX__)
-  AbsoluteTime ts;
-  ts = UpTime ();
-  out = 1.0e-9 * AbsoluteDeltaToNanoseconds (ts, tic_ts);
+#elif defined(HAVE_MACH_ABSOLUTE_TIME)
+  uint64_t ts, nanosec;
+  static mach_timebase_info_data_t info = {0,0};
+  if (info.denom == 0) {
+    mach_timebase_info(&info);
+  }
+  ts = mach_absolute_time();
+  nanosec = (ts - tic_ts) * (info.numer / info.denom);
+  out = 1.0e-9 * nanosec;
 #else
   struct timespec ts;
   clock_gettime (TICTOC_CLOCK, &ts);
