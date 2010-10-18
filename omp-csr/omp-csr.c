@@ -166,7 +166,7 @@ static void
 pack_vtx_edges (const int64_t i)
 {
   int64_t kcur, k;
-  if (XOFF(i)+1 <= XENDOFF(i)) return;
+  if (XOFF(i)+1 >= XENDOFF(i)) return;
   qsort (&xadj[XOFF(i)], XENDOFF(i)-XOFF(i), sizeof(*xadj), i64cmp);
   kcur = XOFF(i);
   for (k = XOFF(i)+1; k < XENDOFF(i); ++k)

@@ -115,7 +115,7 @@ pack_edges (void)
   MTA("mta assert parallel") MTA("mta use 100 streams")
     for (v = 0; v < nv; ++v) {
       int64_t kcur, k;
-      if (XOFF(v)+1 > XENDOFF(v)) {
+      if (XOFF(v)+1 < XENDOFF(v)) {
 	qsort (&xadj[XOFF(v)], XENDOFF(v)-XOFF(v), sizeof(*xadj), i64cmp);
 	kcur = XOFF(v);
 	MTA("mta loop serial")
