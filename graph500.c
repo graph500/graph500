@@ -11,13 +11,12 @@
 #include <assert.h>
 
 #include <alloca.h> /* Portable enough... */
+#include <fcntl.h>
 /* getopt should be in unistd.h */
-#if HAVE_UNISTD_H
 #include <unistd.h>
-#else
+
 #if !defined(__MTA__)
 #include <getopt.h>
-#endif
 #endif
 
 #include "graph500.h"
@@ -74,26 +73,31 @@ main (int argc, char **argv)
 
   IJ = xmalloc_large_ext (2 * nedge * sizeof (*IJ));
 
-  if (VERBOSE) fprintf (stderr, "Generating edge list...");
-  if (use_RMAT)
-    TIME(generation_time, rmat_edgelist (IJ, nedge, SCALE, A, B, C));
-  else
-    TIME(generation_time, kronecker_edgelist (IJ, nedge, SCALE, A, B, C));
-  if (VERBOSE) fprintf (stderr, " done.\n");
-
-  if (getenv ("DUMPGRAPH")) {
-    int k;
-    FILE *g = fopen (getenv ("DUMPGRAPH"), "w");
-    if (g) {
-      fprintf (g, "%" PRId64 "\n", nedge);
-      for (k = 0; k < 2*nedge; k+=2) {
-	const int64_t i = IJ[k];
-	const int64_t j = IJ[k+1];
-	fprintf (g, "%" PRId64 " %" PRId64 "\n", i, j);
-      }
-      fclose (g);
-    } else
-      fprintf (stderr, "Failed to open \"%s\" for dumping.\n", getenv ("DUMPGRAPH"));
+  /*
+    If running the benchmark under an architecture simulator, replace
+    the following if () {} else {} with a statement pointing IJ
+    to wherever the edge list is mapped into the simulator's memory.
+  */
+  if (!dumpname) {
+    if (VERBOSE) fprintf (stderr, "Generating edge list...");
+    if (use_RMAT)
+      TIME(generation_time, rmat_edgelist (IJ, nedge, SCALE, A, B, C));
+    else
+      TIME(generation_time, kronecker_edgelist (IJ, nedge, SCALE, A, B, C));
+    if (VERBOSE) fprintf (stderr, " done.\n");
+  } else {
+    int fd;
+    ssize_t sz;
+    if ((fd = open (dumpname, O_RDONLY)) < 0) {
+      perror ("Cannot open input graph file");
+      return EXIT_FAILURE;
+    }
+    sz = 2 * nedge * sizeof (*IJ);
+    if (sz != read (fd, IJ, sz)) {
+      perror ("Error reading input graph file");
+      return EXIT_FAILURE;
+    }
+    close (fd);
   }
 
   run_bfs ();
@@ -122,40 +126,60 @@ run_bfs (void)
     exit (EXIT_FAILURE);
   }
 
-  has_adj = xmalloc_large (nvtx_scale * sizeof (*has_adj));
-  OMP("omp parallel") {
-    OMP("omp for")
-      for (k = 0; k < nvtx_scale; ++k)
-        has_adj[k] = 0;
-    MTA("mta assert nodep") OMP("omp for")
-      for (k = 0; k < 2*nedge; k+=2) {
-        const int64_t i = IJ[k];
-        const int64_t j = IJ[k+1];
-        if (i != j)
-          has_adj[i] = has_adj[j] = 1;
-      }
-  }
+  /*
+    If running the benchmark under an architecture simulator, replace
+    the following if () {} else {} with a statement pointing bfs_root
+    to wherever the BFS roots are mapped into the simulator's memory.
+  */
+  if (!rootname) {
+    has_adj = xmalloc_large (nvtx_scale * sizeof (*has_adj));
+    OMP("omp parallel") {
+      OMP("omp for")
+	for (k = 0; k < nvtx_scale; ++k)
+	  has_adj[k] = 0;
+      MTA("mta assert nodep") OMP("omp for")
+	for (k = 0; k < 2*nedge; k+=2) {
+	  const int64_t i = IJ[k];
+	  const int64_t j = IJ[k+1];
+	  if (i != j)
+	    has_adj[i] = has_adj[j] = 1;
+	}
+    }
 
-  /* Sample from {0, ..., nvtx_scale-1} without replacement. */
-  m = 0;
-  t = 0;
-  while (m < NBFS && t < nvtx_scale) {
-    double R = mrg_get_double_orig (prng_state);
-    if (!has_adj[t] || (nvtx_scale - t)*R > NBFS - m) ++t;
-    else bfs_root[m++] = t++;
-  }
-  if (t >= nvtx_scale && m < NBFS) {
-    if (m > 0) {
-      fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
-	       NBFS, m);
-      NBFS = m;
-    } else {
-      fprintf (stderr, "Cannot find any sample roots of non-self degree > 0.\n");
+    /* Sample from {0, ..., nvtx_scale-1} without replacement. */
+    m = 0;
+    t = 0;
+    while (m < NBFS && t < nvtx_scale) {
+      double R = mrg_get_double_orig (prng_state);
+      if (!has_adj[t] || (nvtx_scale - t)*R > NBFS - m) ++t;
+      else bfs_root[m++] = t++;
+    }
+    if (t >= nvtx_scale && m < NBFS) {
+      if (m > 0) {
+	fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
+		 NBFS, m);
+	NBFS = m;
+      } else {
+	fprintf (stderr, "Cannot find any sample roots of non-self degree > 0.\n");
+	exit (EXIT_FAILURE);
+      }
+    }
+
+    xfree_large (has_adj);
+  } else {
+    int fd;
+    ssize_t sz;
+    if ((fd = open (rootname, O_RDONLY)) < 0) {
+      perror ("Cannot open input BFS root file");
       exit (EXIT_FAILURE);
     }
+    sz = NBFS * sizeof (*bfs_root);
+    if (sz != read (fd, bfs_root, sz)) {
+      perror ("Error reading input BFS root file");
+      exit (EXIT_FAILURE);
+    }
+    close (fd);
   }
-
-  xfree_large (has_adj);
 
   for (k = 0; k < NBFS; ++k) {
     int64_t *bfs_tree, max_bfsvtx;

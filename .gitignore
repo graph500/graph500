@@ -13,3 +13,5 @@ mpi/graph500_mpi_custom
 mpi/graph500_mpi_one_sided
 mpi/graph500_mpi_simple
 generator/generator_test_mpi
+*.bin
+make-edgelist

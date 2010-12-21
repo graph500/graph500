@@ -8,7 +8,10 @@ include make.inc
 GRAPH500_SOURCES=graph500.c options.c rmat.c kronecker.c verify.c prng.c \
 	xalloc.c timer.c 
 
-BIN=seq-list/seq-list seq-csr/seq-csr
+MAKE_EDGELIST_SOURCES=make-edgelist.c options.c rmat.c kronecker.c prng.c \
+	xalloc.c timer.c 
+
+BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist
 
 ifeq ($(BUILD_OPENMP), Yes)
 BIN += omp-csr/omp-csr
@@ -28,6 +31,10 @@ GENERATOR_OBJS_SEQ=btrd_binomial_distribution.o splittable_mrg.o	\
 
 .PHONY: all
 all: $(BIN)
+
+make-edgelist: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+make-edgelist:	make-edgelist.c options.c rmat.c kronecker.c prng.c \
+	xalloc.c timer.c libgenerator-omp.a
 
 seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) libgenerator-seq.a
 seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) libgenerator-seq.a

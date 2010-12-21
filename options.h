@@ -6,6 +6,8 @@
 
 extern int VERBOSE;
 extern int use_RMAT;
+extern char *dumpname;
+extern char *rootname;
 
 #define A_PARAM 0.57
 #define B_PARAM 0.19

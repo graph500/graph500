@@ -51,6 +51,12 @@ Options:
         at most 1.  Otherwise, the parameters are added and normalized
         so that the sum is 1.
   V   : Enable extra (Verbose) output
+  o   : Read the edge list from (or dump to) the named file
+  r   : Read the BFS roots from (or dump to) the named file
+
+The -o and -r options to the graph500 executable read the data from
+binary files that must already match in byte order.  The make-edgelist
+executable generates these files given the same options.
 
 Outputs take the form of "key: value", with keys:
   SCALE

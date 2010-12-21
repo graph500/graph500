@@ -4,6 +4,7 @@
 #include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 
 /* getopt should be in unistd.h */
@@ -20,6 +21,9 @@
 
 int VERBOSE = 0;
 int use_RMAT = 0;
+
+char *dumpname = NULL;
+char *rootname = NULL;
 
 double A = A_PARAM;
 double B = B_PARAM;
@@ -44,7 +48,7 @@ get_options (int argc, char **argv) {
   if (getenv ("VERBOSE"))
     VERBOSE = 1;
 
-  while ((c = getopt (argc, argv, "v?hRs:e:A:a:B:b:C:c:D:d:V")) != -1)
+  while ((c = getopt (argc, argv, "v?hRs:e:A:a:B:b:C:c:D:d:Vo:r:")) != -1)
     switch (c) {
     case 'v':
       printf ("%s version %d\n", NAME, VERSION);
@@ -66,6 +70,8 @@ get_options (int argc, char **argv) {
 	      "        at most 1.  Otherwise, the parameters are added and normalized\n"
 	      "        so that the sum is 1.\n"
 	      "  V   : Enable extra (Verbose) output\n"
+	      "  o   : Read the edge list from (or dump to) the named file\n"
+	      "  r   : Read the BFS roots from (or dump to) the named file\n"
 	      "\n"
 	      "Outputs take the form of \"key: value\", with keys:\n"
 	      "  SCALE\n"
@@ -98,11 +104,25 @@ get_options (int argc, char **argv) {
 	      );
       exit (EXIT_SUCCESS);
       break;
-   case 'V':
+    case 'V':
       VERBOSE = 1;
       break;
     case 'R':
       use_RMAT = 1;
+      break;
+    case 'o':
+      dumpname = strdup (optarg);
+      if (!dumpname) {
+	fprintf (stderr, "Cannot copy dump file name.\n");
+	err = 1;
+      }
+      break;
+    case 'r':
+      rootname = strdup (optarg);
+      if (!rootname) {
+	fprintf (stderr, "Cannot copy BFS root file name.\n");
+	err = 1;
+      }
       break;
     case 's':
       errno = 0;
