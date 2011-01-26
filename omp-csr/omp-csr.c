@@ -111,8 +111,12 @@ setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
     OMP("omp for")
       for (k = 0; k < 2*nedge; k+=2)
 	if (IJ[k] != IJ[k+1]) { /* Skip self-edges. */
-	  if (IJ[k] >= 0) OMP("omp atomic") ++XOFF(IJ[k]);
-	  if (IJ[k+1] >= 0) OMP("omp atomic") ++XOFF(IJ[k+1]);
+	  if (IJ[k] >= 0)
+	    OMP("omp atomic")
+	      ++XOFF(IJ[k]);
+	  if (IJ[k+1] >= 0)
+	    OMP("omp atomic")
+	      ++XOFF(IJ[k+1]);
 	}
     OMP("omp single") {
       buf = alloca (omp_get_num_threads () * sizeof (*buf));
@@ -321,8 +325,9 @@ int64_cas(int64_t* p, int64_t oldval, int64_t newval)
 int64_t
 int64_fetch_add (int64_t* p, int64_t incr)
 {
+  int64_t t;
   OMP("omp critical") {
-    int64_t t = *p;
+    t = *p;
     *p += incr;
   }
   OMP("omp flush (p)");
