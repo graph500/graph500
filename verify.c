@@ -112,7 +112,8 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
       for (k = 0; k < nv; ++k)
 	seen_edge[k] = 0;
 
-    OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
+    OMP("omp for reduction(+:nedge_traversed)")
+    MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < 2*nedge; k+=2) {
 	const int64_t i = IJ[k];
 	const int64_t j = IJ[k+1];
