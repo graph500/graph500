@@ -103,7 +103,7 @@ main (int argc, char **argv)
 
     /* Sample from {0, ..., nvtx_scale-1} without replacement. */
     {
-      int64_t m = 0;
+      int m = 0;
       int64_t t = 0;
       while (m < NBFS && t < nvtx_scale) {
 	double R = mrg_get_double_orig (prng_state);

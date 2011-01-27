@@ -116,7 +116,6 @@ run_bfs (void)
   int * restrict has_adj;
   int m, err;
   int64_t k, t;
-  double R[2*NBFS];
 
   if (VERBOSE) fprintf (stderr, "Creating graph...");
   TIME(construction_time, err = create_graph_from_edgelist (IJ, nedge));
@@ -181,15 +180,15 @@ run_bfs (void)
     close (fd);
   }
 
-  for (k = 0; k < NBFS; ++k) {
+  for (m = 0; m < NBFS; ++m) {
     int64_t *bfs_tree, max_bfsvtx;
 
     /* Re-allocate. Some systems may randomize the addres... */
     bfs_tree = xmalloc_large (nvtx_scale * sizeof (*bfs_tree));
-    assert (bfs_root[k] < nvtx_scale);
+    assert (bfs_root[m] < nvtx_scale);
 
-    if (VERBOSE) fprintf (stderr, "Running bfs %d...", k);
-    TIME(bfs_time[k], err = make_bfs_tree (bfs_tree, &max_bfsvtx, bfs_root[k]));
+    if (VERBOSE) fprintf (stderr, "Running bfs %d...", m);
+    TIME(bfs_time[m], err = make_bfs_tree (bfs_tree, &max_bfsvtx, bfs_root[m]));
     if (VERBOSE) fprintf (stderr, "done\n");
 
     if (err) {
@@ -197,12 +196,12 @@ run_bfs (void)
       abort ();
     }
 
-    if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", k);
-    bfs_nedge[k] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[k], IJ, nedge);
+    if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
+    bfs_nedge[m] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[m], IJ, nedge);
     if (VERBOSE) fprintf (stderr, "done\n");
-    if (bfs_nedge[k] < 0) {
+    if (bfs_nedge[m] < 0) {
       fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
-	       k, bfs_root[k], bfs_nedge[k]);
+	       m, bfs_root[m], bfs_nedge[m]);
       abort ();
     }
 

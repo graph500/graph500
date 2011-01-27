@@ -16,10 +16,8 @@ kronecker_edgelist (int64_t *IJ_in, int64_t nedge, int64_t SCALE,
 		    double A, double B, double C)
 {
   const int64_t nvtx = 1L<<SCALE;
-  mrg_state state;
   int64_t * restrict IJ = IJ_in;
   int64_t * restrict vperm = NULL;
-  int64_t k;
   double D;
 
   D = 1.0 - (A+B+C);

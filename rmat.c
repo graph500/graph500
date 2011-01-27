@@ -95,7 +95,6 @@ randpermute (int64_t *A_in, int64_t nelem, int nper,
     for (k = 0; k < nelem; ++k) {
       int k2;
       int64_t place;
-      double Rk, Rplace;
       int64_t Ak, Aplace;
 
       Ak = take_i64 (&A[k*nper]);
