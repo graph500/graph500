@@ -62,7 +62,7 @@ main (int argc, char **argv)
   if (argc > 1)
     get_options (argc, argv);
 
-  nvtx_scale = 1L<<SCALE;
+  nvtx_scale = ((int64_t)1)<<SCALE;
 
   init_random ();
 
@@ -114,8 +114,8 @@ void
 run_bfs (void)
 {
   int * restrict has_adj;
-  int k, m, err;
-  int64_t t;
+  int m, err;
+  int64_t k, t;
   double R[2*NBFS];
 
   if (VERBOSE) fprintf (stderr, "Creating graph...");
