@@ -7,9 +7,6 @@
 /*  Authors: Jeremiah Willcock                                             */
 /*           Andrew Lumsdaine                                              */
 
-#define GRAPHGEN_DISTRIBUTED_MEMORY
-#define GRAPH_GENERATOR_MPI
-
 /* These need to be before any possible inclusions of stdint.h or inttypes.h.
  * */
 #ifndef __STDC_LIMIT_MACROS
@@ -20,6 +17,7 @@
 #endif
 
 #include "../generator/make_graph.h"
+#include "../generator/utils.h"
 #include "common.h"
 #include <math.h>
 #include <mpi.h>
@@ -73,43 +71,95 @@ int main(int argc, char** argv) {
 
   /* Parse arguments. */
   int SCALE = 16;
-  double edgefactor = 16.; /* nedges / nvertices, i.e., 2*avg. degree */
+  int edgefactor = 16; /* nedges / nvertices, i.e., 2*avg. degree */
   if (argc >= 2) SCALE = atoi(argv[1]);
-  if (argc >= 3) edgefactor = atof(argv[2]);
+  if (argc >= 3) edgefactor = atoi(argv[2]);
   if (argc <= 1 || argc >= 4 || SCALE == 0 || edgefactor == 0) {
     if (rank == 0) {
-      fprintf(stderr, "Usage: %s SCALE edgefactor\n  SCALE = log_2(# vertices) [integer, required]\n  edgefactor = (# edges) / (# vertices) = .5 * (average vertex degree) [float, defaults to 16]\n(Random number seed and Kronecker initiator are in main.c)\n", argv[0]);
+      fprintf(stderr, "Usage: %s SCALE edgefactor\n  SCALE = log_2(# vertices) [integer, required]\n  edgefactor = (# edges) / (# vertices) = .5 * (average vertex degree) [integer, defaults to 16]\n(Random number seed and Kronecker initiator are in main.c)\n", argv[0]);
     }
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
   uint64_t seed1 = 2, seed2 = 3;
-  const double initiator[4] = {.57, .19, .19, .05};
 
-  int64_t nedges;
-  int64_t* edges;
+  const char* filename = getenv("TMPFILE");
+  /* If filename is NULL, store data in memory */
+
+  tuple_graph tg;
+  tg.nglobaledges = (int64_t)(edgefactor) << SCALE;
+
+  if (filename != NULL) {
+    MPI_File_set_errhandler(MPI_FILE_NULL, MPI_ERRORS_ARE_FATAL);
+    MPI_File_open(MPI_COMM_WORLD, (char*)filename, MPI_MODE_RDWR | MPI_MODE_CREATE | MPI_MODE_EXCL | MPI_MODE_DELETE_ON_CLOSE | MPI_MODE_UNIQUE_OPEN, MPI_INFO_NULL, &tg.edgefile);
+    MPI_File_set_size(tg.edgefile, tg.nglobaledges * sizeof(packed_edge));
+    MPI_File_set_view(tg.edgefile, 0, packed_edge_mpi_type, packed_edge_mpi_type, "native", MPI_INFO_NULL);
+    MPI_File_set_atomicity(tg.edgefile, 0);
+  }
 
   /* Make the raw graph edges. */
   double make_graph_start = MPI_Wtime();
-  make_graph(SCALE, (int64_t)(edgefactor * pow(2., SCALE)), seed1, seed2, initiator,
-             &nedges, &edges);
+  {
+    /* Spread the two 64-bit numbers into five nonzero values in the correct
+     * range. */
+    uint_fast32_t seed[5];
+    make_mrg_seed(seed1, seed2, seed);
+
+    if (filename != NULL) {
+      tg.data_in_file = 1;
+      MPI_Offset nchunks_in_file = (tg.nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE;
+      MPI_Offset block_limit = DIV_SIZE(nchunks_in_file + size - 1);
+      MPI_Offset block_idx;
+      packed_edge* buf = xmalloc(FILE_CHUNKSIZE * sizeof(packed_edge));
+      for (block_idx = 0; block_idx < block_limit; ++block_idx) {
+        MPI_Offset start_edge_index = FILE_CHUNKSIZE * (MUL_SIZE(block_idx) + rank);
+        if (start_edge_index > tg.nglobaledges) start_edge_index = tg.nglobaledges;
+        MPI_Offset edge_count = tg.nglobaledges - start_edge_index;
+        if (edge_count > FILE_CHUNKSIZE) edge_count = FILE_CHUNKSIZE;
+        generate_kronecker_range(seed, SCALE, start_edge_index, start_edge_index + edge_count, buf);
+        MPI_File_write_at_all(tg.edgefile, start_edge_index, buf, edge_count, packed_edge_mpi_type, MPI_STATUS_IGNORE);
+      }
+      free(buf);
+      MPI_File_sync(tg.edgefile);
+      tg.edgememory_size = 0;
+      tg.edgememory = NULL;
+    } else {
+      tg.data_in_file = 0;
+      int64_t start_idx = rank * DIV_SIZE(tg.nglobaledges) + (rank < MOD_SIZE(tg.nglobaledges) ? rank : MOD_SIZE(tg.nglobaledges));
+      int64_t end_idx = (rank + 1) * DIV_SIZE(tg.nglobaledges) + (rank + 1 < MOD_SIZE(tg.nglobaledges) ? rank + 1 : MOD_SIZE(tg.nglobaledges));
+      int64_t nedges = end_idx - start_idx;
+      tg.edgememory_size = nedges;
+      tg.edgememory = (packed_edge*)xmalloc(nedges * sizeof(packed_edge));
+      generate_kronecker_range(seed, SCALE, start_idx, end_idx, tg.edgememory);
+    }
+  }
   double make_graph_stop = MPI_Wtime();
   double make_graph_time = make_graph_stop - make_graph_start;
+  if (rank == 0) { /* Not an official part of the results */
+    fprintf(stderr, "graph_generation:               %f s\n", make_graph_time);
+  }
 
-  /* CSR graph data structure. */
-  csr_graph g;
+  /* Get roots for BFS runs, plus maximum vertex with non-zero degree (used by
+   * validator). */
+  // int num_bfs_roots = 64;
+  int num_bfs_roots = 16;
+  int64_t* bfs_roots = (int64_t*)xmalloc(num_bfs_roots * sizeof(int64_t));
+  int64_t max_used_vertex = 0;
+  double find_roots_start = MPI_Wtime();
+  find_bfs_roots(&num_bfs_roots, (INT64_C(1) << SCALE), &tg, seed1, seed2, bfs_roots, &max_used_vertex);
+  double find_roots_stop = MPI_Wtime();
+  double find_roots_time = find_roots_stop - find_roots_start;
+  if (rank == 0) { /* Not an official part of the results */
+    fprintf(stderr, "find_roots:                     %f s\n", find_roots_time);
+  }
 
-  /* Make CSR data structure, redistributing data using VERTEX_OWNER
-   * distribution. */
+  /* Make user's graph data structure. */
   double data_struct_start = MPI_Wtime();
-  convert_graph_to_csr(nedges, edges, &g);
+  make_graph_data_structure(&tg);
   double data_struct_stop = MPI_Wtime();
   double data_struct_time = data_struct_stop - data_struct_start;
-  free(edges); edges = NULL;
-
-  /* Get roots for BFS runs. */
-  int num_bfs_roots = 64;
-  int64_t* bfs_roots = (int64_t*)xmalloc(num_bfs_roots * sizeof(int64_t));
-  find_bfs_roots(&num_bfs_roots, &g, seed1, seed2, bfs_roots);
+  if (rank == 0) { /* Not an official part of the results */
+    fprintf(stderr, "construction_time:              %f s\n", data_struct_time);
+  }
 
   /* Number of edges visited in each BFS; a double so get_statistics can be
    * used directly. */
@@ -119,7 +169,8 @@ int main(int argc, char** argv) {
   int validation_passed = 1;
   double* bfs_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
   double* validate_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
-  int64_t* pred = (int64_t*)xMPI_Alloc_mem(g.nlocalverts * sizeof(int64_t));
+  uint64_t nlocalverts = get_nlocalverts_for_pred();
+  int64_t* pred = (int64_t*)xMPI_Alloc_mem(nlocalverts * sizeof(int64_t));
 
   int bfs_root_idx;
   for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
@@ -128,53 +179,43 @@ int main(int argc, char** argv) {
     if (rank == 0) fprintf(stderr, "Running BFS %d\n", bfs_root_idx);
 
     /* Clear the pred array. */
-    memset(pred, 0, g.nlocalverts * sizeof(int64_t));
+    memset(pred, 0, nlocalverts * sizeof(int64_t));
 
     /* Do the actual BFS. */
     double bfs_start = MPI_Wtime();
-    int64_t nvisited = 0;
-    run_mpi_bfs(&g, root, &pred[0], &nvisited);
+    run_bfs(root, &pred[0]);
     double bfs_stop = MPI_Wtime();
     bfs_times[bfs_root_idx] = bfs_stop - bfs_start;
+    if (rank == 0) fprintf(stderr, "Time for BFS %d is %f\n", bfs_root_idx, bfs_times[bfs_root_idx]);
 
     /* Validate result. */
     if (rank == 0) fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);
 
     double validate_start = MPI_Wtime();
-    int validation_passed_one = validate_bfs_result(&g, root, pred, nvisited);
+    int64_t edge_visit_count;
+    int validation_passed_one = validate_bfs_result(&tg, max_used_vertex + 1, nlocalverts, root, pred, &edge_visit_count);
     double validate_stop = MPI_Wtime();
     validate_times[bfs_root_idx] = validate_stop - validate_start;
+    if (rank == 0) fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);
+    edge_counts[bfs_root_idx] = (double)edge_visit_count;
+    if (rank == 0) fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);
 
     if (!validation_passed_one) {
       validation_passed = 0;
       if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
       break;
     }
-
-    /* Calculate number of input edges visited. */
-    {
-      int64_t edge_visit_count = 0;
-      size_t v_local;
-      for (v_local = 0; v_local < g.nlocalverts; ++v_local) {
-        if (pred[v_local] != -1) {
-          size_t ei, ei_end = g.rowstarts[v_local + 1];
-          for (ei = g.rowstarts[v_local]; ei < ei_end; ++ei) {
-            /* Test here is so that each input edge is counted exactly once, even
-             * though non-self-loops are duplicated in the CSR data structure. */
-            if (g.column[ei] <= VERTEX_TO_GLOBAL(v_local)) {
-              ++edge_visit_count;
-            }
-          }
-        }
-      }
-      MPI_Allreduce(MPI_IN_PLACE, &edge_visit_count, 1, INT64_T_MPI_TYPE, MPI_SUM, MPI_COMM_WORLD);
-      edge_counts[bfs_root_idx] = (double)edge_visit_count;
-    }
   }
 
   MPI_Free_mem(pred);
   free(bfs_roots);
-  free_csr_graph(&g);
+  free_graph_data_structure();
+
+  if (tg.data_in_file) {
+    MPI_File_close(&tg.edgefile);
+  } else {
+    free(tg.edgememory); tg.edgememory = NULL;
+  }
 
   /* Print results. */
   if (rank == 0) {
@@ -183,19 +224,19 @@ int main(int argc, char** argv) {
     } else {
       int i;
       fprintf(stdout, "SCALE:                          %d\n", SCALE);
-      fprintf(stdout, "edgefactor:                     %.2g\n", edgefactor);
+      fprintf(stdout, "edgefactor:                     %d\n", edgefactor);
       fprintf(stdout, "NBFS:                           %d\n", num_bfs_roots);
-      fprintf(stdout, "graph_generation:               %g s\n", make_graph_time);
+      fprintf(stdout, "graph_generation:               %g\n", make_graph_time);
       fprintf(stdout, "num_mpi_processes:              %d\n", size);
-      fprintf(stdout, "construction_time:              %g s\n", data_struct_time);
+      fprintf(stdout, "construction_time:              %g\n", data_struct_time);
       double stats[s_LAST];
       get_statistics(bfs_times, num_bfs_roots, stats);
-      fprintf(stdout, "min_time:                       %g s\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_time:             %g s\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_time:                    %g s\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_time:             %g s\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_time:                       %g s\n", stats[s_maximum]);
-      fprintf(stdout, "mean_time:                      %g s\n", stats[s_mean]);
+      fprintf(stdout, "min_time:                       %g\n", stats[s_minimum]);
+      fprintf(stdout, "firstquartile_time:             %g\n", stats[s_firstquartile]);
+      fprintf(stdout, "median_time:                    %g\n", stats[s_median]);
+      fprintf(stdout, "thirdquartile_time:             %g\n", stats[s_thirdquartile]);
+      fprintf(stdout, "max_time:                       %g\n", stats[s_maximum]);
+      fprintf(stdout, "mean_time:                      %g\n", stats[s_mean]);
       fprintf(stdout, "stddev_time:                    %g\n", stats[s_std]);
       get_statistics(edge_counts, num_bfs_roots, stats);
       fprintf(stdout, "min_nedge:                      %.11g\n", stats[s_minimum]);
@@ -208,12 +249,12 @@ int main(int argc, char** argv) {
       double* secs_per_edge = (double*)xmalloc(num_bfs_roots * sizeof(double));
       for (i = 0; i < num_bfs_roots; ++i) secs_per_edge[i] = bfs_times[i] / edge_counts[i];
       get_statistics(secs_per_edge, num_bfs_roots, stats);
-      fprintf(stdout, "min_TEPS:                       %g TEPS\n", 1. / stats[s_maximum]);
-      fprintf(stdout, "firstquartile_TEPS:             %g TEPS\n", 1. / stats[s_thirdquartile]);
-      fprintf(stdout, "median_TEPS:                    %g TEPS\n", 1. / stats[s_median]);
-      fprintf(stdout, "thirdquartile_TEPS:             %g TEPS\n", 1. / stats[s_firstquartile]);
-      fprintf(stdout, "max_TEPS:                       %g TEPS\n", 1. / stats[s_minimum]);
-      fprintf(stdout, "harmonic_mean_TEPS:             %g TEPS\n", 1. / stats[s_mean]);
+      fprintf(stdout, "min_TEPS:                       %g\n", 1. / stats[s_maximum]);
+      fprintf(stdout, "firstquartile_TEPS:             %g\n", 1. / stats[s_thirdquartile]);
+      fprintf(stdout, "median_TEPS:                    %g\n", 1. / stats[s_median]);
+      fprintf(stdout, "thirdquartile_TEPS:             %g\n", 1. / stats[s_firstquartile]);
+      fprintf(stdout, "max_TEPS:                       %g\n", 1. / stats[s_minimum]);
+      fprintf(stdout, "harmonic_mean_TEPS:             %g\n", 1. / stats[s_mean]);
       /* Formula from:
        * Title: The Standard Errors of the Geometric and Harmonic Means and
        *        Their Application to Index Numbers
@@ -226,12 +267,12 @@ int main(int argc, char** argv) {
       free(secs_per_edge); secs_per_edge = NULL;
       free(edge_counts); edge_counts = NULL;
       get_statistics(validate_times, num_bfs_roots, stats);
-      fprintf(stdout, "min_validate:                   %g s\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_validate:         %g s\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_validate:                %g s\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_validate:         %g s\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_validate:                   %g s\n", stats[s_maximum]);
-      fprintf(stdout, "mean_validate:                  %g s\n", stats[s_mean]);
+      fprintf(stdout, "min_validate:                   %g\n", stats[s_minimum]);
+      fprintf(stdout, "firstquartile_validate:         %g\n", stats[s_firstquartile]);
+      fprintf(stdout, "median_validate:                %g\n", stats[s_median]);
+      fprintf(stdout, "thirdquartile_validate:         %g\n", stats[s_thirdquartile]);
+      fprintf(stdout, "max_validate:                   %g\n", stats[s_maximum]);
+      fprintf(stdout, "mean_validate:                  %g\n", stats[s_mean]);
       fprintf(stdout, "stddev_validate:                %g\n", stats[s_std]);
 #if 0
       for (i = 0; i < num_bfs_roots; ++i) {
@@ -243,6 +284,7 @@ int main(int argc, char** argv) {
   free(bfs_times);
   free(validate_times);
 
+  cleanup_globals();
   MPI_Finalize();
   return 0;
 }

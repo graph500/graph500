@@ -10,6 +10,7 @@
 #ifndef GRAPH_GENERATOR_H
 #define GRAPH_GENERATOR_H
 
+#include "user_settings.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,91 +24,59 @@
 extern "C" {
 #endif
 
-/* Settings for user modification ----------------------------------- */
+#ifdef GENERATOR_USE_PACKED_EDGE_TYPE
 
-#ifndef MODIFY_PARAMS_AT_EACH_LEVEL
-/* Add noise into each subblock's Kronecker parameters (as is done in SSCA #2,
- * but here the same mutation is used for all edges within a block) */
-/* #define MODIFY_PARAMS_AT_EACH_LEVEL */
-#endif
+typedef struct packed_edge {
+  uint32_t v0_low;
+  uint32_t v1_low;
+  uint32_t high; /* v1 in high half, v0 in low half */
+} packed_edge;
 
-/* MPI_INT64_T is part of MPI 2.2 */
-#ifdef HAVE_MPI_INT64_T
-#define INT64_T_MPI_TYPE MPI_INT64_T
+static inline int64_t get_v0_from_edge(const packed_edge* p) {
+  return (p->v0_low | ((int64_t)((int16_t)(p->high & 0xFFFF)) << 32));
+}
+
+static inline int64_t get_v1_from_edge(const packed_edge* p) {
+  return (p->v1_low | ((int64_t)((int16_t)(p->high >> 16)) << 32));
+}
+
+static inline void write_edge(packed_edge* p, int64_t v0, int64_t v1) {
+  p->v0_low = (uint32_t)v0;
+  p->v1_low = (uint32_t)v1;
+  p->high = ((v0 >> 32) & 0xFFFF) | (((v1 >> 32) & 0xFFFF) << 16);
+}
+
 #else
-#define INT64_T_MPI_TYPE MPI_LONG_LONG /* Should be MPI_INT64_T */
+
+typedef struct packed_edge {
+  int64_t v0;
+  int64_t v1;
+} packed_edge;
+
+static inline int64_t get_v0_from_edge(const packed_edge* p) {
+  return p->v0;
+}
+
+static inline int64_t get_v1_from_edge(const packed_edge* p) {
+  return p->v1;
+}
+
+static inline void write_edge(packed_edge* p, int64_t v0, int64_t v1) {
+  p->v0 = v0;
+  p->v1 = v1;
+}
+
 #endif
 
-/* End of user settings ----------------------------------- */
-
-/* Graph generator #define settings -- set with benchmark configuration, but
- * should not be changed by individual runners of the benchmark (other than
- * GRAPHGEN_DISTRIBUTED_MEMORY). */
-
-#ifndef GRAPHGEN_SETTINGS_DEFINED
-#define GRAPHGEN_SETTINGS_DEFINED
-
-/* Define if output array is local to each rank (and the output array pointer
- * points to the beginning of the local part) instead of being global (i.e.,
- * having the output array pointer pointing to the same place on all ranks); in
- * either case, the output array is still broken into independent pieces). */
-/* #define GRAPHGEN_DISTRIBUTED_MEMORY -- Set this in your Makefile */
-
-/* Define if Kronecker parameters should be modified within each sub-block of
- * the adjacency matrix (like SSCA #2 does). */
-/* #define GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL */
-
-/* Size of Kronecker initiator matrix. */
-#define GRAPHGEN_INITIATOR_SIZE 2
-
-/* Define to clip edges to one half of adjacency matrix to create undirected
- * graphs. */
-#define GRAPHGEN_UNDIRECTED
-
-/* Define to return graph edges in a struct that contains multiplicities,
- * rather than just as an array of endpoints with duplicates and self-loops
- * removed. */
-/* #define GRAPHGEN_KEEP_MULTIPLICITIES */
-
-/* Define to keep self-loops in output array rather than marking them as unused
- * slots. */
-#define GRAPHGEN_KEEP_SELF_LOOPS
-
-/* Define to keep duplicate edges in output array rather than marking them as
- * unused slots. */
-#define GRAPHGEN_KEEP_DUPLICATES
-
-#endif /* GRAPHGEN_SETTINGS_DEFINED */
-
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-typedef struct generated_edge {
-  int64_t src;
-  int64_t tgt;
-  int64_t multiplicity;
-} generated_edge;
-#endif
-
-int64_t compute_edge_array_size(
-       int rank, int size,
-       int64_t M);
-
-void generate_kronecker(
-       int rank, int size,
+/* Generate a range of edges (from start_edge to end_edge of the total graph),
+ * writing into elements [0, end_edge - start_edge) of the edges array.  This
+ * code is parallel on OpenMP and XMT; it must be used with
+ * separately-implemented SPMD parallelism for MPI. */
+void generate_kronecker_range(
        const uint_fast32_t seed[5] /* All values in [0, 2^31 - 1) */,
-       int logN /* In base initiator_size */,
-       int64_t M,
-       const double initiator[ /* initiator_size * initiator_size */ ],
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-       generated_edge* const edges /* Size >= compute_edge_array_size(rank,
-       size, M), must be zero-initialized; points to beginning of local chunk
-       when output_array_is_local is 1 and beginning of global array when
-       output_array_is_local is 0 */
-#else
-       int64_t* const edges /* Size >= 2 * compute_edge_array_size(rank, size,
-       M); two endpoints per edge (= -1 when slot is unused); points to
-       beginning of local chunk when output_array_is_local is 1 and beginning
-       of global array when output_array_is_local is 0 */
-#endif
+       int logN /* In base 2 */,
+       int64_t start_edge, int64_t end_edge /* Indices (in [0, M)) for the edges to generate */,
+       packed_edge* edges /* Size >= end_edge - start_edge */
 );
 
 #ifdef __cplusplus

@@ -11,6 +11,7 @@
 #define MAKE_GRAPH_H
 
 #include <stdint.h>
+#include "graph_generator.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,18 +21,16 @@ extern "C" {
  * platforms. */
 void make_graph(
   /* in */ int log_numverts          /* log_2 of vertex count */,
-  /* in */ int64_t desired_nedges    /* Target number of edges (actual number
-                                      * will be slightly smaller) */,
+  /* in */ int64_t desired_nedges    /* Target number of edges */,
   /* in */ uint64_t userseed1        /* Arbitrary 64-bit seed value */,
   /* in */ uint64_t userseed2        /* Arbitrary 64-bit seed value */,
-  /* in */ const double initiator[4] /* Kronecker initiator (i.e., R-MAT a, b,
-                                      * c, d) */,
   /* out */ int64_t* nedges          /* Number of generated edges */,
-  /* out */ int64_t** result         /* Array of edges (each pair of elements
-                                      * is a single edge); pairs with first
-                                      * element -1 should be ignored;
-                                      * allocated by make_graph() but must be
-                                      * freed using free() by user */
+  /* out */ packed_edge** result     /* Array of edges; allocated by
+                                        make_graph() but must be freed using
+                                        free() by user */
+  /* See functions in graph_generator.h for the definition of and how to
+   * manipulate packed_edge objects (functions are write_edge,
+   * get_v0_from_edge, get_v1_from_edge). */
 );
 
 /* PRNG interface for implementations; takes seed in same format as given by

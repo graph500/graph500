@@ -30,19 +30,18 @@ int main(int argc, char* argv[]) {
   int log_numverts;
   double start, time_taken;
   int64_t nedges;
-  int64_t* result;
+  packed_edge* result;
 
-  log_numverts = 16; /* In base GRAPHGEN_INITIATOR_SIZE */
+  log_numverts = 16; /* In base 2 */
   if (argc >= 2) log_numverts = atoi(argv[1]);
 
   /* Start of graph generation timing */
   start = get_time();
-  double initiator[] = {.57, .19, .19, .05};
-  make_graph(log_numverts, 8. * pow(2., log_numverts), 1, 2, initiator, &nedges, &result);
+  make_graph(log_numverts, INT64_C(16) << log_numverts, 1, 2, &nedges, &result);
   time_taken = get_time() - start;
   /* End of graph generation timing */
 
-  fprintf(stderr, "%" PRIu64 " edge%s generated and permuted in %fs (%f Medges/s)\n", nedges, (nedges == 1 ? "" : "s"), time_taken, 1. * nedges / time_taken * 1.e-6);
+  fprintf(stderr, "%" PRIu64 " edge%s generated in %fs (%f Medges/s)\n", nedges, (nedges == 1 ? "" : "s"), time_taken, 1. * nedges / time_taken * 1.e-6);
 
   free(result);
 

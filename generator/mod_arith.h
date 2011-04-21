@@ -10,17 +10,14 @@
 #ifndef MOD_ARITH_H
 #define MOD_ARITH_H
 
+#include "user_settings.h"
+
 /* Various modular arithmetic operations for modulus 2^31-1 (0x7FFFFFFF).
  * These may need to be tweaked to get acceptable performance on some platforms
  * (especially ones without conditional moves). */
 
 /* This code is now just a dispatcher that chooses the right header file to use
  * per-platform. */
-
-/* FIXME: fill this in automatically */
-#ifndef FAST_64BIT_ARITHMETIC
-#define FAST_64BIT_ARITHMETIC
-#endif
 
 #ifdef __MTA__
 #include "mod_arith_xmt.h"

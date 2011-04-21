@@ -7,23 +7,17 @@
 /*  Authors: Jeremiah Willcock                                             */
 /*           Andrew Lumsdaine                                              */
 
-#ifndef BTRD_BINOMIAL_H
-#define BTRD_BINOMIAL_H
+#ifndef USER_SETTINGS_H
+#define USER_SETTINGS_H
 
-/* BTRD algorithm from pages 6--7 of "The Generation of Binomial Random */
-/* Variates" (Wolfgang Hoermann) --                                     */
-/* http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.47.8407      */
+/* Settings for user modification ----------------------------------- */
 
-#include <math.h>
-#include <stddef.h>
-#include "splittable_mrg.h"
+/* #define GENERATOR_USE_PACKED_EDGE_TYPE -- 48 bits per edge */
+#undef GENERATOR_USE_PACKED_EDGE_TYPE /* 64 bits per edge */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-size_t btrd_binomial_distribution(size_t n, double p, mrg_state* state);
-#ifdef __cplusplus
-}
-#endif
+#define FAST_64BIT_ARITHMETIC /* Use 64-bit arithmetic when possible. */
+/* #undef FAST_64BIT_ARITHMETIC -- Assume 64-bit arithmetic is slower than 32-bit. */
 
-#endif /* BTRD_BINOMIAL_H */
+/* End of user settings ----------------------------------- */
+
+#endif /* USER_SETTINGS_H */

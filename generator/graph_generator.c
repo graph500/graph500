@@ -16,105 +16,127 @@
 #endif
 #include <inttypes.h>
 
+#include "user_settings.h"
 #include "splittable_mrg.h"
-#include "btrd_binomial_distribution.h"
 #include "graph_generator.h"
 
-#define GRAPHGEN_INITIATOR_SIZE2 (GRAPHGEN_INITIATOR_SIZE * GRAPHGEN_INITIATOR_SIZE)
+/* Initiator settings: for faster random number generation, the initiator
+ * probabilities are defined as fractions (a = INITIATOR_A_NUMERATOR /
+ * INITIATOR_DENOMINATOR, b = c = INITIATOR_BC_NUMERATOR /
+ * INITIATOR_DENOMINATOR, d = 1 - a - b - c. */
+#define INITIATOR_A_NUMERATOR 5700
+#define INITIATOR_BC_NUMERATOR 1900
+#define INITIATOR_DENOMINATOR 10000
 
-typedef struct generator_settings { /* Internal settings */
-  double initiator[GRAPHGEN_INITIATOR_SIZE2];
-  int64_t my_first_edge, my_last_edge;
-  int64_t total_nverts;
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-  generated_edge* out; /* Start of local (when GRAPHGEN_DISTRIBUTED_MEMORY is defined) or global (when GRAPHGEN_DISTRIBUTED_MEMORY is undefined) output edge list */
-#else
-  int64_t* out; /* Start of local (when GRAPHGEN_DISTRIBUTED_MEMORY is defined) or global (when GRAPHGEN_DISTRIBUTED_MEMORY is undefined) output edge list */
-#endif
-} generator_settings;
+/* If this macro is defined to a non-zero value, use SPK_NOISE_LEVEL /
+ * INITIATOR_DENOMINATOR as the noise parameter to use in introducing noise
+ * into the graph parameters.  The approach used is from "A Hitchhiker's Guide
+ * to Choosing Parameters of Stochastic Kronecker Graphs" by C. Seshadhri, Ali
+ * Pinar, and Tamara G. Kolda (http://arxiv.org/abs/1102.5046v1), except that
+ * the adjustment here is chosen based on the current level being processed
+ * rather than being chosen randomly. */
+#define SPK_NOISE_LEVEL 0
+/* #define SPK_NOISE_LEVEL 1000 -- in INITIATOR_DENOMINATOR units */
 
-static int generate_nway_bernoulli(const generator_settings* s, mrg_state* st) {
-  double random_number;
-  int j;
-  random_number = mrg_get_double_orig(st);
-  for (j = 0; j + 1 < GRAPHGEN_INITIATOR_SIZE2; ++j) {
-    double ini = s->initiator[j];
-    if (random_number < ini) {
-      return j;
-    }
-    random_number -= ini;
+static int generate_4way_bernoulli(mrg_state* st, int level, int nlevels) {
+  /* Generator a pseudorandom number in the range [0, INITIATOR_DENOMINATOR)
+   * without modulo bias. */
+  static const uint32_t limit = (UINT32_C(0xFFFFFFFF) % INITIATOR_DENOMINATOR);
+  uint32_t val = mrg_get_uint_orig(st);
+  if (/* Unlikely */ val < limit) {
+    do {
+      val = mrg_get_uint_orig(st);
+    } while (val < limit);
   }
-  return GRAPHGEN_INITIATOR_SIZE2 - 1;
+#if SPK_NOISE_LEVEL == 0
+  int spk_noise_factor = 0;
+#else
+  int spk_noise_factor = 2 * SPK_NOISE_LEVEL * level / nlevels - SPK_NOISE_LEVEL;
+#endif
+  int adjusted_bc_numerator = INITIATOR_BC_NUMERATOR + spk_noise_factor;
+  val %= INITIATOR_DENOMINATOR;
+  if (val < adjusted_bc_numerator) return 1;
+  val -= adjusted_bc_numerator;
+  if (val < adjusted_bc_numerator) return 2;
+  val -= adjusted_bc_numerator;
+#if SPK_NOISE_LEVEL == 0
+  if (val < INITIATOR_A_NUMERATOR) return 0;
+#else
+  if (val < INITIATOR_A_NUMERATOR * (INITIATOR_DENOMINATOR - 2 * INITIATOR_BC_NUMERATOR) / (INITIATOR_DENOMINATOR - 2 * adjusted_bc_numerator)) return 0;
+#endif
+  return 3;
 }
 
+/* Reverse bits in a number; this should be optimized for performance
+ * (including using bit- or byte-reverse intrinsics if your platform has them).
+ * */
+static inline uint64_t bitreverse(uint64_t x) {
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#define USE_GCC_BYTESWAP /* __builtin_bswap* are in 4.3 but not 4.2 */
+#endif
+
+#ifdef FAST_64BIT_ARITHMETIC
+
+  /* 64-bit code */
+#ifdef USE_GCC_BYTESWAP
+  x = __builtin_bswap64(x);
+#else
+  x = (x >> 32) | (x << 32);
+  x = ((x >> 16) & UINT64_C(0x0000FFFF0000FFFF)) | ((x & UINT64_C(0x0000FFFF0000FFFF)) << 16);
+  x = ((x >>  8) & UINT64_C(0x00FF00FF00FF00FF)) | ((x & UINT64_C(0x00FF00FF00FF00FF)) <<  8);
+#endif
+  x = ((x >>  4) & UINT64_C(0x0F0F0F0F0F0F0F0F)) | ((x & UINT64_C(0x0F0F0F0F0F0F0F0F)) <<  4);
+  x = ((x >>  2) & UINT64_C(0x3333333333333333)) | ((x & UINT64_C(0x3333333333333333)) <<  2);
+  x = ((x >>  1) & UINT64_C(0x5555555555555555)) | ((x & UINT64_C(0x5555555555555555)) <<  1);
+  return x;
+
+#else
+
+  /* 32-bit code */
+  uint32_t h = (uint32_t)(x >> 32);
+  uint32_t l = (uint32_t)(x & UINT32_MAX);
+#ifdef USE_GCC_BYTESWAP
+  h = __builtin_bswap32(h);
+  l = __builtin_bswap32(l);
+#else
+  h = (h >> 16) | (h << 16);
+  l = (l >> 16) | (l << 16);
+  h = ((h >> 8) & UINT32_C(0x00FF00FF)) | ((h & UINT32_C(0x00FF00FF)) << 8);
+  l = ((l >> 8) & UINT32_C(0x00FF00FF)) | ((l & UINT32_C(0x00FF00FF)) << 8);
+#endif
+  h = ((h >> 4) & UINT32_C(0x0F0F0F0F)) | ((h & UINT32_C(0x0F0F0F0F)) << 4);
+  l = ((l >> 4) & UINT32_C(0x0F0F0F0F)) | ((l & UINT32_C(0x0F0F0F0F)) << 4);
+  h = ((h >> 2) & UINT32_C(0x33333333)) | ((h & UINT32_C(0x33333333)) << 2);
+  l = ((l >> 2) & UINT32_C(0x33333333)) | ((l & UINT32_C(0x33333333)) << 2);
+  h = ((h >> 1) & UINT32_C(0x55555555)) | ((h & UINT32_C(0x55555555)) << 1);
+  l = ((l >> 1) & UINT32_C(0x55555555)) | ((l & UINT32_C(0x55555555)) << 1);
+  return ((uint64_t)l << 32) | h; /* Swap halves */
+
+#endif
+}
+
+/* Apply a permutation to scramble vertex numbers; a randomly generated
+ * permutation is not used because applying it at scale is too expensive. */
+static inline int64_t scramble(int64_t v0, int lgN, uint64_t val0, uint64_t val1) {
+  uint64_t v = (uint64_t)v0;
+  v += val0 + val1;
+  v *= (val0 | UINT64_C(0x4519840211493211));
+  v = (bitreverse(v) >> (64 - lgN));
+  assert ((v >> lgN) == 0);
+  v *= (val1 | UINT64_C(0x3050852102C843A5));
+  v = (bitreverse(v) >> (64 - lgN));
+  assert ((v >> lgN) == 0);
+  return (int64_t)v;
+}
+
+/* Make a single graph edge using a pre-set MRG state. */
 static
-void make_square_counts(int64_t num_edges, mrg_state* st, const generator_settings* s, int64_t* square_counts) {
-  /* fprintf(stderr, "make_square_counts %zu with (%lf, %lf, %lf, %lf)\n", num_edges, a, b, c, d); */
-  if (num_edges <= 20) {
-    int i;
-    int64_t ii;
-    for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
-      square_counts[i] = 0;
-    }
-    for (ii = 0; ii < num_edges; ++ii) {
-      /* ++square_counts[generate_nway_bernoulli(s, st)]; -- replaced by code below */
-      int j;
-      double random_number = mrg_get_double_orig(st);
-      for (j = 0; j < GRAPHGEN_INITIATOR_SIZE2; ++j) {
-        double ini = s->initiator[j];
-        if (random_number < ini || j == GRAPHGEN_INITIATOR_SIZE2 - 1) {
-          ++square_counts[j];
-          break;
-        }
-        random_number -= ini;
-      }
-    }
-  } else {
-    int64_t num_edges_left = num_edges;
-    double divisor = 1.;
-    int i;
-    for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2 - 1; ++i) {
-      square_counts[i] = btrd_binomial_distribution(num_edges_left, s->initiator[i] / divisor, st);
-      num_edges_left -= square_counts[i];
-      divisor -= s->initiator[i];
-    }
-    square_counts[GRAPHGEN_INITIATOR_SIZE2 - 1] = num_edges_left;
-  }
-  /* fprintf(stderr, "--> (%zu, %zu, %zu, %zu)\n", square_counts[0], square_counts[1], square_counts[2], square_counts[3]); */
-}
-
-#ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
-static void alter_params(generator_settings* s, const mrg_transition_matrix* trans, mrg_state* st) {
-  double divisor = 0.;
-  for (int i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
-    s->initiator[i] *= .95 + .1 * mrg_get_double(trans, st);
-    divisor += s->initiator[i];
-  }
-  for (int i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
-    s->initiator[i] /= divisor;
-  }
-}
-#endif
-
-static
-void make_one_edge(int64_t base_src, int64_t base_tgt, int64_t nverts, mrg_state* st, const generator_settings* s,
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-                   generated_edge* result
-#else
-                   int64_t* result
-#endif
-                   ) {
-#ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
-  generator_settings my_settings_data = s;
-  const generator_settings* my_settings = &my_settings_data;
-#else
-  const generator_settings* my_settings = s;
-#endif
+void make_one_edge(int64_t nverts, int level, int lgN, mrg_state* st, packed_edge* result, uint64_t val0, uint64_t val1) {
+  int64_t base_src = 0, base_tgt = 0;
   while (nverts > 1) {
-    int square = generate_nway_bernoulli(my_settings, st);
-    int src_offset = square / GRAPHGEN_INITIATOR_SIZE;
-    int tgt_offset = square % GRAPHGEN_INITIATOR_SIZE;
-#ifdef GRAPHGEN_UNDIRECTED
+    int square = generate_4way_bernoulli(st, level, lgN);
+    int src_offset = square / 2;
+    int tgt_offset = square % 2;
     assert (base_src <= base_tgt);
     if (base_src == base_tgt) {
       /* Clip-and-flip for undirected graph */
@@ -124,201 +146,54 @@ void make_one_edge(int64_t base_src, int64_t base_tgt, int64_t nverts, mrg_state
         tgt_offset = temp;
       }
     }
-#endif /* GRAPHGEN_UNDIRECTED */
-    nverts /= GRAPHGEN_INITIATOR_SIZE;
+    nverts /= 2;
+    ++level;
     base_src += nverts * src_offset;
     base_tgt += nverts * tgt_offset;
-#ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
-    alter_params(my_settings, trans, st);
-#endif
   }
-#ifdef GRAPHGEN_KEEP_SELF_LOOPS
-  int is_self_loop_to_skip = 0;
-#else
-  int is_self_loop_to_skip = (base_src == base_tgt);
-#endif
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-  result->src = base_src;
-  result->tgt = base_tgt;
-  result->multiplicity = is_self_loop_to_skip ? 0 : 1;
-#else
-  result[0] = is_self_loop_to_skip ? -1 : base_src;
-  result[1] = is_self_loop_to_skip ? -1 : base_tgt;
-#endif
+  write_edge(result,
+             scramble(base_src, lgN, val0, val1),
+             scramble(base_tgt, lgN, val0, val1));
 }
 
-static void generate_kronecker_internal(
-  const mrg_state* orig_state,
-  int64_t first_edge_index,
-  int64_t num_edges,
-  int64_t nverts,
-  const generator_settings* s,
-  int64_t base_src,
-  int64_t base_tgt) {
-  mrg_state state = *orig_state;
-  mrg_skip(&state, 0, (base_src + s->total_nverts) / nverts, (base_tgt + s->total_nverts) / nverts);
-  int64_t my_first_edge = s->my_first_edge;
-  int64_t my_last_edge = s->my_last_edge;
-#ifdef GRAPHGEN_UNDIRECTED
-  assert (base_src <= base_tgt);
-#endif /* GRAPHGEN_UNDIRECTED */
-  if (nverts == 1) {
-    assert (num_edges != 0);
-#ifdef GRAPHGEN_KEEP_SELF_LOOPS
-    int is_self_loop_to_skip = 0;
-#else
-    int is_self_loop_to_skip = (base_src == base_tgt);
-#endif
-    int i;
-    for (i = 0; i < num_edges; ++i) {
-      /* Write all edges, filling all slots except the first with edges marked
-       * as removed duplicates; the complexity of the loop here is to deal with
-       * cases of overflows between nodes (i.e., some of the copies of an edge
-       * on one node and some on another).  Also, if the edge is a self-loop
-       * and those are being removed, write -1 (or a multiplicity of 0) instead
-       * so it will be removed. */
-      if (first_edge_index + i >= my_first_edge && first_edge_index + i < my_last_edge) {
-#ifdef GRAPHGEN_DISTRIBUTED_MEMORY
-        int64_t write_offset = first_edge_index + i - my_first_edge;
-#else
-        int64_t write_offset = first_edge_index + i;
-#endif
-#ifdef GRAPHGEN_KEEP_DUPLICATES
-        int is_duplicate_to_skip = 0;
-#else
-        int is_duplicate_to_skip = (i != 0);
-#endif
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-        {
-#ifdef GRAPHGEN_KEEP_DUPLICATES
-          int64_t multiplicity_to_write = 1; /* Write all edges as 1 */
-#else
-          int64_t multiplicity_to_write = num_edges; /* Write first edge as num_edges and rest as 0 */
-#endif
-          generated_edge* out_loc = &(s->out[write_offset]);
-          out_loc->src = base_src;
-          out_loc->tgt = base_tgt;
-          out_loc->multiplicity = ((!is_duplicate_to_skip && !is_self_loop_to_skip) ? multiplicity_to_write : 0);
-        }
-#else
-        {
-          int64_t* out_loc = &(s->out[2 * write_offset]);
-          out_loc[0] = ((!is_duplicate_to_skip && !is_self_loop_to_skip) ? base_src : -1);
-          out_loc[1] = ((!is_duplicate_to_skip && !is_self_loop_to_skip) ? base_tgt : -1);
-        }
-#endif
-      }
-    }
-  } else if (num_edges == 1) {
-    if (first_edge_index >= my_first_edge && first_edge_index < my_last_edge) {
-#ifdef GRAPHGEN_DISTRIBUTED_MEMORY
-      int64_t write_offset = first_edge_index - my_first_edge;
-#else
-      int64_t write_offset = first_edge_index;
-#endif
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-      generated_edge* out_loc = &(s->out[write_offset]);
-#else
-      int64_t* out_loc = &(s->out[2 * write_offset]);
-#endif
-      make_one_edge(base_src, base_tgt, nverts, &state, s, out_loc);
-    }
-  } else {
-    int64_t new_nverts;
-#ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
-    generator_settings new_settings_data;
-    const generator_settings* new_settings = &new_settings_data;
-#else
-    const generator_settings* new_settings = s;
-#endif
-    int64_t fei;
-    int i;
-
-    int64_t square_counts[GRAPHGEN_INITIATOR_SIZE2];
-    make_square_counts(num_edges, &state, s, square_counts);
-#ifdef GRAPHGEN_UNDIRECTED
-    if (base_src == base_tgt) {
-      /* Clip-and-flip for undirected graph */
-      int i, j;
-      for (i = 0; i < GRAPHGEN_INITIATOR_SIZE; ++i) {
-        for (j = i + 1; j < GRAPHGEN_INITIATOR_SIZE; ++j) {
-          square_counts[i * GRAPHGEN_INITIATOR_SIZE + j] += square_counts[j * GRAPHGEN_INITIATOR_SIZE + i];
-          square_counts[j * GRAPHGEN_INITIATOR_SIZE + i] = 0;
-        }
-      }
-    }
-#endif /* GRAPHGEN_UNDIRECTED */
-    new_nverts = nverts / GRAPHGEN_INITIATOR_SIZE;
-    fei = first_edge_index;
-    for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
-      if (square_counts[i] != 0) {
-        int lhs_pos = (fei < my_first_edge) ? -1 : (fei < my_last_edge) ? 0 : 1;
-        int rhs_pos = ((fei + square_counts[i]) < my_first_edge) ? -1 : ((fei + square_counts[i]) < my_last_edge) ? 0 : 1;
-        if (lhs_pos == 0 || rhs_pos == 0 || lhs_pos != rhs_pos) {
-#ifdef GRAPHGEN_MODIFY_PARAMS_AT_EACH_LEVEL
-          new_settings_data = *s;
-          alter_params(&new_settings_data, trans + 1, &subpart_states[i]);
-#endif
-          generate_kronecker_internal(
-            orig_state,
-            fei,
-            square_counts[i],
-            new_nverts,
-            new_settings,
-            base_src + new_nverts * (i / GRAPHGEN_INITIATOR_SIZE),
-            base_tgt + new_nverts * (i % GRAPHGEN_INITIATOR_SIZE));
-        }
-        fei += square_counts[i];
-      }
-    }
-  }
-}
-
-int64_t compute_edge_array_size(
-       int rank, int size,
-       int64_t M) {
-  int64_t rankc = (int64_t)(rank);
-  int64_t sizec = (int64_t)(size);
-  int64_t my_start_edge = rankc * (M / sizec) + (rankc < (M % sizec) ? rankc : (M % sizec));
-  int64_t my_end_edge = (rankc + 1) * (M / sizec) + (rankc + 1 < (M % sizec) ? rankc + 1 : (M % sizec));
-  return my_end_edge - my_start_edge;
-}
-
-void generate_kronecker(
-       int rank, int size,
+/* Generate a range of edges (from start_edge to end_edge of the total graph),
+ * writing into elements [0, end_edge - start_edge) of the edges array.  This
+ * code is parallel on OpenMP and XMT; it must be used with
+ * separately-implemented SPMD parallelism for MPI. */
+void generate_kronecker_range(
        const uint_fast32_t seed[5] /* All values in [0, 2^31 - 1), not all zero */,
-       int logN /* In base GRAPHGEN_INITIATOR_SIZE */,
-       int64_t M,
-       const double initiator[GRAPHGEN_INITIATOR_SIZE2],
-#ifdef GRAPHGEN_KEEP_MULTIPLICITIES
-       generated_edge* const edges /* Size >= compute_edge_array_size(rank, size, M), must be zero-initialized */
-#else
-       int64_t* const edges /* Size >= 2 * compute_edge_array_size(rank, size, M) */
-#endif
-) {
-
+       int logN /* In base 2 */,
+       int64_t start_edge, int64_t end_edge,
+       packed_edge* edges) {
   mrg_state state;
-  int64_t my_start_edge = rank * (M / size) + (rank < (M % size) ? rank : (M % size));
-  int64_t my_end_edge = (rank + 1) * (M / size) + (rank + 1 < (M % size) ? rank + 1 : (M % size));
-  unsigned int i;
-  generator_settings settings_data;
+  int64_t nverts = (int64_t)1 << logN;
+  int64_t ei;
 
   mrg_seed(&state, seed);
 
-  for (i = 0; i < GRAPHGEN_INITIATOR_SIZE2; ++i) {
-    settings_data.initiator[i] = initiator[i];
+  uint64_t val0, val1; /* Values for scrambling */
+  {
+    mrg_state new_state = state;
+    mrg_skip(&new_state, 50, 7, 0);
+    val0 = mrg_get_uint_orig(&new_state);
+    val0 *= UINT64_C(0xFFFFFFFF);
+    val0 += mrg_get_uint_orig(&new_state);
+    val1 = mrg_get_uint_orig(&new_state);
+    val1 *= UINT64_C(0xFFFFFFFF);
+    val1 += mrg_get_uint_orig(&new_state);
   }
-  settings_data.my_first_edge = my_start_edge;
-  settings_data.my_last_edge = my_end_edge;
-  settings_data.total_nverts = (int64_t)pow(GRAPHGEN_INITIATOR_SIZE, logN);
-  settings_data.out = edges;
 
-  generate_kronecker_internal(
-    &state,
-    0,
-    M,
-    (int64_t)pow(GRAPHGEN_INITIATOR_SIZE, logN),
-    &settings_data,
-    0,
-    0);
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+#ifdef __MTA__
+#pragma mta assert parallel
+#pragma mta block schedule
+#endif
+  for (ei = start_edge; ei < end_edge; ++ei) {
+    mrg_state new_state = state;
+    mrg_skip(&new_state, 0, ei, 0);
+    make_one_edge(nverts, 0, logN, &new_state, edges + (ei - start_edge), val0, val1);
+  }
 }
+

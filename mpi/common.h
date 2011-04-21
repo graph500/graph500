@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 The Trustees of Indiana University.                  */
+/* Copyright (C) 2010-2011 The Trustees of Indiana University.             */
 /*                                                                         */
 /* Use, modification and distribution is subject to the Boost Software     */
 /* License, Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at */
@@ -12,53 +12,159 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-#define INT64_T_MPI_TYPE MPI_LONG_LONG
+#include "../generator/graph_generator.h"
+#include "mpi_workarounds.h"
 
 #define SIZE_MUST_BE_A_POWER_OF_TWO
 
 extern int rank, size;
 #ifdef SIZE_MUST_BE_A_POWER_OF_TWO
-extern int lgsize, size_minus_one;
+extern int lgsize;
 #endif
+extern MPI_Datatype packed_edge_mpi_type; /* MPI datatype for packed_edge struct */
 
 /* Distribute edges by their endpoints (make two directed copies of each input
  * undirected edge); distribution is 1-d and cyclic. */
 #ifdef SIZE_MUST_BE_A_POWER_OF_TWO
-#define MOD_SIZE(v) ((v) & size_minus_one)
+#define MOD_SIZE(v) ((v) & ((1 << lgsize) - 1))
 #define DIV_SIZE(v) ((v) >> lgsize)
+#define MUL_SIZE(x) ((x) << lgsize)
 #else
 #define MOD_SIZE(v) ((v) % size)
 #define DIV_SIZE(v) ((v) / size)
+#define MUL_SIZE(x) ((x) * size)
 #endif
 #define VERTEX_OWNER(v) ((int)(MOD_SIZE(v)))
 #define VERTEX_LOCAL(v) ((size_t)(DIV_SIZE(v)))
-#define VERTEX_TO_GLOBAL(i) ((int64_t)((i) * size + rank))
+#define VERTEX_TO_GLOBAL(r, i) ((int64_t)(MUL_SIZE((uint64_t)i) + (int)(r)))
 
-typedef struct csr_graph {
-  size_t nlocalverts;
-  size_t nlocaledges;
-  int64_t nglobalverts;
-  size_t *rowstarts;
-  int64_t *column;
-} csr_graph;
+typedef struct tuple_graph {
+  int data_in_file; /* 1 for file, 0 for memory */
+  packed_edge* restrict edgememory; /* NULL if edges are in file */
+  int64_t edgememory_size;
+  MPI_File edgefile; /* Or MPI_FILE_NULL if edges are in memory */
+  int64_t nglobaledges; /* Number of edges in graph, in both cases */
+} tuple_graph;
+
+#define FILE_CHUNKSIZE ((MPI_Offset)(1) << 23) /* Size of one file I/O block, in edges */
+#define MEMORY_CHUNKSIZE ((MPI_Offset)(1) << 24) /* Size of one memory block to be processed at once, in edges */
+
+/* Simple iteration of edge data or file; cannot be nested. */
+#define ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg) \
+  (DIV_SIZE((MPI_Offset)((tg)->data_in_file ? \
+                         (((tg)->nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE) : \
+                         (((tg)->nglobaledges + MEMORY_CHUNKSIZE - 1) / MEMORY_CHUNKSIZE)) \
+             + size - 1))
+#define ITERATE_TUPLE_GRAPH_BEGIN(tg, user_buf, user_buf_count) \
+  do { \
+    MPI_Offset block_limit = ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg); \
+    if ((tg)->data_in_file) { \
+      assert ((tg)->edgefile != MPI_FILE_NULL); \
+    } \
+    /* fprintf(stderr, "%d has block_limit = %td\n", rank, (ptrdiff_t)block_limit); */ \
+    MPI_Offset block_idx; \
+    packed_edge* edge_data_from_file = (packed_edge*)((tg)->data_in_file ? xmalloc(FILE_CHUNKSIZE * sizeof(packed_edge)) : NULL); \
+    int64_t edge_count_i = (int64_t)(-1); \
+    if ((tg)->data_in_file && block_limit > 0) { \
+      MPI_Offset start_edge_index = FILE_CHUNKSIZE * rank; \
+      if (start_edge_index > (tg)->nglobaledges) start_edge_index = (tg)->nglobaledges; \
+      edge_count_i = (tg)->nglobaledges - start_edge_index; \
+      if (edge_count_i > FILE_CHUNKSIZE) edge_count_i = FILE_CHUNKSIZE; \
+      MPI_File_read_at_all_begin((tg)->edgefile, start_edge_index, edge_data_from_file, edge_count_i, packed_edge_mpi_type); \
+    } \
+    int break_from_block_loop = 0; \
+    for (block_idx = 0; block_idx < block_limit; ++block_idx) { \
+      if ((tg)->data_in_file) { \
+        MPI_Offset start_edge_index = FILE_CHUNKSIZE * (MUL_SIZE(block_idx) + rank); \
+        if (start_edge_index > (tg)->nglobaledges) start_edge_index = (tg)->nglobaledges; \
+        edge_count_i = (tg)->nglobaledges - start_edge_index; \
+        if (edge_count_i > FILE_CHUNKSIZE) edge_count_i = FILE_CHUNKSIZE; \
+        /* fprintf(stderr, "%d trying to read offset = %" PRId64 ", count = %" PRId64 "\n", rank, start_edge_index, edge_count_i); */ \
+        MPI_File_read_at_all_end((tg)->edgefile, edge_data_from_file, MPI_STATUS_IGNORE); \
+      } \
+      const packed_edge* restrict const user_buf = ((tg)->data_in_file ? edge_data_from_file : (tg)->edgememory + MEMORY_CHUNKSIZE * block_idx); \
+      ptrdiff_t const user_buf_count = ((tg)->data_in_file ? (ptrdiff_t)edge_count_i : ptrdiff_min(MEMORY_CHUNKSIZE, (tg)->edgememory_size)); \
+      assert (user_buf != NULL); \
+      assert (user_buf_count >= 0); \
+      assert (tuple_graph_max_bufsize((tg)) >= user_buf_count); \
+      int iteration_count = 0; \
+      int buffer_released_this_iter = 0; /* To allow explicit buffer release to be optional */ \
+      while (1) { \
+        /* Prevent continue */ assert (iteration_count == 0); \
+        buffer_released_this_iter = 0; \
+        {
+#define ITERATE_TUPLE_GRAPH_BLOCK_NUMBER (block_idx)
+#define ITERATE_TUPLE_GRAPH_BREAK /* Must be done collectively and before ITERATE_TUPLE_GRAPH_RELEASE_BUFFER */ \
+          break_from_block_loop = 1; \
+          break
+#define ITERATE_TUPLE_GRAPH_RELEASE_BUFFER \
+          do { \
+            if ((tg)->data_in_file && block_idx + 1 < block_limit) { \
+              MPI_Offset start_edge_index = FILE_CHUNKSIZE * (MUL_SIZE((block_idx) + 1) + rank); \
+              if (start_edge_index > (tg)->nglobaledges) start_edge_index = (tg)->nglobaledges; \
+              edge_count_i = (tg)->nglobaledges - start_edge_index; \
+              if (edge_count_i > FILE_CHUNKSIZE) edge_count_i = FILE_CHUNKSIZE; \
+              MPI_File_read_at_all_begin((tg)->edgefile, start_edge_index, edge_data_from_file, edge_count_i, packed_edge_mpi_type); \
+              buffer_released_this_iter = 1; \
+            } \
+          } while (0)
+#define ITERATE_TUPLE_GRAPH_END \
+          if (!buffer_released_this_iter) ITERATE_TUPLE_GRAPH_RELEASE_BUFFER; \
+        } \
+        if (break_from_block_loop) ITERATE_TUPLE_GRAPH_RELEASE_BUFFER; \
+        iteration_count = 1; \
+        break; \
+      } \
+      /* Prevent user break */ assert (iteration_count == 1); \
+      if (break_from_block_loop) break; \
+    } \
+    if (edge_data_from_file) free(edge_data_from_file); \
+  } while (0)
+
+static inline int64_t tuple_graph_max_bufsize(const tuple_graph* tg) {
+  return (tg->data_in_file ? FILE_CHUNKSIZE : DIV_SIZE(tg->nglobaledges + size - 1));
+}
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void setup_globals(void); /* In utils.c */
-void free_csr_graph(csr_graph* const g); /* In utils.c */
+void cleanup_globals(void); /* In utils.c */
+int lg_int64_t(int64_t x); /* In utils.c */
 void* xMPI_Alloc_mem(size_t nbytes); /* In utils.c */
 void* xmalloc(size_t nbytes); /* In utils.c */
 void* xcalloc(size_t n, size_t unit); /* In utils.c */
 void* xrealloc(void* p, size_t nbytes); /* In utils.c */
 
-void convert_graph_to_csr(const int64_t nedges, const int64_t* const edges, csr_graph* const g); /* In convert_to_csr.c */
-void find_bfs_roots(int *num_bfs_roots, const csr_graph* const g, const uint64_t seed1, const uint64_t seed2, int64_t* const bfs_roots); /* In find_roots.c */
-int validate_bfs_result(const csr_graph* const g, const int64_t root, const int64_t* const pred, const int64_t nvisited); /* In validate.c */
+void find_bfs_roots(int* num_bfs_roots, const int64_t nglobalverts, const tuple_graph* const tg, const uint64_t seed1, const uint64_t seed2, int64_t* const bfs_roots, int64_t* const max_used_vertex);
+int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, const int64_t* const pred, int64_t* const edge_visit_count_ptr); /* In validate.c */
 
-void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t* nvisited); /* Provided by user */
+/* Definitions in each BFS file, using static global variables for internal
+ * storage: */
+void make_graph_data_structure(const tuple_graph* const tg);
+void free_graph_data_structure(void);
+void run_bfs(int64_t root, int64_t* pred);
+void get_vertex_distribution_for_pred(size_t count, const int64_t* vertices, int* owners, size_t* locals);
+int64_t vertex_to_global_for_pred(int v_rank, size_t v_local); /* Only used for error messages */
+size_t get_nlocalverts_for_pred(void);
+
+static inline size_t size_min(size_t a, size_t b) {
+  return a < b ? a : b;
+}
+
+static inline ptrdiff_t ptrdiff_min(ptrdiff_t a, ptrdiff_t b) {
+  return a < b ? a : b;
+}
+
+static inline int64_t int64_min(int64_t a, int64_t b) {
+  return a < b ? a : b;
+}
+
+/* Chunk size for blocks of one-sided operations; a fence is inserted after (at
+ * most) each CHUNKSIZE one-sided operations. */
+#define CHUNKSIZE (1 << 22)
+#define HALF_CHUNKSIZE ((CHUNKSIZE) / 2)
 
 #ifdef __cplusplus
 }

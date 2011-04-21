@@ -1,15 +1,14 @@
 CC = cc
-CFLAGS = -DNDEBUG
+CFLAGS = -DNDEBUG 
 LDFLAGS = $(CFLAGS) # -g -pg
 
-all: libgraph_generator_xmt.a generator_test_xmt
+GENERATOR_SOURCES = graph_generator.c make_graph.c splittable_mrg.c utils.c
+GENERATOR_HEADERS = graph_generator.h make_graph.h mod_arith_32bit.h mod_arith_64bit.h mod_arith.h mod_arith_xmt.h splittable_mrg.h utils.h user_settings.h mrg_transitions.c
 
-libgraph_generator_xmt.a: btrd_binomial_distribution.c splittable_mrg.c mrg_transitions.c graph_generator.c permutation_gen.c make_graph.c utils.c scramble_edges.c btrd_binomial_distribution.h splittable_mrg.h graph_generator.h mod_arith_xmt.h permutation_gen.h make_graph.h utils.h scramble_edges.h
-	$(CC) $(CFLAGS) -R -pl libgraph_generator_xmt.a btrd_binomial_distribution.c splittable_mrg.c mrg_transitions.c graph_generator.c permutation_gen.c make_graph.c utils.c scramble_edges.c -lm
-	ranlib libgraph_generator_xmt.a
+all: generator_test_xmt
 
-generator_test_xmt: generator_test_xmt.c libgraph_generator_xmt.a
-	$(CC) $(CFLAGS) -o generator_test_xmt generator_test_xmt.c -L. -lgraph_generator_xmt -lm
+generator_test_xmt: generator_test_xmt.c $(GENERATOR_SOURCES) $(GENERATOR_HEADERS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o generator_test_xmt generator_test_xmt.c $(GENERATOR_SOURCES) -lm
 
 clean:
-	-rm -f generator_test_xmt *.pl *.o *.a *.ap2 *.out
+	-rm -f generator_test_xmt

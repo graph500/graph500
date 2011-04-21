@@ -8,6 +8,7 @@
 /*           Andrew Lumsdaine                                              */
 
 #include "common.h"
+#include "oned_csr.h"
 #include <mpi.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -16,6 +17,16 @@
 #include <string.h>
 #include <limits.h>
 
+static oned_csr_graph g;
+
+void make_graph_data_structure(const tuple_graph* const tg) {
+  convert_graph_to_oned_csr(tg, &g);
+}
+
+void free_graph_data_structure(void) {
+  free_oned_csr_graph(&g);
+}
+
 /* This BFS represents its queues as bitmaps and uses some data representation
  * tricks to fit with the use of MPI one-sided operations.  It is not much
  * faster than the standard version on the machines I have tested it on, but
@@ -23,10 +34,9 @@
  * might get better performance from it.  This code might also be good to
  * translate to UPC, Co-array Fortran, SHMEM, or GASNet since those systems are
  * more designed for one-sided remote memory operations. */
-void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t* nvisited) {
-  const size_t nlocalverts = g->nlocalverts;
-  const int64_t nglobalverts = g->nglobalverts;
-  int64_t nvisited_local = 0;
+void run_bfs(int64_t root, int64_t* pred) {
+  const size_t nlocalverts = g.nlocalverts;
+  const int64_t nglobalverts = g.nglobalverts;
 
   /* Set up a second predecessor map so we can read from one and modify the
    * other. */
@@ -51,7 +61,7 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
 
   /* List of local vertices (used as sources in MPI_Accumulate). */
   int64_t* local_vertices = (int64_t*)xMPI_Alloc_mem(nlocalverts * sizeof(int64_t));
-  {size_t i; for (i = 0; i < nlocalverts; ++i) local_vertices[i] = VERTEX_TO_GLOBAL(i);}
+  {size_t i; for (i = 0; i < nlocalverts; ++i) local_vertices[i] = VERTEX_TO_GLOBAL(rank, i);}
 
   /* List of all bit masks for an unsigned long (used as sources in
    * MPI_Accumulate). */
@@ -115,15 +125,14 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
           /* Since the queue is an overapproximation, check the predecessor map
            * to be sure this vertex is grey. */
           if (pred[v_local] >= 0 && pred[v_local] < nglobalverts) {
-            ++nvisited_local;
-            size_t ei, ei_end = g->rowstarts[v_local + 1];
+            size_t ei, ei_end = g.rowstarts[v_local + 1];
             /* Walk the incident edges. */
-            for (ei = g->rowstarts[v_local]; ei < ei_end; ++ei) {
-              int64_t w = g->column[ei];
-              if (w == VERTEX_TO_GLOBAL(v_local)) continue; /* Self-loop */
+            for (ei = g.rowstarts[v_local]; ei < ei_end; ++ei) {
+              int64_t w = g.column[ei];
+              if (w == VERTEX_TO_GLOBAL(rank, v_local)) continue; /* Self-loop */
               /* Set the predecessor of the other edge endpoint (note use of
                * MPI_MIN and the coding of the predecessor map). */
-              MPI_Accumulate(&local_vertices[v_local], 1, INT64_T_MPI_TYPE, VERTEX_OWNER(w), VERTEX_LOCAL(w), 1, INT64_T_MPI_TYPE, MPI_MIN, pred2_win);
+              MPI_Accumulate(&local_vertices[v_local], 1, MPI_INT64_T, VERTEX_OWNER(w), VERTEX_LOCAL(w), 1, MPI_INT64_T, MPI_MIN, pred2_win);
               /* Mark the endpoint in the remote queue (note that the min may
                * not do an update, so the queue is an overapproximation in this
                * way as well). */
@@ -179,8 +188,24 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
       orig_pred[i] = -1;
     }
   }
+}
 
-  /* Count visited vertices. */
-  MPI_Allreduce(MPI_IN_PLACE, &nvisited_local, 1, INT64_T_MPI_TYPE, MPI_SUM, MPI_COMM_WORLD);
-  *nvisited = nvisited_local;
+void get_vertex_distribution_for_pred(size_t count, const int64_t* vertex_p, int* owner_p, size_t* local_p) {
+  const int64_t* restrict vertex = vertex_p;
+  int* restrict owner = owner_p;
+  size_t* restrict local = local_p;
+  ptrdiff_t i;
+#pragma omp parallel for
+  for (i = 0; i < (ptrdiff_t)count; ++i) {
+    owner[i] = VERTEX_OWNER(vertex[i]);
+    local[i] = VERTEX_LOCAL(vertex[i]);
+  }
+}
+
+int64_t vertex_to_global_for_pred(int v_rank, size_t v_local) {
+  return VERTEX_TO_GLOBAL(v_rank, v_local);
+}
+
+size_t get_nlocalverts_for_pred(void) {
+  return g.nlocalverts;
 }

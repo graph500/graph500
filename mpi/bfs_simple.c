@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 The Trustees of Indiana University.                  */
+/* Copyright (C) 2010-2011 The Trustees of Indiana University.             */
 /*                                                                         */
 /* Use, modification and distribution is subject to the Boost Software     */
 /* License, Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at */
@@ -8,6 +8,7 @@
 /*           Andrew Lumsdaine                                              */
 
 #include "common.h"
+#include "oned_csr.h"
 #include <mpi.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -17,35 +18,74 @@
 #include <limits.h>
 #include <assert.h>
 
+static oned_csr_graph g;
+static int64_t* g_oldq;
+static int64_t* g_newq;
+static unsigned long* g_visited;
+static const int coalescing_size = 256;
+static int64_t* g_outgoing;
+static size_t* g_outgoing_counts /* 2x actual count */;
+static MPI_Request* g_outgoing_reqs;
+static int* g_outgoing_reqs_active;
+static int64_t* g_recvbuf;
+
+void make_graph_data_structure(const tuple_graph* const tg) {
+  convert_graph_to_oned_csr(tg, &g);
+  const size_t nlocalverts = g.nlocalverts;
+  g_oldq = (int64_t*)xmalloc(nlocalverts * sizeof(int64_t));
+  g_newq = (int64_t*)xmalloc(nlocalverts * sizeof(int64_t));
+  const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
+  int64_t visited_size = (nlocalverts + ulong_bits - 1) / ulong_bits;
+  g_visited = (unsigned long*)xmalloc(visited_size * sizeof(unsigned long));
+  g_outgoing = (int64_t*)xMPI_Alloc_mem(coalescing_size * size * 2 * sizeof(int64_t));
+  g_outgoing_counts = (size_t*)xmalloc(size * sizeof(size_t)) /* 2x actual count */;
+  g_outgoing_reqs = (MPI_Request*)xmalloc(size * sizeof(MPI_Request));
+  g_outgoing_reqs_active = (int*)xmalloc(size * sizeof(int));
+  g_recvbuf = (int64_t*)xMPI_Alloc_mem(coalescing_size * 2 * sizeof(int64_t));
+}
+
+void free_graph_data_structure(void) {
+  free(g_oldq);
+  free(g_newq);
+  free(g_visited);
+  MPI_Free_mem(g_outgoing);
+  free(g_outgoing_counts);
+  free(g_outgoing_reqs);
+  free(g_outgoing_reqs_active);
+  MPI_Free_mem(g_recvbuf);
+  free_oned_csr_graph(&g);
+}
+
 /* This version is the traditional level-synchronized BFS using two queues.  A
  * bitmap is used to indicate which vertices have been visited.  Messages are
  * sent and processed asynchronously throughout the code to hopefully overlap
  * communication with computation. */
-void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t* nvisited) {
-  const size_t nlocalverts = g->nlocalverts;
-  int64_t nvisited_local = 0;
+void run_bfs(int64_t root, int64_t* pred) {
+  const size_t nlocalverts = g.nlocalverts;
 
   /* Set up the queues. */
-  int64_t* oldq = (int64_t*)xmalloc(nlocalverts * sizeof(int64_t));
-  int64_t* newq = (int64_t*)xmalloc(nlocalverts * sizeof(int64_t));
+  int64_t* restrict oldq = g_oldq;
+  int64_t* restrict newq = g_newq;
   size_t oldq_count = 0;
   size_t newq_count = 0;
 
   /* Set up the visited bitmap. */
   const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
   int64_t visited_size = (nlocalverts + ulong_bits - 1) / ulong_bits;
-  unsigned long* visited = (unsigned long*)xcalloc(visited_size, sizeof(unsigned long)); /* Uses zero-init */
+  unsigned long* restrict visited = g_visited;
+  memset(visited, 0, visited_size * sizeof(unsigned long));
 #define SET_VISITED(v) do {visited[VERTEX_LOCAL((v)) / ulong_bits] |= (1UL << (VERTEX_LOCAL((v)) % ulong_bits));} while (0)
 #define TEST_VISITED(v) ((visited[VERTEX_LOCAL((v)) / ulong_bits] & (1UL << (VERTEX_LOCAL((v)) % ulong_bits))) != 0)
 
   /* Set up buffers for message coalescing, MPI requests, etc. for
    * communication. */
   const int coalescing_size = 256;
-  int64_t* outgoing = (int64_t*)xMPI_Alloc_mem(coalescing_size * size * 2 * sizeof(int64_t));
-  size_t* outgoing_counts = (size_t*)xmalloc(size * sizeof(size_t)) /* 2x actual count */;
-  MPI_Request* outgoing_reqs = (MPI_Request*)xmalloc(size * sizeof(MPI_Request));
-  int* outgoing_reqs_active = (int*)xcalloc(size, sizeof(int)); /* Uses zero-init */
-  int64_t* recvbuf = (int64_t*)xMPI_Alloc_mem(coalescing_size * 2 * sizeof(int64_t));
+  int64_t* restrict outgoing = g_outgoing;
+  size_t* restrict outgoing_counts = g_outgoing_counts;
+  MPI_Request* restrict outgoing_reqs = g_outgoing_reqs;
+  int* restrict outgoing_reqs_active = g_outgoing_reqs_active;
+  memset(outgoing_reqs_active, 0, size * sizeof(int));
+  int64_t* restrict recvbuf = g_recvbuf;
   MPI_Request recvreq;
   int recvreq_active = 0;
 
@@ -76,7 +116,7 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
       if (flag) { \
         recvreq_active = 0; \
         int count; \
-        MPI_Get_count(&st, INT64_T_MPI_TYPE, &count); \
+        MPI_Get_count(&st, MPI_INT64_T, &count); \
         /* count == 0 is a signal from a rank that it is done sending to me
          * (using MPI's non-overtaking rules to keep that signal after all
          * "real" messages. */ \
@@ -98,7 +138,7 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
         } \
         /* Restart the receive if more messages will be coming. */ \
         if (num_ranks_done < size) { \
-          MPI_Irecv(recvbuf, coalescing_size * 2, INT64_T_MPI_TYPE, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvreq); \
+          MPI_Irecv(recvbuf, coalescing_size * 2, MPI_INT64_T, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvreq); \
           recvreq_active = 1; \
         } \
       } else break; \
@@ -121,7 +161,7 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
     
     /* Start the initial receive. */
     if (num_ranks_done < size) {
-      MPI_Irecv(recvbuf, coalescing_size * 2, INT64_T_MPI_TYPE, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvreq);
+      MPI_Irecv(recvbuf, coalescing_size * 2, MPI_INT64_T, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvreq);
       recvreq_active = 1;
     }
 
@@ -130,13 +170,12 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
     for (i = 0; i < oldq_count; ++i) {
       CHECK_MPI_REQS;
       assert (VERTEX_OWNER(oldq[i]) == rank);
-      assert (pred[VERTEX_LOCAL(oldq[i])] >= 0 && pred[VERTEX_LOCAL(oldq[i])] < g->nglobalverts);
-      ++nvisited_local;
+      assert (pred[VERTEX_LOCAL(oldq[i])] >= 0 && pred[VERTEX_LOCAL(oldq[i])] < g.nglobalverts);
       int64_t src = oldq[i];
       /* Iterate through its incident edges. */
-      size_t j, j_end = g->rowstarts[VERTEX_LOCAL(oldq[i]) + 1];
-      for (j = g->rowstarts[VERTEX_LOCAL(oldq[i])]; j < j_end; ++j) {
-        int64_t tgt = g->column[j];
+      size_t j, j_end = g.rowstarts[VERTEX_LOCAL(oldq[i]) + 1];
+      for (j = g.rowstarts[VERTEX_LOCAL(oldq[i])]; j < j_end; ++j) {
+        int64_t tgt = g.column[j];
         int owner = VERTEX_OWNER(tgt);
         /* If the other endpoint is mine, update the visited map, predecessor
          * map, and next-level queue locally; otherwise, send the target and
@@ -155,7 +194,7 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
           outgoing[owner * coalescing_size * 2 + c + 1] = src;
           outgoing_counts[owner] += 2;
           if (outgoing_counts[owner] == coalescing_size * 2) {
-            MPI_Isend(&outgoing[owner * coalescing_size * 2], coalescing_size * 2, INT64_T_MPI_TYPE, owner, 0, MPI_COMM_WORLD, &outgoing_reqs[owner]);
+            MPI_Isend(&outgoing[owner * coalescing_size * 2], coalescing_size * 2, MPI_INT64_T, owner, 0, MPI_COMM_WORLD, &outgoing_reqs[owner]);
             outgoing_reqs_active[owner] = 1;
             outgoing_counts[owner] = 0;
           }
@@ -168,14 +207,14 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
       int dest = MOD_SIZE(rank + offset);
       if (outgoing_counts[dest] != 0) {
         while (outgoing_reqs_active[dest]) CHECK_MPI_REQS;
-        MPI_Isend(&outgoing[dest * coalescing_size * 2], outgoing_counts[dest], INT64_T_MPI_TYPE, dest, 0, MPI_COMM_WORLD, &outgoing_reqs[dest]);
+        MPI_Isend(&outgoing[dest * coalescing_size * 2], outgoing_counts[dest], MPI_INT64_T, dest, 0, MPI_COMM_WORLD, &outgoing_reqs[dest]);
         outgoing_reqs_active[dest] = 1;
         outgoing_counts[dest] = 0;
       }
       /* Wait until all sends to this destination are done. */
       while (outgoing_reqs_active[dest]) CHECK_MPI_REQS;
       /* Tell the destination that we are done sending to them. */
-      MPI_Isend(&outgoing[dest * coalescing_size * 2], 0, INT64_T_MPI_TYPE, dest, 0, MPI_COMM_WORLD, &outgoing_reqs[dest]); /* Signal no more sends */
+      MPI_Isend(&outgoing[dest * coalescing_size * 2], 0, MPI_INT64_T, dest, 0, MPI_COMM_WORLD, &outgoing_reqs[dest]); /* Signal no more sends */
       outgoing_reqs_active[dest] = 1;
       while (outgoing_reqs_active[dest]) CHECK_MPI_REQS;
     }
@@ -184,8 +223,8 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
     while (num_ranks_done < size) CHECK_MPI_REQS;
 
     /* Test globally if all queues are empty. */
-    int64_t global_newq_count=newq_count;
-    MPI_Allreduce(MPI_IN_PLACE, &global_newq_count, 1, INT64_T_MPI_TYPE, MPI_SUM, MPI_COMM_WORLD);
+    int64_t global_newq_count;
+    MPI_Allreduce(&newq_count, &global_newq_count, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
 
     /* Quit if they all are empty. */
     if (global_newq_count == 0) break;
@@ -196,17 +235,24 @@ void run_mpi_bfs(const csr_graph* const g, int64_t root, int64_t* pred, int64_t*
     newq_count = 0;
   }
 #undef CHECK_MPI_REQS
+}
 
-  /* Add up total visited-vertex count. */
-  MPI_Allreduce(MPI_IN_PLACE, &nvisited_local, 1, INT64_T_MPI_TYPE, MPI_SUM, MPI_COMM_WORLD);
-  *nvisited = nvisited_local;
+void get_vertex_distribution_for_pred(size_t count, const int64_t* vertex_p, int* owner_p, size_t* local_p) {
+  const int64_t* restrict vertex = vertex_p;
+  int* restrict owner = owner_p;
+  size_t* restrict local = local_p;
+  ptrdiff_t i;
+#pragma omp parallel for
+  for (i = 0; i < (ptrdiff_t)count; ++i) {
+    owner[i] = VERTEX_OWNER(vertex[i]);
+    local[i] = VERTEX_LOCAL(vertex[i]);
+  }
+}
 
-  free(oldq);
-  free(newq);
-  MPI_Free_mem(outgoing);
-  free(outgoing_counts);
-  free(outgoing_reqs);
-  free(outgoing_reqs_active);
-  MPI_Free_mem(recvbuf);
-  free(visited);
+int64_t vertex_to_global_for_pred(int v_rank, size_t v_local) {
+  return VERTEX_TO_GLOBAL(v_rank, v_local);
+}
+
+size_t get_nlocalverts_for_pred(void) {
+  return g.nlocalverts;
 }
