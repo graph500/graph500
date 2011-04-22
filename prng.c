@@ -8,6 +8,7 @@
 
 #include "generator/splittable_mrg.h"
 
+uint64_t userseed;
 uint_fast32_t prng_seed[5];
 static mrg_state prng_state_store;
 void *prng_state = &prng_state_store;
@@ -33,6 +34,7 @@ init_random (void)
   }
 
   if (seed < 0) seed = 0xDECAFBAD;
+  userseed = seed;
   make_mrg_seed (seed, prng_seed);
   mrg_seed(&prng_state_store, prng_seed);
 }

@@ -7,6 +7,7 @@
 /** Initialze the PRNG, called in a sequential context. */
 void init_random (void);
 
+extern uint64_t userseed;
 extern uint_fast32_t prng_seed[5];
 extern void *prng_state;
 

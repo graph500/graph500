@@ -8,15 +8,15 @@
 #include "prng.h"
 #include "rmat.h"
 #include "generator/splittable_mrg.h"
-#include "generator/permutation_gen.h"
 #include "generator/graph_generator.h"
 
+#if 0
 void
-kronecker_edgelist (int64_t *IJ_in, int64_t nedge, int64_t SCALE,
+kronecker_edgelist (struct packed_edge *IJ_in, int64_t nedge, int64_t SCALE,
 		    double A, double B, double C)
 {
   const int64_t nvtx = 1L<<SCALE;
-  int64_t * restrict IJ = IJ_in;
+  struct packed_edge * restrict IJ = IJ_in;
   int64_t * restrict vperm = NULL;
   double D;
 
@@ -48,3 +48,4 @@ kronecker_edgelist (int64_t *IJ_in, int64_t nedge, int64_t SCALE,
     permute_edgelist (IJ, nedge, prng_state);
   }
 }
+#endif

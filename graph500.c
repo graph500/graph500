@@ -28,6 +28,8 @@
 #include "xalloc.h"
 #include "options.h"
 #include "generator/splittable_mrg.h"
+#include "generator/graph_generator.h"
+#include "generator/make_graph.h"
 
 static int64_t nvtx_scale;
 
@@ -38,7 +40,7 @@ static double construction_time;
 static double bfs_time[NBFS_max];
 static int64_t bfs_nedge[NBFS_max];
 
-static int64_t * restrict IJ;
+static packed_edge * restrict IJ;
 static int64_t nedge;
 
 static void run_bfs (void);
@@ -54,6 +56,7 @@ static void output_results (const int64_t SCALE, int64_t nvtx_scale,
 int
 main (int argc, char **argv)
 {
+  int64_t desired_nedge;
   if (sizeof (int64_t) < 8) {
     fprintf (stderr, "No 64-bit support.\n");
     return EXIT_FAILURE;
@@ -66,12 +69,10 @@ main (int argc, char **argv)
 
   init_random ();
 
-  nedge = nvtx_scale * edgefactor;
+  desired_nedge = nvtx_scale * edgefactor;
   /* Catch a few possible overflows. */
-  assert (nedge >= nvtx_scale);
-  assert (nedge >= edgefactor);
-
-  IJ = xmalloc_large_ext (2 * nedge * sizeof (*IJ));
+  assert (desired_nedge >= nvtx_scale);
+  assert (desired_nedge >= edgefactor);
 
   /*
     If running the benchmark under an architecture simulator, replace
@@ -80,10 +81,13 @@ main (int argc, char **argv)
   */
   if (!dumpname) {
     if (VERBOSE) fprintf (stderr, "Generating edge list...");
-    if (use_RMAT)
+    if (use_RMAT) {
+      nedge = desired_nedge;
+      IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
       TIME(generation_time, rmat_edgelist (IJ, nedge, SCALE, A, B, C));
-    else
-      TIME(generation_time, kronecker_edgelist (IJ, nedge, SCALE, A, B, C));
+    } else {
+      TIME(generation_time, make_graph (SCALE, desired_nedge, userseed, userseed, &nedge, (packed_edge**)(&IJ)));
+    }
     if (VERBOSE) fprintf (stderr, " done.\n");
   } else {
     int fd;
@@ -92,7 +96,7 @@ main (int argc, char **argv)
       perror ("Cannot open input graph file");
       return EXIT_FAILURE;
     }
-    sz = 2 * nedge * sizeof (*IJ);
+    sz = nedge * sizeof (*IJ);
     if (sz != read (fd, IJ, sz)) {
       perror ("Error reading input graph file");
       return EXIT_FAILURE;
@@ -137,9 +141,9 @@ run_bfs (void)
 	for (k = 0; k < nvtx_scale; ++k)
 	  has_adj[k] = 0;
       MTA("mta assert nodep") OMP("omp for")
-	for (k = 0; k < 2*nedge; k+=2) {
-	  const int64_t i = IJ[k];
-	  const int64_t j = IJ[k+1];
+	for (k = 0; k < nedge; ++k) {
+	  const int64_t i = get_v0_from_edge(&IJ[k]);
+	  const int64_t j = get_v1_from_edge(&IJ[k]);
 	  if (i != j)
 	    has_adj[i] = has_adj[j] = 1;
 	}

@@ -18,10 +18,13 @@
 #include "xalloc.h"
 #include "prng.h"
 #include "generator/splittable_mrg.h"
+#include "generator/graph_generator.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
 static int64_t take_i64 (volatile int64_t* p);
 static void release_i64 (volatile int64_t* p, int64_t val);
+static struct packed_edge take_pe (volatile struct packed_edge* p);
+static void release_pe (volatile struct packed_edge* p, struct packed_edge val);
 #endif
 
 /* Recursively divide a grid of N x N by four to a single point, (i, j).
@@ -31,7 +34,7 @@ static void release_i64 (volatile int64_t* p, int64_t val);
 
 MTA("mta expect parallel context")
 static void
-rmat_edge (int64_t *iout, int64_t *jout, int SCALE,
+rmat_edge (struct packed_edge *out, int SCALE,
 	   double A, double B, double C, double D,
 	   const double *rn)
 {
@@ -74,91 +77,82 @@ rmat_edge (int64_t *iout, int64_t *jout, int SCALE,
     bit >>= 1;
   }
   /* Iterates SCALE times. */
-  *iout = i;
-  *jout = j;
+  write_edge(out, i, j);
 }
-
-#define I(k) (IJ[2*(k)])
-#define J(k) (IJ[2*(k)+1])
 
 #if defined(_OPENMP)||defined(__MTA__)
-static void
-randpermute (int64_t *A_in, int64_t nelem, int nper,
-	     mrg_state * restrict st)
-{
-  int64_t * restrict A = A_in;
-  int64_t k;
-
-  assert (nper <= 2);
-
-  OMP("omp for") MTA("mta assert nodep")
-    for (k = 0; k < nelem; ++k) {
-      int k2;
-      int64_t place;
-      int64_t Ak, Aplace;
-
-      Ak = take_i64 (&A[k*nper]);
-
-      assert (Ak >= 0);
-
-      mrg_skip (st, 1, k, 0);
-      place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k));
-      if (k != place) {
-	assert (place > k);
-	assert (place < nelem);
-
-	Aplace = take_i64 (&A[place*nper]);
-
-	assert (Aplace >= 0);
-
-	for (k2 = 1; k2 < nper; ++k2) {
-	  int64_t t;
-	  t = A[place*nper + k2];
-	  A[place*nper + k2] = A[k*nper + k2];
-	  A[k*nper + k2] = t;
-	}
-
-	{
-	  int64_t t;
-	  t = Aplace;
-	  Aplace = Ak;
-	  Ak = t;
-	}
-
-	release_i64 (&A[place*nper], Aplace);
-      }
-      release_i64 (&A[k*nper], Ak);
-  }
+#define MAKE_RANDPERMUTE(name, elt_type, take, release) \
+static void \
+name (elt_type *A_in, int64_t nelem, \
+      mrg_state * restrict st) \
+{ \
+  elt_type * restrict A = A_in; \
+  int64_t k; \
+ \
+  OMP("omp for") MTA("mta assert nodep") \
+    for (k = 0; k < nelem; ++k) { \
+      int64_t place; \
+      elt_type Ak, Aplace; \
+ \
+      Ak = take (&A[k]); \
+ \
+      mrg_skip (st, 1, k, 0); \
+      place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k)); \
+      if (k != place) { \
+	assert (place > k); \
+	assert (place < nelem); \
+ \
+	Aplace = take (&A[place]); \
+ \
+        { \
+          elt_type t; \
+          t = A[place]; \
+          A[place] = A[k]; \
+          A[k] = t; \
+        } \
+ \
+	{ \
+	  elt_type t; \
+	  t = Aplace; \
+	  Aplace = Ak; \
+	  Ak = t; \
+	} \
+ \
+	release (&A[place], Aplace); \
+      } \
+      release (&A[k], Ak); \
+  } \
 }
 #else
-static void
-randpermute (int64_t *A_in, int64_t nelem, int nper,
-	     mrg_state * restrict st)
-{
-  int64_t * restrict A = A_in;
-  int64_t k;
-
-  assert (nper <= 2);
-
-  for (k = 0; k < nelem; ++k) {
-    int k2;
-    int64_t place;
-
-    place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k));
-
-    if (k != place)
-      for (k2 = 0; k2 < nper; ++k2) {
-	int64_t t;
-	t = A[place*nper + k2];
-	A[place*nper + k2] = A[k*nper + k2];
-	A[k*nper + k2] = t;
-      }
-  }
+#define MAKE_RANDPERMUTE(name, elt_type, take, release) \
+static void \
+name (elt_type *A_in, int64_t nelem, \
+      mrg_state * restrict st) \
+{ \
+  elt_type * restrict A = A_in; \
+  int64_t k; \
+ \
+  for (k = 0; k < nelem; ++k) { \
+    int64_t place; \
+ \
+    place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k)); \
+ \
+    if (k != place) { \
+      elt_type t; \
+      t = A[place]; \
+      A[place] = A[k]; \
+      A[k] = t; \
+    } \
+  } \
 }
 #endif
 
+MAKE_RANDPERMUTE(randpermute_int64_t, int64_t, take_i64, release_i64)
+MAKE_RANDPERMUTE(randpermute_packed_edge, struct packed_edge, take_pe, release_pe)
+#undef MAKE_RANDPERMUTE
+
 void
-permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
+permute_vertex_labels (struct packed_edge * restrict IJ, int64_t nedge, int64_t max_nvtx,
 		       mrg_state * restrict st, int64_t * restrict newlabel)
 {
   int64_t k;
@@ -167,26 +161,29 @@ permute_vertex_labels (int64_t * restrict IJ, int64_t nedge, int64_t max_nvtx,
   for (k = 0; k < max_nvtx; ++k)
     newlabel[k] = k;
 
-  randpermute (newlabel, max_nvtx, 1, st);
+  randpermute_int64_t (newlabel, max_nvtx, st);
 
   OMP("omp for")
-  for (k = 0; k < 2*nedge; ++k)
-    IJ[k] = newlabel[IJ[k]];
+  for (k = 0; k < nedge; ++k)
+    write_edge(&IJ[k],
+               newlabel[get_v0_from_edge(&IJ[k])],
+               newlabel[get_v1_from_edge(&IJ[k])]);
 }
 
 void
-permute_edgelist (int64_t * restrict IJ, int64_t nedge, mrg_state *st)
+permute_edgelist (struct packed_edge * restrict IJ, int64_t nedge, mrg_state *st)
 {
-  randpermute (IJ, nedge, 2, st);
+  randpermute_packed_edge (IJ, nedge, st);
 }
 
 #define NRAND(ne) (5 * SCALE * (ne))
 
 void
-rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
+rmat_edgelist (struct packed_edge *IJ_in, int64_t nedge, int SCALE,
 	       double A, double B, double C)
 {
-  int64_t * restrict IJ = IJ_in, * restrict iwork;
+  struct packed_edge * restrict IJ = IJ_in;
+  int64_t* restrict iwork;
   double D = 1.0 - (A + B + C);
  
   iwork = xmalloc_large_ext ((1L<<SCALE) * sizeof (*iwork));
@@ -207,7 +204,7 @@ rmat_edgelist (int64_t *IJ_in, int64_t nedge, int SCALE,
 	mrg_skip (&new_st, 1, NRAND(1), 0);
 	for (k2 = 0; k2 < NRAND(1); ++k2)
 	  Rlocal[k2] = mrg_get_double_orig (&new_st);
-	rmat_edge (&I(k), &J(k), SCALE, A, B, C, D, Rlocal);
+	rmat_edge (&IJ[k], SCALE, A, B, C, D, Rlocal);
       }
 
     OMP("omp single")
@@ -244,6 +241,30 @@ release_i64 (volatile int64_t *p, int64_t val)
   assert (*p == -1);
   *p = val;
 }
+struct packed_edge
+take_pe (volatile struct packed_edge *p)
+{
+  struct packed_edge out;
+  do {
+    OMP("omp critical (TAKE)") {
+      out = *p;
+      if (get_v0_from_edge(&out) >= 0)
+        write_edge((struct packed_edge*)p, -1, -1);
+    }
+  } while (get_v0_from_edge(&out) < 0);
+  OMP("omp flush (p)");
+  return out;
+}
+void
+release_pe (volatile struct packed_edge *p, struct packed_edge val)
+{
+  assert (get_v0_from_edge((const struct packed_edge*)p) == -1);
+  OMP("omp critical (TAKE)") {
+    *p = val;
+    OMP("omp flush (p)");
+  }
+  return;
+}
 #else
 /* XXX: These suffice for the above uses. */
 int64_t
@@ -270,6 +291,30 @@ release_i64 (volatile int64_t *p, int64_t val)
   }
   return;
 }
+struct packed_edge
+take_pe (volatile struct packed_edge *p)
+{
+  struct packed_edge out;
+  do {
+    OMP("omp critical (TAKE)") {
+      out = *p;
+      if (get_v0_from_edge(&out) >= 0)
+        write_edge((struct packed_edge*)p, -1, -1);
+    }
+  } while (get_v0_from_edge(&out) < 0);
+  OMP("omp flush (p)");
+  return out;
+}
+void
+release_pe (volatile struct packed_edge *p, struct packed_edge val)
+{
+  assert (get_v0_from_edge(p) == -1);
+  OMP("omp critical (TAKE)") {
+    *p = val;
+    OMP("omp flush (p)");
+  }
+  return;
+}
 #endif
 #elif defined(__MTA__)
 int64_t
@@ -281,6 +326,24 @@ void
 release_i64 (volatile int64_t *p, int64_t val)
 {
   writeef (p, val);
+}
+struct packed_edge
+take_pe (volatile struct packed_edge *p)
+{
+  /* If you get an error here, make sure GENERATOR_USE_PACKED_EDGE_TYPE is not
+   * defined in generator/user_settings.h. */
+  int64_t i = readfe(&p->v0);
+  int64_t j = readfe(&p->v1);
+  struct packed_edge result = {i, j};
+  return result;
+}
+void
+release_pe (volatile struct packed_edge *p, struct packed_edge val)
+{
+  /* If you get an error here, make sure GENERATOR_USE_PACKED_EDGE_TYPE is not
+   * defined in generator/user_settings.h. */
+  writeef (&p->v0, val.v0);
+  writeef (&p->v1, val.v1);
 }
 #else
 /* double_cas isn't used sequentially. */

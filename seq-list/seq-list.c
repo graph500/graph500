@@ -13,11 +13,11 @@
 #include "../graph500.h"
 
 static int64_t maxvtx, maxdeg, nIJ;
-static const int64_t * restrict IJ;
+static const struct packed_edge * restrict IJ;
 static int64_t * restrict head, * restrict deg, * restrict next;
 
 int 
-create_graph_from_edgelist (int64_t *IJ_in, int64_t nedge)
+create_graph_from_edgelist (struct packed_edge *IJ_in, int64_t nedge)
 {
   int err = 0;
 
@@ -27,9 +27,12 @@ create_graph_from_edgelist (int64_t *IJ_in, int64_t nedge)
   maxdeg = -1;
 
   int64_t k;
-  for (k = 0; k < 2*nedge; ++k)
-    if (IJ[k] > maxvtx)
-      maxvtx = IJ[k];
+  for (k = 0; k < nedge; ++k) {
+    if (get_v0_from_edge(&IJ[k]) > maxvtx)
+      maxvtx = get_v0_from_edge(&IJ[k]);
+    if (get_v1_from_edge(&IJ[k]) > maxvtx)
+      maxvtx = get_v1_from_edge(&IJ[k]);
+  }
 
   head = malloc ((2*(maxvtx+1) + 2*nIJ) * sizeof (int64_t));
   if (!head) return -1;
@@ -42,8 +45,8 @@ create_graph_from_edgelist (int64_t *IJ_in, int64_t nedge)
   }
 
   for (k = 0; k < nedge; ++k) {
-    const int64_t i = IJ[2*k];
-    const int64_t j = IJ[2*k+1];
+    const int64_t i = get_v0_from_edge(&IJ[k]);
+    const int64_t j = get_v1_from_edge(&IJ[k]);
     int64_t t_head, t;
 
     if (i >= 0 && j >= 0 && i != j) {
@@ -105,7 +108,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
       const int64_t parent = vlist[k];
       int64_t p = head[parent];
       while (p >= 0) {
-	const int64_t newv = IJ[p];
+	const int64_t newv = ((p % 2) ? get_v1_from_edge(&IJ[p / 2]) : get_v0_from_edge(&IJ[p / 2]));
 	if (bfs_tree[newv] < 0) {
 	  bfs_tree[newv] = parent;
 	  vlist[newk2++] = newv;

@@ -13,6 +13,7 @@
 #include "../compat.h"
 #include "../graph500.h"
 #include "../xalloc.h"
+#include "../generator/graph_generator.h"
 
 #define MINVECT_SIZE 2
 
@@ -22,14 +23,17 @@ static int64_t * restrict xadjstore; /* Length MINVECT_SIZE + (xoff[nv] == nedge
 static int64_t * restrict xadj;
 
 static void
-find_nv (const int64_t * restrict IJ, const int64_t nedge)
+find_nv (const struct packed_edge * restrict IJ, const int64_t nedge)
 {
   int64_t k;
 
   maxvtx = -1;
-  for (k = 0; k < 2*nedge; ++k)
-    if (IJ[k] > maxvtx)
-      maxvtx = IJ[k];
+  for (k = 0; k < nedge; ++k) {
+    if (get_v0_from_edge(&IJ[k]) > maxvtx)
+      maxvtx = get_v0_from_edge(&IJ[k]);
+    if (get_v1_from_edge(&IJ[k]) > maxvtx)
+      maxvtx = get_v1_from_edge(&IJ[k]);
+  }
   nv = 1+maxvtx;
 }
 
@@ -53,16 +57,19 @@ free_graph (void)
 #define XENDOFF(k) (xoff[1+2*(k)])
 
 static int
-setup_deg_off (const int64_t * restrict IJ, int64_t nedge)
+setup_deg_off (const struct packed_edge * restrict IJ, int64_t nedge)
 {
   int64_t k, accum;
   for (k = 0; k < 2*nv+2; ++k)
     xoff[k] = 0;
-  for (k = 0; k < 2*nedge; k+=2)
-    if (IJ[k] != IJ[k+1]) { /* Skip self-edges. */
-      if (IJ[k] >= 0) ++XOFF(IJ[k]);
-      if (IJ[k+1] >= 0) ++XOFF(IJ[k+1]);
+  for (k = 0; k < nedge; ++k) {
+    int64_t i = get_v0_from_edge(&IJ[k]);
+    int64_t j = get_v1_from_edge(&IJ[k]);
+    if (i != j) { /* Skip self-edges. */
+      if (i >= 0) ++XOFF(i);
+      if (j >= 0) ++XOFF(j);
     }
+  }
   accum = 0;
   for (k = 0; k < nv; ++k) {
     int64_t tmp = XOFF(k);
@@ -125,21 +132,24 @@ pack_edges (void)
 }
 
 static void
-gather_edges (const int64_t * restrict IJ, int64_t nedge)
+gather_edges (const struct packed_edge * restrict IJ, int64_t nedge)
 {
   int64_t k;
 
-  for (k = 0; k < 2*nedge; k += 2)
-    if (IJ[k] >= 0 && IJ[k+1] >= 0 && IJ[k] != IJ[k+1]) {
-      scatter_edge (IJ[k], IJ[k+1]);
-      scatter_edge (IJ[k+1], IJ[k]);
+  for (k = 0; k < nedge; ++k) {
+    int64_t i = get_v0_from_edge(&IJ[k]);
+    int64_t j = get_v1_from_edge(&IJ[k]);
+    if (i >= 0 && j >= 0 && i != j) {
+      scatter_edge (i, j);
+      scatter_edge (j, i);
     }
+  }
 
   pack_edges ();
 }
 
 int 
-create_graph_from_edgelist (int64_t *IJ, int64_t nedge)
+create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge)
 {
   find_nv (IJ, nedge);
   if (alloc_graph (nedge)) return -1;

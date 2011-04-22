@@ -27,10 +27,11 @@
 #include "xalloc.h"
 #include "options.h"
 #include "generator/splittable_mrg.h"
+#include "generator/make_graph.h"
 
 static int64_t nvtx_scale;
 
-static int64_t * restrict IJ;
+static struct packed_edge * restrict IJ;
 static int64_t nedge;
 
 static int64_t bfs_root[NBFS_max];
@@ -40,6 +41,7 @@ main (int argc, char **argv)
 {
   int * restrict has_adj;
   int fd;
+  int64_t desired_nedge;
   if (sizeof (int64_t) < 8) {
     fprintf (stderr, "No 64-bit support.\n");
     return EXIT_FAILURE;
@@ -52,18 +54,20 @@ main (int argc, char **argv)
 
   init_random ();
 
-  nedge = nvtx_scale * edgefactor;
+  desired_nedge = nvtx_scale * edgefactor;
   /* Catch a few possible overflows. */
-  assert (nedge >= nvtx_scale);
-  assert (nedge >= edgefactor);
+  assert (desired_nedge >= nvtx_scale);
+  assert (desired_nedge >= edgefactor);
 
-  IJ = xmalloc_large_ext (2 * nedge * sizeof (*IJ));
 
   if (VERBOSE) fprintf (stderr, "Generating edge list...");
-  if (use_RMAT)
+  if (use_RMAT) {
+    nedge = desired_nedge;
+    IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
     rmat_edgelist (IJ, nedge, SCALE, A, B, C);
-  else
-    kronecker_edgelist (IJ, nedge, SCALE, A, B, C);
+  } else {
+    make_graph(SCALE, desired_nedge, userseed, userseed, &nedge, (struct packed_edge**)(&IJ));
+  }
   if (VERBOSE) fprintf (stderr, " done.\n");
 
   if (dumpname)
@@ -93,9 +97,9 @@ main (int argc, char **argv)
 	for (int64_t k = 0; k < nvtx_scale; ++k)
 	  has_adj[k] = 0;
       MTA("mta assert nodep") OMP("omp for")
-	for (int64_t k = 0; k < 2*nedge; k+=2) {
-	  const int64_t i = IJ[k];
-	  const int64_t j = IJ[k+1];
+	for (int64_t k = 0; k < nedge; ++k) {
+	  const int64_t i = get_v0_from_edge(&IJ[k]);
+	  const int64_t j = get_v1_from_edge(&IJ[k]);
 	  if (i != j)
 	    has_adj[i] = has_adj[j] = 1;
 	}
