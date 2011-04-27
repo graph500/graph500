@@ -1,8 +1,8 @@
 Graph500 sequentual and shared-memory reference implementation
 
 See COPYING for the general license.  Portions copyright 2010 by
-the Georgia Institute of Technology, and portions copyright 2009-2010
-by he Trustees of Indiana University.
+the Georgia Institute of Technology, and portions copyright 2009-2011
+by the Trustees of Indiana University.
 
 The specification is included both in plain text format (Graph500.org,
 with Emacs Org mode annotations) and exported HTML (Graph500.html).
@@ -17,6 +17,7 @@ Included implementations:
   xmt-csr-local/xmt-csr-local : Cray XMT compressed-sparse-row
     implementation accumulating vertices into a small buffer before
     storing globally
+  mpi/ : Several implementations using MPI
 
 BUILDING INSTRUCTIONS
 
@@ -26,7 +27,8 @@ Makefile relies heavily on implicit rules and is known to work using
 GNU Make.
 
 To build the MPI executables, set BUILD_MPI=Yes in your make.inc, and
-optionally set MPICC if needed.
+optionally set MPICC if needed.  There is a separate README file in the mpi/
+directory with more information.
 
 To build the OpenMP executables, set BUILD_OPENMP=Yes in your
 make.inc, and define CFLAGS_OPENMP appropriately.
@@ -35,7 +37,7 @@ For the XMT, ensure the correct modules are loaded and set
 BUILD_XMT=Yes.  This disables all other builds, including the
 sequential versions.
 
-RUNNING INSTRUCTIONS
+RUNNING INSTRUCTIONS (OTHER THAN MPI VERSIONS)
 
 Options:
   v   : version
