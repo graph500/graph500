@@ -18,7 +18,7 @@
 /* Use standard definitions in MPI 2.2. */
 #else
 /* Backup version for non-2.2-compliant MPI implementations. */
-// #error "Your MPI implementation is not compliant with the MPI 2.2 standard; please comment out this line in mpi_workarounds.h and ensure that the type definitions after it are correct."
+#error "Your MPI implementation is not compliant with the MPI 2.2 standard; please comment out this line in mpi_workarounds.h and ensure that the type definitions after it are correct."
 
 #define FIND_MPI_INT_TYPE(t) (sizeof(t) == sizeof(signed char) ? MPI_SIGNED_CHAR : sizeof(t) == sizeof(short) ? MPI_SHORT : sizeof(t) == sizeof(int) ? MPI_INT : sizeof(t) == sizeof(long) ? MPI_LONG : sizeof(t) == sizeof(long long) ? MPI_LONG_LONG : MPI_DATATYPE_NULL)
 #define FIND_MPI_UINT_TYPE(t) (sizeof(t) == sizeof(unsigned char) ? MPI_UNSIGNED_CHAR : sizeof(t) == sizeof(unsigned short) ? MPI_UNSIGNED_SHORT : sizeof(t) == sizeof(unsigned int) ? MPI_UNSIGNED : sizeof(t) == sizeof(unsigned long) ? MPI_UNSIGNED_LONG : sizeof(t) == sizeof(unsigned long long) ? MPI_UNSIGNED_LONG_LONG : MPI_DATATYPE_NULL)
@@ -33,8 +33,8 @@
 /* If you have problems with one-sided operations (such as crashes in the
  * result validator), you can switch to an emulation of MPI-2 one-sided
  * operations: */
-/* #undef EMULATE_ONE_SIDED */
-#define EMULATE_ONE_SIDED
+#undef EMULATE_ONE_SIDED
+/* #define EMULATE_ONE_SIDED */
 
 /* End of user settings ----------------------------------- */
 
