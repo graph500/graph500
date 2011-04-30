@@ -59,6 +59,10 @@ void free_graph_data_structure(void) {
   /* deallocate_memory(); */
 }
 
+int bfs_writes_depth_map(void) {
+  return 0;
+}
+
 /* This version is the traditional level-synchronized BFS using two queues.  A
  * bitmap is used to indicate which vertices have been visited.  Messages are
  * sent and processed asynchronously throughout the code to hopefully overlap
@@ -113,7 +117,9 @@ void run_bfs(int64_t root, int64_t* pred) {
   uint16_t cur_level = 0;
   while (1) {
     ++cur_level;
+#if 0
     if (rank == 0) fprintf(stderr, "BFS level %" PRIu16 "\n", cur_level);
+#endif
     memset(out_queue, 0, local_queue_size * sizeof(unsigned long));
     // memset(out_queue_summary, 0, local_queue_summary_size * sizeof(unsigned long));
     ptrdiff_t i, ii_summary;

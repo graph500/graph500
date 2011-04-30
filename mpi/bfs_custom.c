@@ -32,6 +32,12 @@ void free_graph_data_structure(void) {
   free_oned_csr_graph(&g);
 }
 
+int bfs_writes_depth_map(void) {
+  /* Change to 1 if high 16 bits of each entry of pred are the (zero-based) BFS
+   * level number, with UINT16_MAX for unreachable vertices. */
+  return 0;
+}
+
 /* BFS implementation. */
 void run_bfs(int64_t root, int64_t* pred) {
   /* Predefined entities you can use in your BFS (from common.h and oned_csr.h):

@@ -46,14 +46,11 @@ typedef struct tuple_graph {
   int64_t nglobaledges; /* Number of edges in graph, in both cases */
 } tuple_graph;
 
-#define FILE_CHUNKSIZE ((MPI_Offset)(1) << 23) /* Size of one file I/O block, in edges */
-#define MEMORY_CHUNKSIZE ((MPI_Offset)(1) << 24) /* Size of one memory block to be processed at once, in edges */
+#define FILE_CHUNKSIZE ((MPI_Offset)(1) << 23) /* Size of one file I/O block or memory block to be processed in one step, in edges */
 
 /* Simple iteration of edge data or file; cannot be nested. */
 #define ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg) \
-  (DIV_SIZE((MPI_Offset)((tg)->data_in_file ? \
-                         (((tg)->nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE) : \
-                         (((tg)->nglobaledges + MEMORY_CHUNKSIZE - 1) / MEMORY_CHUNKSIZE)) \
+  (DIV_SIZE((MPI_Offset)(((tg)->nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE) \
              + size - 1))
 #define ITERATE_TUPLE_GRAPH_BEGIN(tg, user_buf, user_buf_count) \
   do { \
@@ -82,8 +79,8 @@ typedef struct tuple_graph {
         /* fprintf(stderr, "%d trying to read offset = %" PRId64 ", count = %" PRId64 "\n", rank, start_edge_index, edge_count_i); */ \
         MPI_File_read_at_all_end((tg)->edgefile, edge_data_from_file, MPI_STATUS_IGNORE); \
       } \
-      const packed_edge* restrict const user_buf = ((tg)->data_in_file ? edge_data_from_file : (tg)->edgememory + MEMORY_CHUNKSIZE * block_idx); \
-      ptrdiff_t const user_buf_count = ((tg)->data_in_file ? (ptrdiff_t)edge_count_i : ptrdiff_min(MEMORY_CHUNKSIZE, (tg)->edgememory_size)); \
+      const packed_edge* restrict const user_buf = ((tg)->data_in_file ? edge_data_from_file : (tg)->edgememory + FILE_CHUNKSIZE * block_idx); \
+      ptrdiff_t const user_buf_count = ((tg)->data_in_file ? (ptrdiff_t)edge_count_i : ptrdiff_min(FILE_CHUNKSIZE, (tg)->edgememory_size)); \
       assert (user_buf != NULL); \
       assert (user_buf_count >= 0); \
       assert (tuple_graph_max_bufsize((tg)) >= user_buf_count); \
@@ -122,7 +119,7 @@ typedef struct tuple_graph {
   } while (0)
 
 static inline int64_t tuple_graph_max_bufsize(const tuple_graph* tg) {
-  return (tg->data_in_file ? FILE_CHUNKSIZE : DIV_SIZE(tg->nglobaledges + size - 1));
+  return FILE_CHUNKSIZE;
 }
 
 #ifdef __cplusplus
@@ -137,13 +134,13 @@ void* xmalloc(size_t nbytes); /* In utils.c */
 void* xcalloc(size_t n, size_t unit); /* In utils.c */
 void* xrealloc(void* p, size_t nbytes); /* In utils.c */
 
-void find_bfs_roots(int* num_bfs_roots, const int64_t nglobalverts, const tuple_graph* const tg, const uint64_t seed1, const uint64_t seed2, int64_t* const bfs_roots, int64_t* const max_used_vertex);
-int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, const int64_t* const pred, int64_t* const edge_visit_count_ptr); /* In validate.c */
+int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, int64_t* const pred, int64_t* const edge_visit_count_ptr); /* In validate.c */
 
 /* Definitions in each BFS file, using static global variables for internal
  * storage: */
 void make_graph_data_structure(const tuple_graph* const tg);
 void free_graph_data_structure(void);
+int bfs_writes_depth_map(void); /* True if high 16 bits of pred entries are zero-based level numbers, or UINT16_MAX for unreachable. */
 void run_bfs(int64_t root, int64_t* pred);
 void get_vertex_distribution_for_pred(size_t count, const int64_t* vertices, int* owners, size_t* locals);
 int64_t vertex_to_global_for_pred(int v_rank, size_t v_local); /* Only used for error messages */
@@ -165,6 +162,9 @@ static inline int64_t int64_min(int64_t a, int64_t b) {
  * most) each CHUNKSIZE one-sided operations. */
 #define CHUNKSIZE (1 << 22)
 #define HALF_CHUNKSIZE ((CHUNKSIZE) / 2)
+
+/* Bitmap size (in bytes) to keep for each node when determining BFS roots. */
+#define BITMAPSIZE (1UL << 29)
 
 #ifdef __cplusplus
 }

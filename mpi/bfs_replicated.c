@@ -62,6 +62,8 @@ void free_graph_data_structure(void) {
   /* deallocate_memory(); */
 }
 
+int bfs_writes_depth_map(void) {return 1;}
+
 /* This version is the traditional level-synchronized BFS using two queues.  A
  * bitmap is used to indicate which vertices have been visited.  Messages are
  * sent and processed asynchronously throughout the code to hopefully overlap
@@ -118,7 +120,9 @@ void run_bfs(int64_t root, int64_t* pred) {
   uint16_t cur_level = 0;
   while (1) {
     ++cur_level;
+#if 0
     if (rank == 0) fprintf(stderr, "BFS level %" PRIu16 "\n", cur_level);
+#endif
     memset(out_queue, 0, local_queue_size * sizeof(unsigned long));
     // memset(out_queue_summary, 0, local_queue_summary_size * sizeof(unsigned long));
     ptrdiff_t i, ii;
@@ -146,7 +150,7 @@ void run_bfs(int64_t root, int64_t* pred) {
             int64_t v1 = column[j];
             int64_t v1_swizzled = SWIZZLE_VERTEX(v1);
             if (TEST_IN(v1_swizzled)) {
-              pred[i] = v1;
+              pred[i] = (v1 & INT64_C(0xFFFFFFFFFFFF)) | ((int64_t)cur_level << 48);
               not_done |= 1;
               SET_VISITED_LOCAL(i);
               break;
@@ -185,8 +189,9 @@ void get_vertex_distribution_for_pred(size_t count, const int64_t* vertex_p, int
   ptrdiff_t i;
 #pragma omp parallel for
   for (i = 0; i < (ptrdiff_t)count; ++i) {
-    owner[i] = VERTEX_OWNER(vertex[i]);
-    local[i] = VERTEX_LOCAL(vertex[i]);
+    int64_t v = vertex[i];
+    owner[i] = VERTEX_OWNER(v);
+    local[i] = VERTEX_LOCAL(v);
   }
 }
 

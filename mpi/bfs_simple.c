@@ -56,6 +56,10 @@ void free_graph_data_structure(void) {
   free_oned_csr_graph(&g);
 }
 
+int bfs_writes_depth_map(void) {
+  return 0;
+}
+
 /* This version is the traditional level-synchronized BFS using two queues.  A
  * bitmap is used to indicate which vertices have been visited.  Messages are
  * sent and processed asynchronously throughout the code to hopefully overlap

@@ -121,7 +121,7 @@ struct scatter {
   MPI_Win win;
 };
 
-scatter* init_scatter(void* array, size_t array_count, size_t elt_size, void* input, size_t nrequests_max, MPI_Datatype dt) {
+scatter* init_scatter(void* array, size_t array_count, size_t elt_size, size_t nrequests_max, MPI_Datatype dt) {
   scatter* sc = (scatter*)xmalloc(sizeof(scatter));
   sc->array = array;
   sc->elt_size = elt_size;

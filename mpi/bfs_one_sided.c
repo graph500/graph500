@@ -27,6 +27,10 @@ void free_graph_data_structure(void) {
   free_oned_csr_graph(&g);
 }
 
+int bfs_writes_depth_map(void) {
+  return 0;
+}
+
 /* This BFS represents its queues as bitmaps and uses some data representation
  * tricks to fit with the use of MPI one-sided operations.  It is not much
  * faster than the standard version on the machines I have tested it on, but
