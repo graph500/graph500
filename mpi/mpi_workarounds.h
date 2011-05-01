@@ -7,8 +7,8 @@
 /*  Authors: Jeremiah Willcock                                             */
 /*           Andrew Lumsdaine                                              */
 
-#ifndef DATATYPES_H
-#define DATATYPES_H
+#ifndef MPI_WORKAROUNDS_H
+#define MPI_WORKAROUNDS_H
 
 #include <mpi.h> /* To get version number */
 
@@ -38,4 +38,4 @@
 
 /* End of user settings ----------------------------------- */
 
-#endif /* DATATYPES_H */
+#endif /* MPI_WORKAROUNDS_H */
