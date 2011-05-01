@@ -121,6 +121,9 @@ int main(int argc, char** argv) {
      * roots. */
     MPI_Offset nchunks_in_file = (tg.nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE;
     int64_t bitmap_size_in_bytes = int64_min(BITMAPSIZE, (nglobalverts + CHAR_BIT - 1) / CHAR_BIT);
+    if (bitmap_size_in_bytes * size * CHAR_BIT < nglobalverts) {
+      bitmap_size_in_bytes = (nglobalverts + size * CHAR_BIT - 1) / (size * CHAR_BIT);
+    }
     int ranks_per_row = ((nglobalverts + CHAR_BIT - 1) / CHAR_BIT + bitmap_size_in_bytes - 1) / bitmap_size_in_bytes;
     int nrows = size / ranks_per_row;
     int my_row = -1, my_col = -1;
