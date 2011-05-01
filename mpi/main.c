@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
       memset(has_edge, 0, bitmap_size_in_bytes);
       /* Every rank in a given row creates the same vertices (for updating the
        * bitmap); only one writes them to the file (or final memory buffer). */
-      packed_edge* buf = xmalloc(FILE_CHUNKSIZE * sizeof(packed_edge));
+      packed_edge* buf = (packed_edge*)xmalloc(FILE_CHUNKSIZE * sizeof(packed_edge));
       MPI_Offset block_limit = (nchunks_in_file + nrows - 1) / nrows;
       /* fprintf(stderr, "%d: nchunks_in_file = %" PRId64 ", block_limit = %" PRId64 " in grid of %d rows, %d cols\n", rank, (int64_t)nchunks_in_file, (int64_t)block_limit, nrows, ranks_per_row); */
       if (tg.data_in_file) {
