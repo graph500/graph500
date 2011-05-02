@@ -249,7 +249,7 @@ int main(int argc, char** argv) {
 
       /* Find maximum non-zero-degree vertex. */
       {
-        size_t i;
+        int64_t i;
         max_used_vertex = 0;
         if (in_generating_rectangle) {
           for (i = bitmap_size_in_bytes * CHAR_BIT; i > 0; --i) {
