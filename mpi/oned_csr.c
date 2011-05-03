@@ -47,6 +47,7 @@ static void make_csr(const packed_edge* restrict const inbuf, temp_csr_graph* re
     ptrdiff_t i;
 #pragma omp parallel for
     for (i = 0; i < (ptrdiff_t)inbuf_size; ++i) {
+      assert ((size_t)(VERTEX_LOCAL(get_v0_from_edge(&inbuf[i]))) < nrows);
 #pragma omp atomic
       ++counts[VERTEX_LOCAL(get_v0_from_edge(&inbuf[i]))];
     }
@@ -63,7 +64,9 @@ static void make_csr(const packed_edge* restrict const inbuf, temp_csr_graph* re
     for (i = 0; i < (ptrdiff_t)inbuf_size; ++i) {
       int64_t v0 = get_v0_from_edge(&inbuf[i]);
       int64_t v1 = get_v1_from_edge(&inbuf[i]);
+      assert ((size_t)(VERTEX_LOCAL(v0)) < nrows);
       size_t pos = __sync_fetch_and_add(&inserts[VERTEX_LOCAL(v0)], 1);
+      assert (pos < inbuf_size);
       column[pos] = v1;
     }
   }

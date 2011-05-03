@@ -42,6 +42,7 @@ typedef struct tuple_graph {
   int data_in_file; /* 1 for file, 0 for memory */
   packed_edge* restrict edgememory; /* NULL if edges are in file */
   int64_t edgememory_size;
+  int64_t max_edgememory_size;
   MPI_File edgefile; /* Or MPI_FILE_NULL if edges are in memory */
   int64_t nglobaledges; /* Number of edges in graph, in both cases */
 } tuple_graph;
@@ -50,8 +51,10 @@ typedef struct tuple_graph {
 
 /* Simple iteration of edge data or file; cannot be nested. */
 #define ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg) \
-  (DIV_SIZE((MPI_Offset)(((tg)->nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE) \
-             + size - 1))
+  ((tg)->data_in_file ? \
+    (DIV_SIZE((MPI_Offset)(((tg)->nglobaledges + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE) \
+               + size - 1)) : \
+    (((tg)->max_edgememory_size + FILE_CHUNKSIZE - 1) / FILE_CHUNKSIZE))
 #define ITERATE_TUPLE_GRAPH_BEGIN(tg, user_buf, user_buf_count) \
   do { \
     MPI_Offset block_limit = ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg); \
@@ -71,16 +74,21 @@ typedef struct tuple_graph {
     } \
     int break_from_block_loop = 0; \
     for (block_idx = 0; block_idx < block_limit; ++block_idx) { \
+      MPI_Offset start_edge_index, end_edge_index; \
       if ((tg)->data_in_file) { \
-        MPI_Offset start_edge_index = FILE_CHUNKSIZE * (MUL_SIZE(block_idx) + rank); \
+        start_edge_index = FILE_CHUNKSIZE * (MUL_SIZE(block_idx) + rank); \
         if (start_edge_index > (tg)->nglobaledges) start_edge_index = (tg)->nglobaledges; \
-        edge_count_i = (tg)->nglobaledges - start_edge_index; \
-        if (edge_count_i > FILE_CHUNKSIZE) edge_count_i = FILE_CHUNKSIZE; \
+        end_edge_index = start_edge_index + FILE_CHUNKSIZE; \
+        if (end_edge_index > (tg)->nglobaledges) end_edge_index = (tg)->nglobaledges; \
         /* fprintf(stderr, "%d trying to read offset = %" PRId64 ", count = %" PRId64 "\n", rank, start_edge_index, edge_count_i); */ \
         MPI_File_read_at_all_end((tg)->edgefile, edge_data_from_file, MPI_STATUS_IGNORE); \
+      } else { \
+        start_edge_index = int64_min(FILE_CHUNKSIZE * block_idx, (tg)->edgememory_size); \
+        end_edge_index = int64_min(start_edge_index + FILE_CHUNKSIZE, (tg)->edgememory_size); \
       } \
-      const packed_edge* restrict const user_buf = ((tg)->data_in_file ? edge_data_from_file : (tg)->edgememory + FILE_CHUNKSIZE * block_idx); \
-      ptrdiff_t const user_buf_count = ((tg)->data_in_file ? (ptrdiff_t)edge_count_i : ptrdiff_min(FILE_CHUNKSIZE, (tg)->edgememory_size)); \
+      edge_count_i = end_edge_index - start_edge_index; \
+      const packed_edge* restrict const user_buf = ((tg)->data_in_file ? edge_data_from_file : (tg)->edgememory + start_edge_index); \
+      ptrdiff_t const user_buf_count = edge_count_i; \
       assert (user_buf != NULL); \
       assert (user_buf_count >= 0); \
       assert (tuple_graph_max_bufsize((tg)) >= user_buf_count); \

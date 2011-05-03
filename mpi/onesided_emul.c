@@ -83,6 +83,8 @@ void begin_gather(gather* g) {
 
 void add_gather_request(gather* g, size_t local_idx, int remote_rank, size_t remote_idx, size_t req_id) {
   assert (g->valid);
+  assert (remote_rank >= 0 && remote_rank < size);
+  assert (req_id < g->nrequests_max);
   g->local_indices[req_id] = local_idx;
   g->remote_ranks[req_id] = remote_rank;
   g->remote_indices[req_id] = (MPI_Aint)remote_idx;

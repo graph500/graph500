@@ -157,16 +157,14 @@ int main(int argc, char** argv) {
         tg.edgememory_size = 0;
         tg.edgememory = NULL;
       } else {
-        int64_t nchunks_this_row = (nchunks_in_file / nrows) + (my_row < nchunks_in_file % nrows);
-        int64_t nedges = FILE_CHUNKSIZE * ((nchunks_this_row / ranks_per_row) + (my_col < nchunks_this_row % ranks_per_row));
-        /* These need to be -1 since this test should always fail if the mod
-         * operation returns 0 */
-        if ((my_row * ranks_per_row + my_col) == nchunks_in_file % (nrows * ranks_per_row) - 1) {
-          nedges -= (FILE_CHUNKSIZE - tg.nglobaledges % FILE_CHUNKSIZE) % FILE_CHUNKSIZE;
-        } else if (nchunks_in_file % (nrows * ranks_per_row) > 0 &&
-                   (my_row * ranks_per_row + my_col) > nchunks_in_file % (nrows * ranks_per_row) - 1) {
-          nedges = 0;
-        }
+        int my_pos = my_row + my_col * nrows;
+        int last_pos = (tg.nglobaledges % ((int64_t)FILE_CHUNKSIZE * nrows * ranks_per_row) != 0) ?
+                       (tg.nglobaledges / FILE_CHUNKSIZE) % (nrows * ranks_per_row) :
+                       -1;
+        int64_t edges_left = tg.nglobaledges % FILE_CHUNKSIZE;
+        int64_t nedges = FILE_CHUNKSIZE * (tg.nglobaledges / ((int64_t)FILE_CHUNKSIZE * nrows * ranks_per_row)) +
+                         FILE_CHUNKSIZE * (my_pos < (tg.nglobaledges / FILE_CHUNKSIZE) % (nrows * ranks_per_row)) +
+                         (my_pos == last_pos ? edges_left : 0);
         /* fprintf(stderr, "%d: nedges = %" PRId64 " of %" PRId64 "\n", rank, (int64_t)nedges, (int64_t)tg.nglobaledges); */
         tg.edgememory_size = nedges;
         tg.edgememory = (packed_edge*)xmalloc(nedges * sizeof(packed_edge));
@@ -179,6 +177,10 @@ int main(int argc, char** argv) {
         packed_edge* actual_buf = (!tg.data_in_file && block_idx % ranks_per_row == my_col) ?
                                   tg.edgememory + FILE_CHUNKSIZE * (block_idx / ranks_per_row) :
                                   buf;
+        /* fprintf(stderr, "%d: My range is [%" PRId64 ", %" PRId64 ") %swriting into index %" PRId64 "\n", rank, (int64_t)start_edge_index, (int64_t)(start_edge_index + edge_count), (my_col == (block_idx % ranks_per_row)) ? "" : "not ", (int64_t)(FILE_CHUNKSIZE * (block_idx / ranks_per_row))); */
+        if (!tg.data_in_file && block_idx % ranks_per_row == my_col) {
+          assert (FILE_CHUNKSIZE * (block_idx / ranks_per_row) + edge_count <= tg.edgememory_size);
+        }
         generate_kronecker_range(seed, SCALE, start_edge_index, start_edge_index + edge_count, actual_buf);
         if (tg.data_in_file && my_col == (block_idx % ranks_per_row)) { /* Try to spread writes among ranks */
           MPI_File_write_at(tg.edgefile, start_edge_index, actual_buf, edge_count, packed_edge_mpi_type, MPI_STATUS_IGNORE);
@@ -215,6 +217,7 @@ int main(int argc, char** argv) {
       tg.edgememory = NULL;
       tg.edgememory_size = 0;
     }
+    MPI_Allreduce(&tg.edgememory_size, &tg.max_edgememory_size, 1, MPI_INT64_T, MPI_MAX, MPI_COMM_WORLD);
     /* Find roots and max used vertex */
     {
       uint64_t counter = 0;
