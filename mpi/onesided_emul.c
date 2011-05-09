@@ -92,76 +92,37 @@ void add_gather_request(gather* g, size_t local_idx, int remote_rank, size_t rem
 
 /* Adapted from histogram_sort_inplace in boost/graph/detail/histogram_sort.hpp
  * */
-#define MAKE_HISTOGRAM_SORT1(name, t1) \
-void name \
-       (int* restrict keys, \
-        const int* restrict rowstart, \
-        int numkeys, \
-        t1* restrict values1) { \
-  int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int)); \
-  memcpy(insert_positions, rowstart, numkeys * sizeof(int)); \
-  size_t i; \
-  for (i = 0; i < rowstart[numkeys]; ++i) { \
-    while (!(i >= rowstart[keys[i]] && i < insert_positions[keys[i]])) { \
-      size_t target_pos = insert_positions[keys[i]]++; \
-      if (target_pos == i) continue; \
-      {int t = keys[i]; keys[i] = keys[target_pos]; keys[target_pos] = t;} \
-      {t1 t = values1[i]; values1[i] = values1[target_pos]; values1[target_pos] = t;} \
-    } \
-  } \
-  free(insert_positions); \
+void histogram_sort_size_tMPI_Aint
+       (int* restrict keys,
+        const int* restrict rowstart,
+        int numkeys,
+        size_t* restrict values1,
+        MPI_Aint* restrict values2) {
+  int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int));
+  memcpy(insert_positions, rowstart, numkeys * sizeof(int));
+  int i;
+  for (i = 0; i < rowstart[numkeys]; ++i) {
+    int key = keys[i];
+    assert (key >= 0 && key < numkeys);
+    // fprintf(stderr, "i = %d, key = %d\n", i, key);
+    while (!(i >= rowstart[key] && i < insert_positions[key])) {
+      int target_pos = insert_positions[key]++;
+      // fprintf(stderr, "target_pos = %d from limit %d\n", target_pos, rowstart[key + 1]);
+      if (target_pos == i) continue;
+      assert (target_pos < rowstart[key + 1]);
+      // fprintf(stderr, "swapping [%d] = (%d, %d, %d) with [%d] = (%d, %d, %d)\n", i, keys[i], (int)values1[i], (int)values2[i], target_pos, keys[target_pos], (int)values1[target_pos], (int)values2[target_pos]);
+      {int t = keys[i]; key = keys[target_pos]; keys[i] = key; keys[target_pos] = t;}
+      {size_t t = values1[i]; values1[i] = values1[target_pos]; values1[target_pos] = t;}
+      {MPI_Aint t = values2[i]; values2[i] = values2[target_pos]; values2[target_pos] = t;}
+      assert (key >= 0 && key < numkeys);
+    }
+    // fprintf(stderr, "done\n");
+  }
+  for (i = 1; i < rowstart[numkeys]; ++i) {
+    assert (keys[i] >= keys[i - 1]);
+  }
+  free(insert_positions);
 }
-
-/* Adapted from histogram_sort_inplace in boost/graph/detail/histogram_sort.hpp
- * */
-#define MAKE_HISTOGRAM_SORT2(name, t1, t2) \
-void name \
-       (int* restrict keys, \
-        const int* restrict rowstart, \
-        int numkeys, \
-        t1* restrict values1, \
-        t2* restrict values2) { \
-  int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int)); \
-  memcpy(insert_positions, rowstart, numkeys * sizeof(int)); \
-  size_t i; \
-  for (i = 0; i < rowstart[numkeys]; ++i) { \
-    while (!(i >= rowstart[keys[i]] && i < insert_positions[keys[i]])) { \
-      size_t target_pos = insert_positions[keys[i]]++; \
-      if (target_pos == i) continue; \
-      {int t = keys[i]; keys[i] = keys[target_pos]; keys[target_pos] = t;} \
-      {t1 t = values1[i]; values1[i] = values1[target_pos]; values1[target_pos] = t;} \
-      {t2 t = values2[i]; values2[i] = values2[target_pos]; values2[target_pos] = t;} \
-    } \
-  } \
-  free(insert_positions); \
-}
-
-/* Adapted from histogram_sort_inplace in boost/graph/detail/histogram_sort.hpp
- * */
-#define MAKE_HISTOGRAM_SORT_BLOCK(name, t1) \
-void name \
-       (int* restrict keys, \
-        const int* restrict rowstart, \
-        int numkeys, \
-        t1* restrict values1, \
-        char* restrict values2, \
-        size_t elt_size2) { \
-  int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int)); \
-  memcpy(insert_positions, rowstart, numkeys * sizeof(int)); \
-  size_t i; \
-  for (i = 0; i < rowstart[numkeys]; ++i) { \
-    while (!(i >= rowstart[keys[i]] && i < insert_positions[keys[i]])) { \
-      size_t target_pos = insert_positions[keys[i]]++; \
-      if (target_pos == i) continue; \
-      {int t = keys[i]; keys[i] = keys[target_pos]; keys[target_pos] = t;} \
-      {t1 t = values1[i]; values1[i] = values1[target_pos]; values1[target_pos] = t;} \
-      {char t[elt_size2]; memcpy(t, values2 + i * elt_size2, elt_size2); memcpy(values2 + i * elt_size2, values2 + target_pos * elt_size2, elt_size2); memcpy(values2 + target_pos * elt_size2, t, elt_size2);} \
-    } \
-  } \
-  free(insert_positions); \
-}
-
-MAKE_HISTOGRAM_SORT2(histogram_sort_size_tMPI_Aint, size_t, MPI_Aint)
 
 void end_gather(gather* g) {
   assert (g->valid);
@@ -279,7 +240,33 @@ void add_scatter_constant_request(scatter_constant* sc, int remote_rank, size_t 
   sc->remote_indices[req_id] = (MPI_Aint)remote_idx;
 }
 
-MAKE_HISTOGRAM_SORT1(histogram_sort_MPI_Aint, MPI_Aint)
+/* Adapted from histogram_sort_inplace in boost/graph/detail/histogram_sort.hpp
+ * */
+void histogram_sort_MPI_Aint
+       (int* restrict keys,
+        const int* restrict rowstart,
+        int numkeys,
+        MPI_Aint* restrict values1) {
+  int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int));
+  memcpy(insert_positions, rowstart, numkeys * sizeof(int));
+  size_t i;
+  for (i = 0; i < rowstart[numkeys]; ++i) {
+    int key = keys[i];
+    assert (key >= 0 && key < numkeys);
+    while (!(i >= rowstart[key] && i < insert_positions[key])) {
+      size_t target_pos = insert_positions[key]++;
+      if (target_pos == i) continue;
+      assert (target_pos < rowstart[key + 1]);
+      {int t = keys[i]; key = keys[target_pos]; keys[i] = key; keys[target_pos] = t;}
+      {MPI_Aint t = values1[i]; values1[i] = values1[target_pos]; values1[target_pos] = t;}
+      assert (key >= 0 && key < numkeys);
+    }
+  }
+  for (i = 1; i < rowstart[numkeys]; ++i) {
+    assert (keys[i] >= keys[i - 1]);
+  }
+  free(insert_positions);
+}
 
 void end_scatter_constant(scatter_constant* sc) {
   assert (sc->valid);
@@ -382,12 +369,46 @@ void begin_scatter(scatter* sc) {
 
 void add_scatter_request(scatter* sc, const char* local_data, int remote_rank, size_t remote_idx, size_t req_id) {
   assert (sc->valid);
+  assert (req_id < sc->nrequests_max);
+  assert (remote_rank >= 0 && remote_rank < sc->comm_size);
   memcpy(sc->send_data + req_id * sc->elt_size, local_data, sc->elt_size);
   sc->remote_ranks[req_id] = remote_rank;
   sc->remote_indices[req_id] = (MPI_Aint)remote_idx;
 }
 
-MAKE_HISTOGRAM_SORT_BLOCK(histogram_sort_MPI_Aintcharblock, MPI_Aint)
+/* Adapted from histogram_sort_inplace in boost/graph/detail/histogram_sort.hpp
+ * */
+void histogram_sort_MPI_Aintcharblock
+       (int* restrict keys,
+        const int* restrict rowstart,
+        int numkeys,
+        MPI_Aint* restrict values1,
+        char* restrict values2,
+        size_t elt_size2) {
+  int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int));
+  memcpy(insert_positions, rowstart, numkeys * sizeof(int));
+  int i;
+  for (i = 0; i < rowstart[numkeys]; ++i) {
+    int key = keys[i];
+    assert (key >= 0 && key < numkeys);
+    fprintf(stderr, "i = %d, key = %d\n", i, key);
+    while (!(i >= rowstart[key] && i < insert_positions[key])) {
+      int target_pos = insert_positions[key]++;
+      fprintf(stderr, "target_pos = %d from limit %d\n", target_pos, rowstart[key + 1]);
+      if (target_pos == i) continue;
+      assert (target_pos < rowstart[key + 1]);
+      {int t = keys[i]; key = keys[target_pos]; keys[i] = key; keys[target_pos] = t;}
+      {MPI_Aint t = values1[i]; values1[i] = values1[target_pos]; values1[target_pos] = t;}
+      {char t[elt_size2]; memcpy(t, values2 + i * elt_size2, elt_size2); memcpy(values2 + i * elt_size2, values2 + target_pos * elt_size2, elt_size2); memcpy(values2 + target_pos * elt_size2, t, elt_size2);}
+      assert (key >= 0 && key < numkeys);
+    }
+    fprintf(stderr, "done\n");
+  }
+  for (i = 1; i < rowstart[numkeys]; ++i) {
+    assert (keys[i] >= keys[i - 1]);
+  }
+  free(insert_positions);
+}
 
 void end_scatter(scatter* sc) {
   assert (sc->valid);
