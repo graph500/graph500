@@ -41,6 +41,8 @@ static int check_value_ranges(const int64_t nglobalverts, const size_t nlocalver
     for (ii = 0; ii < nlocalverts; ii += CHUNKSIZE) {
       ptrdiff_t i_end = ptrdiff_min(ii + CHUNKSIZE, nlocalverts);
       ptrdiff_t i;
+      assert (ii >= 0 && ii <= (ptrdiff_t)nlocalverts);
+      assert (i_end >= 0 && i_end <= (ptrdiff_t)nlocalverts);
 #pragma omp parallel for reduction(||:any_range_errors)
       for (i = ii; i < i_end; ++i) {
         int64_t p = get_pred_from_pred_entry(pred[i]);
@@ -64,6 +66,7 @@ static int build_bfs_depth_map(const int64_t nglobalverts, const size_t nlocalve
   size_t root_local;
   get_vertex_distribution_for_pred(1, &root, &root_owner, &root_local);
   int root_is_mine = (root_owner == rank);
+  if (root_is_mine) assert (root_local < nlocalverts);
 
   {
     ptrdiff_t i;
@@ -87,6 +90,8 @@ static int build_bfs_depth_map(const int64_t nglobalverts, const size_t nlocalve
         ptrdiff_t i_end = ptrdiff_min(ii + CHUNKSIZE, nlocalverts);
         begin_gather(pred_win);
         ptrdiff_t i;
+        assert (ii >= 0 && ii <= (ptrdiff_t)nlocalverts);
+        assert (i_end >= 0 && i_end <= (ptrdiff_t)nlocalverts);
 #pragma omp parallel for
         for (i = ii; i < i_end; ++i) {
           pred_vtx[i - ii] = get_pred_from_pred_entry(pred[i]);
@@ -137,6 +142,7 @@ static int check_bfs_depth_map_using_predecessors(const int64_t nglobalverts, co
   size_t root_local;
   get_vertex_distribution_for_pred(1, &root, &root_owner, &root_local);
   int root_is_mine = (root_owner == rank);
+  if (root_is_mine) assert (root_local < nlocalverts);
 
   {
     ptrdiff_t i;
@@ -167,6 +173,8 @@ static int check_bfs_depth_map_using_predecessors(const int64_t nglobalverts, co
     ptrdiff_t i_end = ptrdiff_min(ii + CHUNKSIZE, nlocalverts);
     begin_gather(pred_win);
     ptrdiff_t i;
+    assert (ii >= 0 && ii <= (ptrdiff_t)nlocalverts);
+    assert (i_end >= 0 && i_end <= (ptrdiff_t)nlocalverts);
 #pragma omp parallel for
     for (i = ii; i < i_end; ++i) {
       pred_vtx[i - ii] = get_pred_from_pred_entry(pred[i]);
@@ -209,7 +217,10 @@ static int check_bfs_depth_map_using_predecessors(const int64_t nglobalverts, co
 int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, int64_t* const pred, int64_t* const edge_visit_count_ptr) {
 
   int ranges_ok = check_value_ranges(nglobalverts, nlocalverts, pred);
-  if (root < 0 || root >= nglobalverts) ranges_ok = 0;
+  if (root < 0 || root >= nglobalverts) {
+    fprintf(stderr, "%d: Validation error: root vertex %" PRId64 " is invalid.\n", rank, root);
+    ranges_ok = 0;
+  }
   if (!ranges_ok) return 0; /* Fail */
 
   int validation_passed = 1;
@@ -228,6 +239,7 @@ int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts,
 
   /* Check that root is its own parent. */
   if (root_is_mine) {
+    assert (root_local < nlocalverts);
     if (get_pred_from_pred_entry(pred[root_local]) != root) {
       fprintf(stderr, "%d: Validation error: parent of root vertex %" PRId64 " is %" PRId64 ", not the root itself.\n", rank, root, get_pred_from_pred_entry(pred[root_local]));
       validation_passed = 0;
@@ -243,6 +255,8 @@ int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts,
     for (ii = 0; ii < nlocalverts; ii += CHUNKSIZE) {
       ptrdiff_t i_end = ptrdiff_min(ii + CHUNKSIZE, nlocalverts);
       ptrdiff_t i;
+      assert (ii >= 0 && ii <= (ptrdiff_t)nlocalverts);
+      assert (i_end >= 0 && i_end <= (ptrdiff_t)nlocalverts);
 #pragma omp parallel for
       for (i = ii; i < i_end; ++i) {
         pred_vtx[i - ii] = get_pred_from_pred_entry(pred[i]);
