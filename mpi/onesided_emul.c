@@ -27,6 +27,7 @@ struct gather {
   size_t input_count;
   size_t elt_size;
   void* output;
+  size_t output_count;
   size_t nrequests_max;
   MPI_Datatype datatype;
   int valid;
@@ -41,12 +42,13 @@ struct gather {
   int* recv_offsets;
 };
 
-gather* init_gather(void* input, size_t input_count, size_t elt_size, void* output, size_t nrequests_max, MPI_Datatype dt) {
+gather* init_gather(void* input, size_t input_count, size_t elt_size, void* output, size_t output_count, size_t nrequests_max, MPI_Datatype dt) {
   gather* g = (gather*)xmalloc(sizeof(gather));
   g->input = input;
   g->input_count = input_count;
   g->elt_size = elt_size;
   g->output = output;
+  g->output_count = output_count;
   g->nrequests_max = nrequests_max;
   g->datatype = dt;
   g->valid = 0;
@@ -55,10 +57,16 @@ gather* init_gather(void* input, size_t input_count, size_t elt_size, void* outp
   g->remote_ranks = (int*)xmalloc(nrequests_max * sizeof(int));
   g->remote_indices = (MPI_Aint*)xmalloc(nrequests_max * sizeof(MPI_Aint));
   MPI_Comm_size(g->comm, &g->comm_size);
+  int size = g->comm_size;
   g->send_counts = (int*)xmalloc((size + 1) * sizeof(int));
   g->send_offsets = (int*)xmalloc((size + 2) * sizeof(int));
   g->recv_counts = (int*)xmalloc(size * sizeof(int));
   g->recv_offsets = (int*)xmalloc((size + 1) * sizeof(int));
+#ifndef NDEBUG
+  int datasize;
+  MPI_Type_size(dt, &datasize);
+  assert (datasize == (int)elt_size);
+#endif
   return g;
 }
 
@@ -72,20 +80,26 @@ void destroy_gather(gather* g) {
   free(g->send_offsets); g->send_offsets = NULL;
   free(g->recv_counts); g->recv_counts = NULL;
   free(g->recv_offsets); g->recv_offsets = NULL;
+  g->input = NULL;
+  g->output = NULL;
+  g->input_count = 0;
+  g->output_count = 0;
   free(g);
 }
 
 void begin_gather(gather* g) {
   assert (!g->valid);
-  {size_t i, nr = g->nrequests_max; for (i = 0; i < nr; ++i) g->remote_ranks[i] = size;}
+  {size_t i, nr = g->nrequests_max; for (i = 0; i < nr; ++i) g->remote_ranks[i] = g->comm_size;}
   g->valid = 1;
 }
 
 void add_gather_request(gather* g, size_t local_idx, int remote_rank, size_t remote_idx, size_t req_id) {
   assert (g->valid);
-  assert (remote_rank >= 0 && remote_rank < size);
+  assert (remote_rank >= 0 && remote_rank < g->comm_size);
   assert (req_id < g->nrequests_max);
+  assert (local_idx < g->output_count);
   g->local_indices[req_id] = local_idx;
+  assert (g->remote_ranks[req_id] == g->comm_size);
   g->remote_ranks[req_id] = remote_rank;
   g->remote_indices[req_id] = (MPI_Aint)remote_idx;
 }
@@ -146,22 +160,27 @@ void end_gather(gather* g) {
   memset(send_counts, 0, (size + 1) * sizeof(int));
   size_t i;
   for (i = 0; i < nrequests_max; ++i) {
+    assert (remote_ranks[i] >= 0 && remote_ranks[i] < size + 1);
     ++send_counts[remote_ranks[i]];
   }
   send_offsets[0] = 0;
   for (i = 0; i < (size_t)size + 1; ++i) {
+    assert (send_counts[i] >= 0);
     send_offsets[i + 1] = send_offsets[i] + send_counts[i];
   }
+  assert (send_offsets[size + 1] == (int)nrequests_max);
   histogram_sort_size_tMPI_Aint(remote_ranks, send_offsets, size + 1, local_indices, remote_indices);
+  assert (send_offsets[size] == send_offsets[size + 1] || remote_ranks[send_offsets[size]] == size);
   MPI_Alltoall(send_counts, 1, MPI_INT, recv_counts, 1, MPI_INT, comm);
   recv_offsets[0] = 0;
   for (i = 0; i < (size_t)size; ++i) {
+    assert (recv_counts[i] >= 0);
     recv_offsets[i + 1] = recv_offsets[i] + recv_counts[i];
   }
   MPI_Aint* restrict recv_data = (MPI_Aint*)xmalloc(recv_offsets[size] * sizeof(MPI_Aint));
   MPI_Alltoallv(remote_indices, send_counts, send_offsets, MPI_AINT, recv_data, recv_counts, recv_offsets, MPI_AINT, comm);
   char* restrict reply_data = xmalloc(recv_offsets[size] * elt_size);
-  for (i = 0; i < recv_offsets[size]; ++i) {
+  for (i = 0; i < (size_t)recv_offsets[size]; ++i) {
     assert (recv_data[i] >= 0 && recv_data[i] < input_count);
     memcpy(reply_data + i * elt_size, input + recv_data[i] * elt_size, elt_size);
   }
@@ -170,7 +189,7 @@ void end_gather(gather* g) {
   MPI_Alltoallv(reply_data, recv_counts, recv_offsets, datatype, recv_reply_data, send_counts, send_offsets, datatype, comm);
   free(reply_data);
   for (i = 0; i < nrequests_max; ++i) {
-    if (remote_ranks[i] < size) {
+    if (remote_ranks[i] >= 0 && remote_ranks[i] < size) {
       memcpy(output + local_indices[i] * elt_size, recv_reply_data + i * elt_size, elt_size);
     }
   }
@@ -196,6 +215,7 @@ struct scatter_constant {
 };
 
 scatter_constant* init_scatter_constant(void* array, size_t array_count, size_t elt_size, void* constant, size_t nrequests_max, MPI_Datatype dt /* unused */) {
+  (void)dt;
   scatter_constant* sc = (scatter_constant*)xmalloc(sizeof(scatter_constant));
   sc->array = array;
   sc->array_count = array_count;
@@ -207,6 +227,7 @@ scatter_constant* init_scatter_constant(void* array, size_t array_count, size_t 
   sc->remote_ranks = (int*)xmalloc(nrequests_max * sizeof(int));
   sc->remote_indices = (MPI_Aint*)xmalloc(nrequests_max * sizeof(MPI_Aint));
   MPI_Comm_size(sc->comm, &sc->comm_size);
+  int size = sc->comm_size;
   sc->send_counts = (int*)xmalloc((size + 1) * sizeof(int));
   sc->send_offsets = (int*)xmalloc((size + 2) * sizeof(int));
   sc->recv_counts = (int*)xmalloc(size * sizeof(int));
@@ -236,6 +257,7 @@ void add_scatter_constant_request(scatter_constant* sc, int remote_rank, size_t 
   assert (sc->valid);
   assert (remote_rank >= 0 && remote_rank < sc->comm_size);
   assert (req_id < sc->nrequests_max);
+  assert (sc->remote_ranks[req_id] == sc->comm_size);
   sc->remote_ranks[req_id] = remote_rank;
   sc->remote_indices[req_id] = (MPI_Aint)remote_idx;
 }
@@ -249,12 +271,12 @@ void histogram_sort_MPI_Aint
         MPI_Aint* restrict values1) {
   int* restrict insert_positions = (int*)xmalloc(numkeys * sizeof(int));
   memcpy(insert_positions, rowstart, numkeys * sizeof(int));
-  size_t i;
+  int i;
   for (i = 0; i < rowstart[numkeys]; ++i) {
     int key = keys[i];
     assert (key >= 0 && key < numkeys);
     while (!(i >= rowstart[key] && i < insert_positions[key])) {
-      size_t target_pos = insert_positions[key]++;
+      int target_pos = insert_positions[key]++;
       if (target_pos == i) continue;
       assert (target_pos < rowstart[key + 1]);
       {int t = keys[i]; key = keys[target_pos]; keys[i] = key; keys[target_pos] = t;}
@@ -288,6 +310,7 @@ void end_scatter_constant(scatter_constant* sc) {
   memset(send_counts, 0, (size + 1) * sizeof(int));
   size_t i;
   for (i = 0; i < nrequests_max; ++i) {
+    assert (remote_ranks[i] >= 0 && remote_ranks[i] < size + 1);
     ++send_counts[remote_ranks[i]];
   }
   send_offsets[0] = 0;
@@ -302,7 +325,7 @@ void end_scatter_constant(scatter_constant* sc) {
   }
   MPI_Aint* restrict recv_data = (MPI_Aint*)xmalloc(recv_offsets[size] * sizeof(MPI_Aint));
   MPI_Alltoallv(remote_indices, send_counts, send_offsets, MPI_AINT, recv_data, recv_counts, recv_offsets, MPI_AINT, comm);
-  for (i = 0; i < recv_offsets[size]; ++i) {
+  for (i = 0; i < (size_t)recv_offsets[size]; ++i) {
     assert (recv_data[i] >= 0 && recv_data[i] < array_count);
     memcpy(array + recv_data[i] * elt_size, constant, elt_size);
   }
@@ -341,6 +364,7 @@ scatter* init_scatter(void* array, size_t array_count, size_t elt_size, size_t n
   sc->remote_ranks = (int*)xmalloc(nrequests_max * sizeof(int));
   sc->remote_indices = (MPI_Aint*)xmalloc(nrequests_max * sizeof(MPI_Aint));
   MPI_Comm_size(sc->comm, &sc->comm_size);
+  int size = sc->comm_size;
   sc->send_counts = (int*)xmalloc((size + 1) * sizeof(int));
   sc->send_offsets = (int*)xmalloc((size + 2) * sizeof(int));
   sc->recv_counts = (int*)xmalloc(size * sizeof(int));
@@ -363,7 +387,7 @@ void destroy_scatter(scatter* sc) {
 
 void begin_scatter(scatter* sc) {
   assert (!sc->valid);
-  {size_t i, nr = sc->nrequests_max; for (i = 0; i < nr; ++i) sc->remote_ranks[i] = size;}
+  {size_t i, nr = sc->nrequests_max; for (i = 0; i < nr; ++i) sc->remote_ranks[i] = sc->comm_size;}
   sc->valid = 1;
 }
 
@@ -372,6 +396,7 @@ void add_scatter_request(scatter* sc, const char* local_data, int remote_rank, s
   assert (req_id < sc->nrequests_max);
   assert (remote_rank >= 0 && remote_rank < sc->comm_size);
   memcpy(sc->send_data + req_id * sc->elt_size, local_data, sc->elt_size);
+  assert (sc->remote_ranks[req_id] == sc->comm_size);
   sc->remote_ranks[req_id] = remote_rank;
   sc->remote_indices[req_id] = (MPI_Aint)remote_idx;
 }
@@ -430,6 +455,7 @@ void end_scatter(scatter* sc) {
   memset(send_counts, 0, (size + 1) * sizeof(int));
   size_t i;
   for (i = 0; i < nrequests_max; ++i) {
+    assert (remote_ranks[i] >= 0 && remote_ranks[i] < size + 1);
     ++send_counts[remote_ranks[i]];
   }
   send_offsets[0] = 0;
@@ -446,7 +472,7 @@ void end_scatter(scatter* sc) {
   char* restrict recv_data = (char*)xmalloc(recv_offsets[size] * elt_size);
   MPI_Alltoallv(remote_indices, send_counts, send_offsets, MPI_AINT, recv_indices, recv_counts, recv_offsets, MPI_AINT, comm);
   MPI_Alltoallv(send_data, send_counts, send_offsets, sc->datatype, recv_data, recv_counts, recv_offsets, sc->datatype, comm);
-  for (i = 0; i < recv_offsets[size]; ++i) {
+  for (i = 0; i < (size_t)recv_offsets[size]; ++i) {
     assert (recv_indices[i] >= 0 && recv_indices[i] < array_count);
     memcpy(array + recv_indices[i] * elt_size, recv_data + i * elt_size, elt_size);
   }

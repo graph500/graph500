@@ -19,7 +19,7 @@
 /* Gather from one array into another. */
 typedef struct gather gather;
 
-gather* init_gather(void* input, size_t input_count, size_t elt_size, void* output, size_t nrequests_max, MPI_Datatype dt);
+gather* init_gather(void* input, size_t input_count, size_t elt_size, void* output, size_t output_count, size_t nrequests_max, MPI_Datatype dt);
 void destroy_gather(gather* g);
 void begin_gather(gather* g);
 void add_gather_request(gather* g, size_t local_idx, int remote_rank, size_t remote_idx, size_t req_id);

@@ -29,7 +29,7 @@ struct gather {
   MPI_Win win;
 };
 
-gather* init_gather(void* input, size_t input_count, size_t elt_size, void* output, size_t nrequests_max, MPI_Datatype dt) {
+gather* init_gather(void* input, size_t input_count, size_t elt_size, void* output, size_t output_count, size_t nrequests_max, MPI_Datatype dt) {
   gather* g = (gather*)xmalloc(sizeof(gather));
   g->input = input;
   g->elt_size = elt_size;
