@@ -83,13 +83,12 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
   int err = 0;
   const int64_t nv = maxvtx+1;
 
-  int64_t k, k1, k2, newk2;
+  int64_t k, k1, k2;
   int64_t * restrict vlist;
 
   *max_vtx_out = maxvtx;
 
   bfs_tree[srcvtx] = srcvtx;
-  newk2 = 1;
 
   vlist = malloc (nv * sizeof (*vlist));
   if (!vlist) return -1;

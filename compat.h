@@ -32,8 +32,15 @@ typedef unsigned uint32_fast_t;
 #include <omp.h>
 #else
 #define OMP(x)
+#if defined(__GNUC__)
+static int omp_get_thread_num (void) __attribute__((unused));
+static int omp_get_num_threads (void) __attribute__((unused));
+int omp_get_thread_num (void) { return 0; }
+int omp_get_num_threads (void) { return 1; }
+#else
 static int omp_get_thread_num (void) { return 0; }
 static int omp_get_num_threads (void) { return 1; }
+#endif
 #endif
 
 #if defined(__MTA__)
