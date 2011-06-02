@@ -1,5 +1,5 @@
 # -*- Makefile -*-
-# Copyright 2010,  Georgia Institute of Technology, USA.
+# Copyright 2010-2011,  Georgia Institute of Technology, USA.
 # See COPYING for license.
 BUILD_OPENMP = No
 BUILD_XMT = No

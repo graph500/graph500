@@ -1,5 +1,5 @@
 # -*- Makefile -*-
-# Copyright 2010, Georgia Institute of Technology, USA.
+# Copyright 2010-2011, Georgia Institute of Technology, USA.
 # See COPYING for license.
 # Modules and Emacs+tramp don't cooperate at PNNL.
 #PATH:=/opt/mta-pe/6.5.0/bin:${PATH}

@@ -1,5 +1,5 @@
 # -*- Makefile -*-
-# Copyright 2010, University of Illinois at Urbana-Champaign
+# Copyright 2010-2011, University of Illinois at Urbana-Champaign
 # See COPYING for license.
 CFLAGS = -g -std=c99 -Wall
 LDLIBS = -lm

@@ -1,5 +1,5 @@
 # -*- Makefile -*-
-# Copyright 2010, Georgia Institute of Technology, USA.
+# Copyright 2010-2011, Georgia Institute of Technology, USA.
 # See COPYING for license.
 CC = gcc-4.6 -flto -fwhole-program
 CFLAGS = -g -std=c99 -Wall -O3 -march=native

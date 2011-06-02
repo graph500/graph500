@@ -1,5 +1,5 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
-/* Copyright 2010,  Georgia Institute of Technology, USA. */
+/* Copyright 2010-2011,  Georgia Institute of Technology, USA. */
 /* See COPYING for license. */
 #if !defined(PRNG_HEADER_)
 #define PRNG_HEADER_
