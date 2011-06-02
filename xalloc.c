@@ -14,6 +14,10 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 
+#if defined(HAVE_LIBNUMA)
+#include <numa.h>
+#endif
+
 #if !defined(MAP_POPULATE)
 #define MAP_POPULATE 0
 #endif
@@ -25,21 +29,7 @@
 #define MAP_HUGETLB 0
 #endif
 
-#if 0
-/* Included in the generator. */
-void *
-xmalloc (size_t sz)
-{
-  void *out;
-  if (!(out = malloc (sz))) {
-    perror ("malloc failed");
-    abort ();
-  }
-  return out;
-}
-#else
 extern void *xmalloc (size_t);
-#endif
 
 #if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
 #define MAX_LARGE 32
@@ -221,27 +211,3 @@ xmalloc_large_ext (size_t sz)
   return xmalloc_large (sz);
 #endif
 }
-
-/*
-void
-mark_large_unused (void *p)
-{
-#if !defined(__MTA__)
-  int k;
-  for (k = 0; k < n_large_alloc; ++k)
-    if (p == large_alloc[k].p)
-      posix_madvise (large_alloc[k].p, large_alloc[k].sz, POSIX_MADV_DONTNEED);
-#endif
-}
-
-void
-mark_large_willuse (void *p)
-{
-#if !defined(__MTA__)
-  int k;
-  for (k = 0; k < n_large_alloc; ++k)
-    if (p == large_alloc[k].p)
-      posix_madvise (large_alloc[k].p, large_alloc[k].sz, POSIX_MADV_WILLNEED);
-#endif
-}
-*/
