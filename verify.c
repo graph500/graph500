@@ -83,7 +83,8 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
   int64_t * restrict bfs_tree = bfs_tree_in;
   const int64_t * restrict IJ = IJ_in;
 
-  int err, nedge_traversed;
+  int err;
+  int64_t nedge_traversed;
   int64_t * restrict seen_edge, * restrict level;
 
   const int64_t nv = max_bfsvtx+1;
