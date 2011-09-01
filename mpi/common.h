@@ -92,7 +92,7 @@ typedef struct tuple_graph {
       assert (user_buf != NULL); \
       assert (user_buf_count >= 0); \
       assert (tuple_graph_max_bufsize((tg)) >= user_buf_count); \
-      int iteration_count = 0; \
+      int iteration_count = 0; (void)iteration_count; \
       int buffer_released_this_iter = 0; /* To allow explicit buffer release to be optional */ \
       while (1) { \
         /* Prevent continue */ assert (iteration_count == 0); \
