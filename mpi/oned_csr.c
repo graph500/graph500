@@ -146,7 +146,7 @@ static void merge_csr(temp_csr_graph* restrict const b,
   packed_edge_mpi_type
 
 #define CONV1D_PRECOMPRESS_INCOMING_DATA(LG_NGLOBALVERTS_SO_FAR, EDGES_TO_RECV, EDGES_RECEIVED_THIS_BLOCK) \
-  size_t nlocalverts_so_far = (size_t)DIV_SIZE((UINT64_C(1) << (LG_NGLOBALVERTS_SO_FAR)) + size - 1); \
+  size_t nlocalverts_so_far = (size_t)DIV_SIZE((UINT64_C(1) << (LG_NGLOBALVERTS_SO_FAR)) / ulong_bits_squared + size - 1) * ulong_bits_squared; \
   temp_csr_graph t = { \
     /* rowstarts   */           (size_t*)xmalloc((size_t)(nlocalverts_so_far + 1) * sizeof(size_t)), \
     /* column      */           (int64_t*)xmalloc((size_t)(EDGES_RECEIVED_THIS_BLOCK) * sizeof(int64_t)), \
@@ -174,9 +174,9 @@ static void merge_csr(temp_csr_graph* restrict const b,
   g->nlocaledges = graph_so_far.nlocaledges; \
   g->rowstarts = graph_so_far.rowstarts; \
   g->column = (int64_t*)xrealloc(graph_so_far.column, (size_t)g->nlocaledges * sizeof(int64_t)); \
-  size_t nlocalverts = graph_so_far.nlocalverts; \
-  g->nlocalverts = nlocalverts; \
-  g->max_nlocalverts = nlocalverts; /* Now same on all ranks */ \
+  int64_t nlocalverts = (int64_t)(graph_so_far.nlocalverts); \
+  g->nlocalverts = (size_t)nlocalverts; \
+  MPI_Allreduce(&nlocalverts, &g->max_nlocalverts, 1, MPI_INT64_T, MPI_MAX, MPI_COMM_WORLD); \
   g->lg_nglobalverts = graph_so_far.lg_nglobalverts; \
   g->nglobalverts = INT64_C(1) << graph_so_far.lg_nglobalverts;
 

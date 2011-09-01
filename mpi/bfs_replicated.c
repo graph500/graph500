@@ -21,21 +21,29 @@
 #include <assert.h>
 
 static oned_csr_graph g;
+static int g_lg_local_queue_size;
+static int64_t g_local_queue_summary_size;
+static int64_t g_local_queue_size;
+static int64_t g_global_queue_summary_size;
+static int64_t g_global_queue_size;
 static unsigned long* g_in_queue;
 static unsigned long* g_in_queue_summary;
 static unsigned long* g_out_queue;
 static unsigned long* g_out_queue_summary;
 static unsigned long* g_visited;
 
-const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
-const int ulong_bits_squared = sizeof(unsigned long) * sizeof(unsigned long) * CHAR_BIT * CHAR_BIT;
-
 static void allocate_memory(void) {
   int64_t maxlocalverts = g.max_nlocalverts;
-  int64_t local_queue_summary_size = (maxlocalverts + ulong_bits_squared - 1) / ulong_bits_squared;
+  int lg_local_queue_size = lg_int64_t((maxlocalverts + ulong_bits_squared - 1) / ulong_bits_squared * ulong_bits_squared);
+  g_lg_local_queue_size = lg_local_queue_size;
+  int64_t local_queue_summary_size = (INT64_C(1) << lg_local_queue_size) / ulong_bits_squared;
   int64_t local_queue_size = local_queue_summary_size * ulong_bits;
+  g_local_queue_summary_size = local_queue_summary_size;
+  g_local_queue_size = local_queue_size;
   int64_t global_queue_summary_size = MUL_SIZE(local_queue_summary_size);
   int64_t global_queue_size = MUL_SIZE(local_queue_size);
+  g_global_queue_summary_size = global_queue_summary_size;
+  g_global_queue_size = global_queue_size;
   g_in_queue = (unsigned long*)xmalloc(global_queue_size * sizeof(unsigned long));
   g_in_queue_summary = (unsigned long*)xmalloc(global_queue_summary_size * sizeof(unsigned long));
   g_out_queue = (unsigned long*)xmalloc(local_queue_size * sizeof(unsigned long));
@@ -73,18 +81,17 @@ void run_bfs(int64_t root, int64_t* pred) {
   const ptrdiff_t nlocalverts = g.nlocalverts;
   const size_t* const restrict rowstarts = g.rowstarts;
   const int64_t* const restrict column = g.column;
-  int64_t maxlocalverts = g.max_nlocalverts;
 
   /* Set up the visited bitmap. */
   const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
   const int ulong_bits_squared = ulong_bits * ulong_bits;
-  int64_t local_queue_summary_size = (maxlocalverts + ulong_bits_squared - 1) / ulong_bits_squared;
-  int64_t local_queue_size = local_queue_summary_size * ulong_bits;
-  int lg_local_queue_size = lg_int64_t(local_queue_size);
-  int64_t global_queue_summary_size = MUL_SIZE(local_queue_summary_size);
-  int64_t global_queue_size = MUL_SIZE(local_queue_size);
+  int64_t local_queue_summary_size = g_local_queue_summary_size;
+  int64_t local_queue_size = g_local_queue_size;
+  int lg_local_queue_size = g_lg_local_queue_size;
+  int64_t global_queue_summary_size = g_global_queue_summary_size;
+  int64_t global_queue_size = g_global_queue_size;
 
-#define SWIZZLE_VERTEX(c) ((VERTEX_OWNER(c) << lg_local_queue_size) * ulong_bits | VERTEX_LOCAL(c))
+#define SWIZZLE_VERTEX(c) ((VERTEX_OWNER(c) << lg_local_queue_size) | VERTEX_LOCAL(c))
 #if 0
   int64_t* restrict column_swizzled = (int64_t*)xmalloc(nlocaledges * sizeof(int64_t));
   {
@@ -123,8 +130,8 @@ void run_bfs(int64_t root, int64_t* pred) {
 #if 0
     if (rank == 0) fprintf(stderr, "BFS level %" PRIu16 "\n", cur_level);
 #endif
-    memset(out_queue, 0, local_queue_size * sizeof(unsigned long));
-    // memset(out_queue_summary, 0, local_queue_summary_size * sizeof(unsigned long));
+    memset(out_queue, 0, (nlocalverts + ulong_bits - 1) / ulong_bits * sizeof(unsigned long));
+    // memset(out_queue_summary, 0, (nlocalverts + ulong_bits_squared - 1) / ulong_bits_squared * sizeof(unsigned long));
     ptrdiff_t i, ii;
 #if 0
 #pragma omp parallel for schedule(static)
