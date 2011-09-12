@@ -119,7 +119,7 @@ run_bfs (void)
 {
   int * restrict has_adj;
   int m, err;
-  int64_t k, t;
+  int64_t k, t, nvtx_connected = 0;
 
   if (VERBOSE) fprintf (stderr, "Creating graph...");
   TIME(construction_time, err = create_graph_from_edgelist (IJ, nedge));
@@ -147,17 +147,23 @@ run_bfs (void)
 	  if (i != j)
 	    has_adj[i] = has_adj[j] = 1;
 	}
+      OMP("omp for reduction(+:nvtx_connected)")
+	for (k = 0; k < nvtx_scale; ++k)
+	  if (has_adj[k]) ++nvtx_connected;
     }
 
-    /* Sample from {0, ..., nvtx_scale-1} without replacement. */
+    /* Sample from {0, ..., nvtx_scale-1} without replacement, but
+       only from vertices with degree > 0. */
     m = 0;
     t = 0;
-    while (m < NBFS && t < nvtx_scale) {
-      double R = mrg_get_double_orig (prng_state);
-      if (!has_adj[t] || (nvtx_scale - t)*R > NBFS - m) ++t;
-      else bfs_root[m++] = t++;
+    for (k = 0; k < nvtx_scale && m < NBFS && t < nvtx_connected; ++k) {
+      if (has_adj[k]) {
+	double R = mrg_get_double_orig (prng_state);
+	if ((nvtx_connected - t)*R > NBFS - m) ++t;
+	else bfs_root[m++] = t++;
+      }
     }
-    if (t >= nvtx_scale && m < NBFS) {
+    if (t >= nvtx_connected && m < NBFS) {
       if (m > 0) {
 	fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
 		 NBFS, m);
