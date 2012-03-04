@@ -81,7 +81,7 @@ main (int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  write (fd, IJ, 2 * nedge * sizeof (*IJ));
+  write (fd, IJ, nedge * sizeof (*IJ));
 
   close (fd);
 
