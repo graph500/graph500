@@ -12,6 +12,7 @@
 #include <assert.h>
 
 #include "xalloc.h"
+#include "verify.h"
 
 static int
 compute_levels (int64_t * level,
@@ -78,10 +79,10 @@ compute_levels (int64_t * level,
 int64_t
 verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 		 int64_t root,
-		 const int64_t *IJ_in, int64_t nedge)
+		 const struct packed_edge *IJ_in, int64_t nedge)
 {
   int64_t * restrict bfs_tree = bfs_tree_in;
-  const int64_t * restrict IJ = IJ_in;
+  const struct packed_edge * restrict IJ = IJ_in;
 
   int err;
   int64_t nedge_traversed;
@@ -115,9 +116,9 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 
     OMP("omp for reduction(+:nedge_traversed)")
     MTA("mta assert parallel") MTA("mta use 100 streams")
-      for (k = 0; k < 2*nedge; k+=2) {
-	const int64_t i = IJ[k];
-	const int64_t j = IJ[k+1];
+      for (k = 0; k < nedge; ++k) {
+	const int64_t i = get_v0_from_edge (&IJ[k]);
+	const int64_t j = get_v1_from_edge (&IJ[k]);
 	int64_t lvldiff;
 	terr = err;
 
