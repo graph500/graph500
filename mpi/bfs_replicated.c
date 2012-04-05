@@ -91,7 +91,7 @@ void run_bfs(int64_t root, int64_t* pred) {
   int64_t global_queue_summary_size = g_global_queue_summary_size;
   int64_t global_queue_size = g_global_queue_size;
 
-#define SWIZZLE_VERTEX(c) ((VERTEX_OWNER(c) << lg_local_queue_size) | VERTEX_LOCAL(c))
+#define SWIZZLE_VERTEX(c) (((int64_t)(VERTEX_OWNER(c)) << lg_local_queue_size) | (int64_t)(VERTEX_LOCAL(c)))
 #if 0
   int64_t* restrict column_swizzled = (int64_t*)xmalloc(nlocaledges * sizeof(int64_t));
   {
