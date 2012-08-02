@@ -17,7 +17,7 @@
 
 #include "xalloc.h"
 #include "prng.h"
-#include "generator/splittable_mrg.h"
+#include "generator/prng.h"
 #include "generator/graph_generator.h"
 
 #if defined(_OPENMP) || defined(__MTA__)
@@ -84,7 +84,7 @@ rmat_edge (struct packed_edge *out, int SCALE,
 #define MAKE_RANDPERMUTE(name, elt_type, take, release) \
 static void \
 name (elt_type *A_in, int64_t nelem, \
-      mrg_state * restrict st) \
+      prng_state * restrict st) \
 { \
   elt_type * restrict A = A_in; \
   int64_t k; \
@@ -96,8 +96,8 @@ name (elt_type *A_in, int64_t nelem, \
  \
       Ak = take (&A[k]); \
  \
-      mrg_skip (st, 1, k, 0); \
-      place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k)); \
+      next_edge (st); \
+      place = k + (int64_t)floor (get_random_double (st) * (nelem - k)); \
       if (k != place) { \
 	assert (place > k); \
 	assert (place < nelem); \
@@ -127,7 +127,7 @@ name (elt_type *A_in, int64_t nelem, \
 #define MAKE_RANDPERMUTE(name, elt_type, take, release) \
 static void \
 name (elt_type *A_in, int64_t nelem, \
-      mrg_state * restrict st) \
+      prng_state * restrict st) \
 { \
   elt_type * restrict A = A_in; \
   int64_t k; \
@@ -135,7 +135,7 @@ name (elt_type *A_in, int64_t nelem, \
   for (k = 0; k < nelem; ++k) { \
     int64_t place; \
  \
-    place = k + (int64_t)floor (mrg_get_double_orig (st) * (nelem - k)); \
+    place = k + (int64_t)floor (get_random_double (st) * (nelem - k)); \
  \
     if (k != place) { \
       elt_type t; \
@@ -153,7 +153,7 @@ MAKE_RANDPERMUTE(randpermute_packed_edge, struct packed_edge, take_pe, release_p
 
 void
 permute_vertex_labels (struct packed_edge * restrict IJ, int64_t nedge, int64_t max_nvtx,
-		       mrg_state * restrict st, int64_t * restrict newlabel)
+		       prng_state * restrict st, int64_t * restrict newlabel)
 {
   int64_t k;
 
@@ -171,7 +171,7 @@ permute_vertex_labels (struct packed_edge * restrict IJ, int64_t nedge, int64_t 
 }
 
 void
-permute_edgelist (struct packed_edge * restrict IJ, int64_t nedge, mrg_state *st)
+permute_edgelist (struct packed_edge * restrict IJ, int64_t nedge, prng_state *st)
 {
   randpermute_packed_edge (IJ, nedge, st);
 }
@@ -193,7 +193,7 @@ rmat_edgelist (struct packed_edge *IJ_in, int64_t nedge, int SCALE,
 #if !defined(__MTA__)
     double * restrict Rlocal = alloca (NRAND(1) * sizeof (*Rlocal));
 #endif
-    mrg_state new_st = *(mrg_state*)prng_state;
+    prng_state new_st = *(prng_state*)prng_state;
 
     OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < nedge; ++k) {
