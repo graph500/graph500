@@ -22,24 +22,32 @@ typedef struct {
   uint64_t *end;
 } bitmap_t;
 
-void bm_reset(bitmap_t* bm) {
+static inline void
+bm_reset(bitmap_t* bm)
+{
   OMP("omp for")
     for(uint64_t* it=bm->start; it<bm->end; it++)
       *it = 0;
 }
 
-void bm_init(bitmap_t* bm, int size) {
+static inline void
+bm_init(bitmap_t* bm, int size)
+{
   int num_longs = (size + 63) / 64;
   bm->start = (uint64_t*) malloc(sizeof(uint64_t) * num_longs);
   bm->end = bm->start + num_longs;
   bm_reset(bm);
 }
 
-uint64_t bm_get_bit(bitmap_t* bm, long pos) {
+static inline uint64_t
+bm_get_bit(bitmap_t* bm, long pos)
+{
   return bm->start[WORD_OFFSET(pos)] & (1l<<BIT_OFFSET(pos));
 }
 
-long bm_get_next_bit(bitmap_t* bm, long pos) {
+static inline long
+bm_get_next_bit(bitmap_t* bm, long pos)
+{
   long next = pos;
   int bit_offset = BIT_OFFSET(pos);
   uint64_t *it = bm->start + WORD_OFFSET(pos);
@@ -68,11 +76,15 @@ long bm_get_next_bit(bitmap_t* bm, long pos) {
   return next;
 }
 
-void bm_set_bit(bitmap_t* bm, long pos) {
+static inline void
+bm_set_bit(bitmap_t* bm, long pos)
+{
   bm->start[WORD_OFFSET(pos)] |= ((uint64_t) 1l<<BIT_OFFSET(pos));
 }
 
-void bm_set_bit_atomic(bitmap_t* bm, long pos) {
+static inline void
+bm_set_bit_atomic(bitmap_t* bm, long pos)
+{
   uint64_t old_val, new_val;
   uint64_t *loc = bm->start + WORD_OFFSET(pos);
   do {
@@ -81,7 +93,8 @@ void bm_set_bit_atomic(bitmap_t* bm, long pos) {
   } while(!int64_cas((int64_t*) loc, old_val, new_val));
 }
 
-void bm_swap(bitmap_t* a, bitmap_t* b) {
+static inline void bm_swap(bitmap_t* a, bitmap_t* b)
+{
   uint64_t* temp;
   temp = a->start;
   a->start = b->start;
@@ -91,7 +104,9 @@ void bm_swap(bitmap_t* a, bitmap_t* b) {
   b->end = temp;
 }
 
-void bm_free(bitmap_t* bm) {
+static inline void
+bm_free(bitmap_t* bm)
+{
   free(bm->start);
 }
 

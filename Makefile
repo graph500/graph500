@@ -14,7 +14,7 @@ MAKE_EDGELIST_SOURCES=make-edgelist.c options.c rmat.c kronecker.c prng.c \
 BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist
 
 ifeq ($(BUILD_OPENMP), Yes)
-BIN += omp-csr/omp-csr
+BIN += omp-csr/omp-csr omp-csr/omp-csr-do
 endif
 
 ifeq ($(BUILD_MPI), Yes)
