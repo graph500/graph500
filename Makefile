@@ -14,7 +14,7 @@ MAKE_EDGELIST_SOURCES=make-edgelist.c options.c rmat.c kronecker.c prng.c \
 BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist
 
 ifeq ($(BUILD_OPENMP), Yes)
-BIN += omp-csr/omp-csr omp-csr/omp-csr-do
+BIN += omp-csr/omp-csr
 endif
 
 ifeq ($(BUILD_MPI), Yes)
@@ -43,12 +43,12 @@ seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) \
 seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(GENERATOR_SRCS))
 
-omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
-omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES) \
+omp-csr/omp-csr-old: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+omp-csr/omp-csr-old: omp-csr/omp-csr-old.c $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(GENERATOR_SRCS))
 
-omp-csr/omp-csr-do: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
-omp-csr/omp-csr-do: omp-csr/omp-csr-do.c omp-csr/bitmap.h $(GRAPH500_SOURCES) \
+omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+omp-csr/omp-csr: omp-csr/omp-csr.c omp-csr/bitmap.h $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(GENERATOR_SRCS))
 
 xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
