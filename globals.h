@@ -24,7 +24,7 @@
 #endif
 
 #if !defined(NROOT_DEFAULT)
-#define NROOT_DEFAULT 16
+#define NROOT_DEFAULT 8
 #endif
 
 #if !defined(A_DEFAULT)
