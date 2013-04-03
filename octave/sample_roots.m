@@ -1,0 +1,35 @@
+function root = sample_roots (NV, NROOT, NE)
+  NROOT = min (NROOT, NV);
+
+  root = -ones (1, NROOT);
+
+  ## Method A in Jeffrey Scott Vitter, "An
+  ## Efficient Algorithm for Sequential Random
+  ## Sampling," ACM Transactions on Mathematical
+  ## Software, 13(1), March 1987, 58-67.
+  N = NV;
+  top = NV - NROOT;
+  m = 1;
+  cur = 0;
+  for m=1:NROOT-1,
+    rv = dpPRNG (NE, m);
+    r = rv(1);
+    S = 0;
+    quot = top / N;
+    while quot > r,
+      S += 1;
+      top -= 1;
+      N -= 1;
+      quot *= top / N;
+    endwhile
+    cur += S;
+    root(m) = cur;
+    N -= 1;
+  endfor
+  rv = dpPRNG (NE, NROOT);
+  r = rv(1);
+  S = floor (N * r);
+  cur += S;
+  root(NROOT) = cur;
+  assert (root >= 0 && root < NV);
+endfunction

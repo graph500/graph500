@@ -1,41 +1,59 @@
 SCALE = 10;
+
 edgefactor = 16;
-NBFS = 64;
+maxweight = 255;
+NROOT = 8;
 
-rand ("seed", 103);
+NE = edgefactor * 2**SCALE;
 
-ij = kronecker_generator (SCALE, edgefactor);
+ijw = edge_list (0, NE, SCALE, NE, maxweight);
 
 tic;
-G = kernel_1 (ij);
+G = kernel_1 (ijw);
 kernel_1_time = toc;
+NV = size (G, 1);
 
-N = size (G, 1);
-coldeg = full (spstats (G));
-search_key = randperm (N);
-search_key(coldeg(search_key) == 0) = [];
-if length (search_key) > NBFS,
-  search_key = search_key(1:NBFS);
-else
-  NBFS = length (search_key);
-end
-search_key = search_key - 1;  
+root = sample_roots (NV, NROOT, NE);
 
-kernel_2_time = Inf * ones (NBFS, 1);
-kernel_2_nedge = zeros (NBFS, 1);
+kernel_2_time = Inf * ones (NROOT, 1);
+kernel_2_dmax = -ones (NROOT, 1);
+kernel_2_verify_time = Inf * ones (NROOT, 1);
+kernel_3_time = Inf * ones (NROOT, 1);
+kernel_3_dmax = -ones (NROOT, 1);
+kernel_3_verify_time = Inf * ones (NROOT, 1);
 
-indeg = histc (ij(:), 1:N); % For computing the number of edges
-
-for k = 1:NBFS,
+for k = 1:NROOT,
   tic;
-  parent = kernel_2 (G, search_key(k));
+  [parent, d] = kernel_2 (G, root(k));
   kernel_2_time(k) = toc;
-  err = validate (parent, ij, search_key (k));
+  kernel_2_dmax(k) = max (d);
+  tic;
+  err = verify (parent, ijw, root (k), d, 1);
+  kernel_2_verify_time(k) = toc;
   if err <= 0,
-    error (sprintf ("BFS %d from search key %d failed to validate: %d",
-		    k, search_key(k), err));
+    error (sprintf (["BFS %d from search key %d"
+		     " failed to validate: %d"],
+		    k, root(k), err));
   end
-  kernel_2_nedge(k) = sum (indeg(parent >= 0))/2; % Volume/2
 end
 
-output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
+for k = 1:NROOT,
+  tic;
+  [parent, d] = kernel_3 (G, root(k));
+  kernel_3_time(k) = toc;
+  kernel_3_dmax(k) = max (d);
+  tic;
+  err = verify (parent, ijw, root (k), d, 0);
+  kernel_3_verify_time(k) = toc;
+  if err <= 0,
+    error (sprintf (["SSSP %d from search key %d"
+		     " failed to validate: %d"],
+		    k, root(k), err));
+  end
+end
+
+output ("Jason's old laptop", SCALE, edgefactor,
+	root, kernel_1_time,
+	kernel_2_time, kernel_2_dmax, kernel_2_verify_time,
+	kernel_3_time, kernel_3_dmax, kernel_3_verify_time,
+        "An aging, soon-to-be-replaced laptop.");
