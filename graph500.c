@@ -20,6 +20,7 @@
 #endif
 
 #include "graph500.h"
+#include "graph500-impl.h"
 #include "globals.h"
 #include "generator.h"
 #include "verify.h"

@@ -8,7 +8,9 @@ all: graph500_mpi_simple graph500_mpi_one_sided graph500_mpi_replicated graph500
 
 GENERATOR_SOURCES = ../generator.c ../prng.c
 SOURCES = main.c oned_csr.c oned_csc.c utils.c validate.c onesided.c onesided_emul.c ../output_results.c ../globals.c ../xalloc.c
-HEADERS = common.h oned_csr.h oned_csc.h redistribute.h mpi_workarounds.h onesided.h
+HEADERS = common.h oned_csr.h oned_csc.h redistribute.h mpi_workarounds.h onesided.h \
+	../graph500.h ../globals.h ../generator.h ../prng.h ../output_results.h \
+	../xalloc.h
 
 graph500_mpi_simple: bfs_simple.c $(SOURCES) $(HEADERS) $(GENERATOR_SOURCES)
 	$(MPICC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o graph500_mpi_simple bfs_simple.c $(SOURCES) $(GENERATOR_SOURCES) -lm

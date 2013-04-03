@@ -30,6 +30,7 @@ get_options (int argc, char **argv) {
   extern int optopt;
   extern int optind;
   extern char *optarg;
+  extern char IMPLEMENTATION[];
   int c, err = 0;
 
   long scale = SCALE_DEFAULT, edgefactor = EF_DEFAULT,
@@ -42,7 +43,10 @@ get_options (int argc, char **argv) {
   while ((c = getopt (argc, argv, "v?hs:e:w:A:a:B:b:N:n:Vo:r:")) != -1)
     switch (c) {
     case 'v':
-      printf ("%s version %d\n", NAME, VERSION);
+      printf ("Graph500 (%s), code version %s, specification version %s\n",
+	      IMPLEMENTATION,
+	      CODE_VERSION,
+	      SPEC_VERSION);
       exit (EXIT_SUCCESS);
       break;
     case 'h':

@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include "../graph500.h"
 #include "../globals.h"
 #include "../generator.h"
 #include "../prng.h"
@@ -43,7 +44,18 @@ int main(int argc, char** argv) {
   /* Parse arguments. */
   int SCALE = 16;
   int edgefactor = 16; /* nedges / nvertices, i.e., 2*avg. degree */
-  if (argc >= 2) SCALE = atoi(argv[1]);
+  if (argc >= 2) {
+    if (!strcmp (argv[1], "-v")) {
+      extern char IMPLEMENTATION[];
+      printf ("Graph500 (%s), code version %s, specification version %s\n",
+	      IMPLEMENTATION,
+	      CODE_VERSION,
+	      SPEC_VERSION);
+      MPI_Finalize ();
+      exit (EXIT_SUCCESS);
+    }
+    SCALE = atoi(argv[1]);
+  }
   if (argc >= 3) edgefactor = atoi(argv[2]);
   if (argc <= 1 || argc >= 4 || SCALE == 0 || edgefactor == 0) {
     if (rank == 0) {
