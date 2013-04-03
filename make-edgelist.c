@@ -23,11 +23,8 @@
 #include "rmat.h"
 #include "kronecker.h"
 #include "verify.h"
-#include "prng.h"
 #include "xalloc.h"
 #include "options.h"
-#include "generator/splittable_mrg.h"
-#include "generator/make_graph.h"
 
 static int64_t nvtx_scale;
 

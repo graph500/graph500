@@ -18,7 +18,7 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 
 #include "../graph500.h"
 #include "../xalloc.h"
-#include "../generator/graph_generator.h"
+#include "../packed_edge.h"
 #include "../timer.h"
 
 #include "bitmap.h"

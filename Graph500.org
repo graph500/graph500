@@ -1,15 +1,19 @@
 #+TITLE:     Graph 500 Benchmark 1 ("Search")
 #+AUTHOR:    Graph 500 Steering Committee
-#+EMAIL:     sc@graph500.org
+#+EMAIL:     graph500-sc@graph500.org
 #+LANGUAGE:  en
 #+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
 #+OPTIONS:   TeX:t LaTeX:t skip:nil d:nil todo:t pri:nil tags:not-in-toc
-#+STYLE: <style>body {margin-left: 10%; margin-right: 10%;} table {margin-left:auto; margin-right:auto;}</style>
+#+OPTIONS:   html-postamble:nil
+#+HTML_HEAD: <style>body {margin: 0 auto; max-width: 40em;} table {margin-left:auto; margin-right:auto;}</style>
+#+HTML_HEAD: <style>div.openissue {margin-left: 10%; margin-right: 10%; color: red;}</style>
+#+LaTeX_HEADER: \usepackage{color}
+#+LaTeX_HEADER: \newenvironment{openissue}{\begin{center}\begin{minipage}{.6\textwidth}\textcolor{red}}{\end{minipage}\end{center}}
 
 Contributors: David A. Bader (Georgia Institute of Technology),
 Jonathan Berry (Sandia National Laboratories), Simon Kahan (Pacific
 Northwest National Laboratory and University of Washington), Richard
-Murphy (Sandia National Laboratories), E. Jason Riedy (Georgia
+Murphy (Micron Technology), E. Jason Riedy (Georgia
 Institute of Technology), and Jeremiah Willcock (Indiana University).
 
 Version History:
@@ -18,359 +22,479 @@ Version History:
  - V0.3 :: Draft, created 30 September 2010
  - V1.0 :: Created 1 October 2010
  - V1.1 :: Created 3 October 2010
+ - V2.0 :: Created XXX 2012
 
 Version 0.1 of this document was part of the Graph 500 community
-benchmark effort, led by Richard Murphy (Sandia National
+benchmark effort, led by Richard Murphy (then at Sandia National
 Laboratories).  The intent is that there will be at least three
 variants of implementations, on shared memory and threaded systems, on
 distributed memory clusters, and on external memory map-reduce
 clouds. This specification is for the first of potentially several
 benchmark problems.
 
-References: "Introducing the Graph 500," Richard C. Murphy, Kyle
-B. Wheeler, Brian W. Barrett, James A. Ang, Cray User’s Group (CUG),
-May 5, 2010.
+#+begin_openissue
+One "open issue" remains:  What can be precomputed?  The spec currently
+disallows precomputing information for the kernels, but I'd prefer not
+computing the \Delta for \Delta-stepping SSSP every time.
+#+end_openissue
 
-"DFS: A Simple to Write Yet Difficult to Execute Benchmark," Richard
-C. Murphy, Jonathan Berry, William McLendon, Bruce Hendrickson,
-Douglas Gregor, Andrew Lumsdaine, IEEE International Symposium on
-Workload Characterizations 2006 (IISWC06), San Jose, CA, 25-27 October
-2006.
-
-* Brief Description of the Graph 500 Benchmark
+* Introduction
 
 Data-intensive supercomputer applications are an increasingly
 important workload, but are ill-suited for platforms designed for 3D
-physics simulations. Application performance cannot be improved
-without a meaningful benchmark. Graphs are a core part of most
-analytics workloads. Backed by a steering committee of 30
+physics simulations.  Application performance cannot be improved
+without a meaningful benchmark.  Graphs are a core part of most
+analytics workloads.  Backed by a steering committee of 30
 international HPC experts from academia, industry, and national
 laboratories, this specification establishes a large-scale benchmark
-for these applications. It will offer a forum for the community and
+for these applications.  It will offer a forum for the community and
 provide a rallying point for data-intensive supercomputing
-problems. This is the first serious approach to augment the Top 500
+problems.  This is the first serious approach to augment the Top 500
 with data-intensive applications.
 
 The intent of this benchmark problem ("Search") is to develop a
 compact application that has multiple analysis techniques (multiple
 kernels) accessing a single data structure representing a weighted,
-undirected graph. In addition to a kernel to construct the graph from
+undirected graph.  In addition to a kernel to construct the graph from
 the input tuple list, there is one additional computational
 kernel to operate on the graph.
 
-This benchmark includes a scalable data generator which produces edge
-tuples containing the start vertex and end vertex for each
-edge. The first kernel constructs an /undirected/ graph in a format
-usable by all subsequent kernels. No subsequent modifications are
-permitted to benefit specific kernels. The second kernel performs a
-breadth-first search of the graph. Both kernels are timed.
+This benchmark includes a scalable, reproducible data generator which
+produces edge tuples containing the start vertex and end vertex for each
+edge.  The first kernel constructs an /undirected/ graph in a format
+usable by all subsequent kernels.  No subsequent modifications are
+permitted to benefit specific kernels.  The second kernel performs
+multiple breadth-first searches of the graph.  The third kernel performs
+multiple single-source shortest path computations on the graph.  Each
+run of the second and third kernel is independent of the others and uses
+only the output of the initial construction from the first kernel.
 
-There are five problem classes defined by their input size:
-  - toy :: 17GB or around 10^10 bytes, which we also call level 10,
-  - mini :: 140GB (10^11 bytes, level 11),
-  - small :: 1TB (10^12 bytes, level 12),
-  - medium :: 17TB (10^13 bytes, level 13),
-  - large :: 140TB (10^14 bytes, level 14), and
-  - huge :: 1.1PB (10^15 bytes, level 15).
+All kernels are timed and reported.  The ranking used for the official
+Graph500 listing are provided in [[#evaluation][the section on Evaluation Criteria]].
+The other data is useful both for explaining the results as well as
+how graph searches behave on available platforms.
 
-Table \ref{tbl:classes} provides the parameters used by the graph
-generator specified below.
+** The role of the reference implementation
+
+This benchmark also specifies a reference implementation.  This
+implementation is not tuned for any particular system or hardware
+platform.  The reference implementation defines the edge list
+generator.  The generator can be used separately from the timed
+kernels.
+
+Submissions are required to include performance of the reference
+implementation if the reference implementation runs on their platform.
+The performance of the reference implementation gives some indication of
+the performance of portable graph search code written by typical
+programmers.  Submissions are encouraged to include results from
+platform-tuned and optimized codes along with the results from the most
+applicable reference code.  If no reference code applies to a particular
+platform, the reference code performance results need not be included,
+although the graph data must be generated correctly as with the
+reference generator.
+
+** Significant changes in V2.0
+
+  - Generator:
+    - Changed graph generator parameters.
+    - Begin with a tree to connect all vertices.
+    - Use a location-based hash for a PRNG.  All implementations should
+      produce identical graphs.
+    - "Permute" edge list locations by index multiplication rather than
+      a full permutation.  This scatters the tree edges around the edge
+      list without excess data motion.
+  - All kernels:
+    - Reduced number of search roots to eight from 64 because the graph
+      is fully connected.
+    - Both search kernels (2 and 3) use a single, unified, and
+      simplified validation routine.
+  - Kernel 1, graph construction:
+    - Removed restrictions on internal data structure.
+  - Kernel 2, BFS:
+    - No significant changes to the specification, but the reference
+      implementation should be faster.
+  - Kernel 3, single-source shortest paths benchmark:
+    - *New kernel*.
+  - Results:
+    - New submission format.  Submissions provide sizes and times but do
+      not need to compute their own statistics.
+    - *Require* running the reference code if possible as in the Top500 list.
 
 ** References
 
-D.A. Bader, J. Feo, J. Gilbert, J. Kepner, D. Koester, E. Loh,
-K. Madduri, W. Mann, Theresa Meuse, HPCS Scalable Synthetic Compact
-Applications #2 Graph Analysis (SSCA#2 v2.2 Specification), 5
-September 2007.
+  - D.A. Bader, J. Feo, J. Gilbert, J. Kepner, D. Koester, E. Loh,
+    K. Madduri, W. Mann, Theresa Meuse, [[http://graphanalysis.org/benchmark/index.html][HPCS Scalable Synthetic Compact
+    Applications #2 Graph Analysis (SSCA#2 v2.2 Specification)]], 5
+    September 2007.
 
-* Overall benchmark
+  - Richard C. Murphy, Kyle B. Wheeler, Brian W. Barrett, James A. Ang,
+    "Introducing the Graph 500," Cray User’s Group (CUG), May 5, 2010.
 
-The benchmark performs the following steps:
+  - Richard C. Murphy, Jonathan Berry, William McLendon, Bruce
+    Hendrickson, Douglas Gregor, Andrew Lumsdaine, "DFS: A Simple to
+    Write Yet Difficult to Execute Benchmark," IEEE International
+    Symposium on Workload Characterizations 2006 (IISWC06), San Jose,
+    CA, 25-27 October 2006.
 
-  1. Generate the edge list.
-  2. Construct a graph from the edge list (*timed*, kernel 1).
-  3. Randomly sample 64 unique search keys with degree at least one,
-     not counting self-loops.
-  4. For each search key:
-     1. Compute the parent array (*timed*, kernel 2).
+* Overall Benchmark Structure
+
+The benchmark performs the following steps, where BFS refers to a
+breadth-first search and SSSP refers to a single-source shortest path to
+be described below:
+
+  1. Generate the random edge list.
+  2. Randomly sample 8 unique initial vertices.
+  3. Construct a graph from the edge list (*timed*, [[#kernel1][Kernel 1]]).
+  4. For each initial vertex:
+     1. Compute the BFS parent array (*timed*, [[#kernel2][Kernel 2]]).
      2. Validate that the parent array is a correct BFS search tree
         for the given search tree.
-  5. Compute and output performance information.
+  5. For each initial vertex:
+     1. Compute the SSSP parent array and distances (*timed*, [[#kernel3][Kernel 3]]).
+     2. Validate that the parent array and distance vector is a correct
+        SSSP search tree for the given search tree.
+  6. Compute and output performance information.
 
 Only the sections marked as *timed* are included in the performance
-information.  Note that all uses of "random" permit pseudorandom
-number generation.
+information.  All mentions of "random" refer to the reproducible
+pseudo-random number generator included in the [[http://www.graph500.org/reference.html][reference implementation]].
+This benchmark is an artificial system measurement and not a direct
+representation of actual applications.  Therefore no extra information
+like optimal parameter settings may be passed between kernel
+invocations, although [[#kernel1][Kernel 1]] may pre-compute reasonable data
+statistics and parameters used by *all* later kernels without further
+changes.
 
-* Generating the edge list
+* Parameter Summary
 
-** Brief Description
+The benchmark takes only one parameter as input:
 
-The scalable data generator will construct a list of edge tuples
-containing vertex identifiers. Each edge is undirected with its
-endpoints given in the tuple as StartVertex and EndVertex. 
+  - SCALE :: The SCALE parameter controls the overall size of the
+             graph.  The generated graph contains 2^SCALE vertices.
+             The number of entries in the generated edge list is
+             2^SCALE * edgefactor, where edgefactor is an internal
+             parameter described below.
 
-The intent of the first kernel below is to convert a list with no
-locality into a more optimized form.  The generated list of input
-tuples must not exhibit any locality that can be exploited by the
-computational kernels.  Thus, the vertex numbers must be randomized
-and a random ordering of tuples must be presented to kernel 1.
-The data generator may be parallelized, but the vertex names
-must be globally consistent and care must be taken to minimize effects
-of data locality at the processor level.
+The benchmark also contains internal parameters with required settings
+for submission.  Experimenting with different setting is useful for
+testing and exploration but not permitted for submitted results.
 
-** Detailed Text Description
+  - edgefactor = 16 :: The average number of entries in the generated
+       edge list containing each vertex.
 
-The edge tuples will have the form <StartVertex, EndVertex> where
-StartVertex is one endpoint vertex label and EndVertex is the
-other endpoint vertex label.  The space of labels is the set of integers
-beginning with *zero* up to but not including the number of vertices N
-(defined below).  The kernels are not provided the size N explicitly
-but must discover it.
+  - maxweight = 255 :: The maximum edge weight in the generated edge
+       list.  Because edges may appear multiple times, this is not the
+       maximum weight of the edge in the graph.
 
-The input values required to describe the graph are:
+  - A = 0.55, B = 0.1 :: The parameters A and B control quadrant
+       probabilities in the RMAT edge generator subject to the
+       restrictions that 0 \le A \le 1, 0 \le B \le 1, and A+2B \le 1.
 
- - SCALE :: The logarithm base two of the number of vertices.
+  - noisefact = 0.1 :: The RMAT generator perturbs A and B by a random
+       quantity weighted by noisefact.
 
- - edgefactor :: The ratio of the graph's edge count to its vertex count (i.e.,
-                 half the average degree of a vertex in the graph).
+  - nroots = 16 :: The number of search roots used for running Kernels
+                   2 and 3.
 
-These inputs determine the graph's size:
+The rest of the specification uses two parameters for the graph size
+rather than repeating the expressions above.
 
- - N :: the total number of vertices, 2^SCALE. An implementation may
-   use any set of N distinct integers to number the vertices, but at
-   least 48 bits must be allocated per vertex number. Other parameters
-   may be assumed to fit within the natural word of the machine. N is
-   derived from the problem’s scaling parameter.
+  - NV = 2^SCALE :: The number of vertices.
+  - NE = edgefactor * NV :: The number of entries in the edge list.
 
- - M :: the number of edges. M = edgefactor * N.
+* Pseudo-Random Number Generation
 
-The graph generator is a Kronecker generator similar to the Recursive
-MATrix (R-MAT) scale-free graph generation algorithm [Chakrabarti, et
-al., 2004]. For ease of discussion, the description of this R-MAT
-generator uses an adjacency matrix data structure; however,
+The pseudo-random number generator (PRNG) used in this benchmark,
+=threefry32x4_10= from the Random123 package referenced below,
+essentially hashes a location-based counter into four random 32-bit
+bitstrings.  Each use of the PRNG will provide the mapping from the
+use's location to two PRNG parameters.  Given two 64-bit integers I and
+J, PRNG(I, J) return four 32-bit floating-point numbers.
+
+A location-based PRNG guarantees the numbers will be reproducible across
+different platforms.  We use floating-point numbers to spread bias
+across the interval rather than defining how to iterate for rejection
+sampling.
+
+** References
+
+ - John K. Salmon, Mark A. Moraes, Ron O. Dror, and David
+   E. Shaw. 2011. Parallel random numbers: as easy as 1, 2, 3. In
+   /Proceedings of 2011 International Conference for High Performance
+   Computing, Networking, Storage and Analysis (SC '11)/. ACM, New York,
+   NY, USA.  http://dx.doi.org/10.1145/2063384.2063405
+ - Random123 software distribution:
+   http://www.deshawresearch.com/resources_random123.html
+
+* Edge List Generation
+
+The benchmark first generates a list of NE undirected edges that
+represent a fully connected, undirected graph on NV vertices.  The edges
+are permuted in a pseudo-random fashion with a computable and invertable
+permutation.  The list locations will dictate where edge entries appear,
+and the list indices (unpermuted locations) will determine the edge kind
+and provide the input for the PRNG.  After generation, vertex numbers
+are scrambled to eliminate generator locality.
+
+Our goal is to provide a natural yet even starting line for all
+implementations.  If an implementation distinguishes between available
+memory spaces, the edge list must suffer a balanced mapping onto those
+memory spaces.  The edge list also must be reproducible for the same
+size across such different platforms yet be sufficiently permuted not
+to allow "cheating" by knowledge of edge index.
+
+If in doubt, use the reference implementation edge generation routines.
+
+** Mapping the Edge List onto Distinguished Memory Spaces
+
+The list of NE edges abstractly is a single array of edge entries.  Each
+edge entry consists of two vertices and a weight.  Each vertex is an
+integer at least zero and less than NV.  The weight is an integer at
+least zero and at most maxweight.  The edge list must provide at least
+48 bits per vertex and eight bits per weight.  Each implementation maps
+the array onto its representation of distinguished memory spaces in a
+balanced manner.
+
+An implementation using a single, undistinguished memory space
+(e.g. OpenMP, Cilk, Cray XMT) maps the edge array into the global edge
+list directly.  Entry k of the global array is entry k of the edge
+list.  While many of these programming systems are implemented on top
+of distinguished memory spaces (e.g. NUMA systems), the programming
+system itself abstracts the mapping from memory spaces to appear
+uniform.  The programming system may optimize for the mapping, but the
+benchmark code must not include those optimizations unless the code
+does count the spaces as distinguished.  Programming systems may not
+special-case Graph500 code for submitted results.
+
+An implementation with separate, distinguished memory spaces (e.g. MPI,
+UPC, OpenCL with multiple devices) maps the local arrays into the global
+edge list in a contiguous, balanced fashion.  Assume all memory spaces
+are equally sized and are enumerated with integers starting at zero.
+Given NP total memory spaces, let
+  - NE_space(i) = floor(NE/i) + (i < NE%NP? 1 : 0) be the number of entries in
+    space i,
+  - NE_begin(i) = floor(NE/i) + (i < NE%NP? i : NE%NP) be the first
+    index stored in space i, and
+  - NE_end(i) = NE_begin(i+1) be one past the last index stored in
+    space i.
+Then memory space i stores list locations starting with NE_begin(i) up to
+but not including NE_end(i).  This specification does not dictate the
+mapping of memory spaces to distinguished memories.
+
+This allocation guarantees that no memory space holds more than one
+edge more or less than any other memory space.  If the memory spaces
+are not equally sized, the edge list must be allocated in each
+proportional to the memory space's share of the total memory size, and
+no memory space of the same size may hold more than one more or less
+than one fewer edge than any other space of the same size.
+
+** Permuting Edge List Indices
+
+This benchmark permutes edge list indices from the list location k' to
+an edge list index k based on the group structure of integers modulo NE.
+This section is written more generally than required for result
+submission.
+
+Given an integer Z constant for a given SCALE and edgefactor that is
+relatively prime to the number of edge list entries NE, let
+  - k = Z * k' mod NE, and
+  - k' = Zinv * k mod NE.
+Here Zinv is the integer inverse of Z modulo NE.
+
+For submitted results, Z is the first integer relatively prime to NE
+such that Z > floor(3*NE/4).  Z and Zinv can be computed in many ways.
+One simple way as in Algorithm \ref{alg:compute.perm} below relies on the
+Euclidean algorithm for computing the greatest common divisor of a
+proposed Z and the given NE.
+
+# <<alg:compute.perm>>
+#+CAPTION: Computing the edge list permutation.
+#+NAME: alg:compute.perm
+#+INCLUDE: "octave/compute_perm.m" src Octave
+
+** Edge List Entries
+
+The first NV-1 unpermuted list entries, those with 0 \le k < NV-1,
+are *tree edges* that guarantee the graph is connected.  The remaining
+unpermuted edges are *RMAT edges*.  The case when NV-1 > NE will
+never occur in submitted results and is left unspecified.
+
+# <<alg:edge.list>>
+#+CAPTION: Generating a slice of the edge list.
+#+NAME: alg:edge.list
+#+INCLUDE: "octave/edge_list.m" src Octave
+
+*** Tree Edges
+
+Given an unpermuted edge index k, the vertices for index k are
+floor(k/2) and k+1.  The weight is given by maxweight *
+PRNG(NV,k).  Algorithm \ref{alg:tree.edge} provides the high-level
+implementation of the tree edge generator.
+
+# <<alg:tree.edge>>
+#+CAPTION: Tree edge function.
+#+NAME: alg:tree.edge
+#+INCLUDE: "octave/tree_edge.m" src Octave
+
+*** RMAT Edges
+
+The additional edges come from a RMAT edge generator similar to the
+Recursive MATrix (R-MAT) scale-free graph generation algorithm
+[Chakrabarti, et al., 2004]. For ease of discussion, the description of
+this R-MAT generator uses an adjacency matrix data structure; however,
 implementations may use any alternate approach that outputs the
 equivalent list of edge tuples. This model recursively sub-divides the
 adjacency matrix of the graph into four equal-sized partitions and
 distributes edges within these partitions with unequal
-probabilities. Initially, the adjacency matrix is empty, and edges are
-added one at a time. Each edge chooses one of the four partitions with
-probabilities A, B, C, and D, respectively.  These probabilities, the
-initiator parameters, are provided in Table \ref{tbl:initiator}.
+probabilities.
 
-#+CAPTION: Initiator parameters for the Kronecker graph generator
+Each edge chooses one of the four partitions with probabilities A, B, C,
+and D, respectively.  These probabilities, the initiator parameters, are
+provided in Table \ref{tbl:initiator}.  For this undirected graph, only
+parameters A and B are independent.  The parameters are perturbed for
+each level as in [Seshadhri, /et al/., 2011].  Algorithm
+\ref{alg:rmat.edge} provides the high-level listing for generating RMAT
+edges and shows the mapping from edge index to PRNG arguments.
+
 #+LABEL:   tbl:initiator
-| A = 0.57 | B = 0.19             |
-| C = 0.19 | D = 1-(A+B+C) = 0.05 |
+#+CAPTION: Initiator parameters for the RMAT graph generator
+| A = 0.55    | B = 0.1              |
+| C = B = 0.1 | D = 1-(A+B+C) = 0.25 |
 
-The next section details a high-level implementation for this
-generator.  High-performance, parallel implementations are included in
-the reference implementation.
+The RMAT generator is parallel down to the bit level.  The
+location-based PRNG guarantees any parallelization produces the same
+result up to differences in floating-point arithmetic.  All
+IEEE-754-conforming platforms should produce identical results; this
+benchmark is to be run with the default rounding direction.
 
-The graph generator creates a small number of multiple edges between
-two vertices as well as self-loops. Multiple edges, self-loops, and
-isolated vertices may be ignored in the subsequent kernels but must
-be included in the edge list provided to the first kernel. The
-algorithm also generates the data tuples with high degrees of
-locality. Thus, as a final step, vertex numbers must be randomly
-permuted, and then the edge tuples randomly shuffled.
+The PRNG takes two arguments and returns four pseudo-random numbers.
+For edge index /k/, the first PRNG argument always is /k/.  The weight
+is generated by using zero for the second argument.  For each bit level
+/s/ from 0 to SCALE-1 in least- to most-significant bit order, the
+second argument in the PRNG is 1+floor(/s/ / 2).  Given four returned
+pseudo-random values labeled 0 through 3, bit level /s/ uses two values.
+The first value, labeled 2*(/s/ % 2), provides the parameter
+perturbation.  The second, labeled 1+2*(/s/ % 2), provides the quadrant.
+The example code in Algorithm \ref{alg:rmat.edge} and the reference
+implementation implement this more efficiently by generating all the
+2*SCALE pseudo-random numbers into one column-major array.
 
-It is permissible to run the data generator in parallel. In this case,
-it is necessary to ensure that the vertices are named globally, and
-that the generated data does not possess any locality, either in local memory
-or globally across processors.
+# <<alg:rmat.edge>>
+#+CAPTION: RMAT edge function.
+#+NAME: alg:rmat.edge
+#+INCLUDE: "octave/rmat_edge.m" src Octave
 
-The scalable data generator should be run before starting kernel 1, storing its
-results to either RAM or disk.
-If stored to disk, the data may be retrieved before
-starting kernel 1. The data generator and retrieval operations need not be
-timed.
+** Scrambling Vertex Numbers
 
-** Sample high-level implementation of the Kronecker generator
-
-The GNU Octave routine in Algorithm \ref{alg:generator} is an
-attractive implementation in that it is embarrassingly parallel and
-does not require the explicit formation of the adjacency matrix.
-
-#+CAPTION: High-level generator code
-#+LABEL: alg:generator
-#+BEGIN_SRC Octave
-function ij = kronecker_generator (SCALE, edgefactor)
-%% Generate an edgelist according to the Graph500
-%% parameters.  In this sample, the edge list is
-%% returned in an array with two rows, where StartVertex
-%% is first row and EndVertex is the second.  The vertex
-%% labels start at zero.
-%%
-%% Example, creating a sparse matrix for viewing:
-%%   ij = kronecker_generator (10, 16);
-%%   G = sparse (ij(1,:)+1, ij(2,:)+1, ones (1, size (ij, 2)));
-%%   spy (G);
-%% The spy plot should appear fairly dense. Any locality
-%% is removed by the final permutations.
-
-  %% Set number of vertices.
-  N = 2^SCALE;
-
-  %% Set number of edges.
-  M = edgefactor * N;
-
-  %% Set initiator probabilities.
-  [A, B, C] = deal (0.57, 0.19, 0.19);
-
-  %% Create index arrays.
-  ij = ones (2, M);
-  %% Loop over each order of bit.
-  ab = A + B;
-  c_norm = C/(1 - (A + B));
-  a_norm = A/(A + B);
-
-  for ib = 1:SCALE,
-    %% Compare with probabilities and set bits of indices.
-    ii_bit = rand (1, M) > ab;
-    jj_bit = rand (1, M) > ( c_norm * ii_bit + a_norm * not (ii_bit) );
-    ij = ij + 2^(ib-1) * [ii_bit; jj_bit];
-  end
-
-  %% Permute vertex labels
-  p = randperm (N);
-  ij = p(ij);
-
-  %% Permute the edge list
-  p = randperm (M);
-  ij = ij(:, p);
-
-  %% Adjust to zero-based labels.
-  ij = ij - 1;
-#+END_SRC
-
-** Parameter settings
-
-The input parameter settings for each class are given in Table \ref{tbl:classes}.
-
-#+CAPTION: Problem class definitions and required storage for the edge list assuming 64-bit integers.
-#+LABEL: tbl:classes
-| Problem class     | SCALE | edge factor | Approx. storage size in TB |
-|-------------------+-------+-------------+----------------------------|
-| Toy (level 10)    |    26 |          16 |                     0.0172 |
-| Mini (level 11)   |    29 |          16 |                     0.1374 |
-| Small (level 12)  |    32 |          16 |                     1.0995 |
-| Medium (level 13) |    36 |          16 |                    17.5922 |
-| Large (level 14)  |    39 |          16 |                   140.7375 |
-| Huge (level 15)   |    42 |          16 |                  1125.8999 |
-#+TBLFM: $4=2^$2*$3*2*8/1e12;%.4f
+To remove vertex numbering locality, vertex numbers are scrambled.  The
+scrambled numbers remain in the range [0, 2^SCALE).  The exact
+scrambling algorithm is provided in the reference code.  The scrambling
+uses two 64-bit seed values derived from PRNG(-1, -1).
 
 ** References
 
-D. Chakrabarti, Y. Zhan, and C. Faloutsos, R-MAT: A recursive model
-for graph mining, SIAM Data Mining 2004.
+  - D. Chakrabarti, Y. Zhan, and C. Faloutsos, R-MAT: A recursive model
+    for graph mining, SIAM Data Mining 2004.
 
-Section 17.6, Algorithms in C (third edition). Part 5 Graph
-Algorithms, Robert Sedgewick (Programs 17.7 and 17.8)
-
-P. Sanders, Random Permutations on Distributed, External and
-Hierarchical Memory, Information Processing Letters 67 (1988) pp
-305-309.
+  - C. Seshadhri, A. Pinar, and T.G. Kolda, "An In-depth Study of
+    Stochastic Kronecker Graphs," 2011 IEEE 11th International
+    Conference on Data Mining (ICDM), pp.587-596, 11-14 Dec. 2011 doi:
+    10.1109/ICDM.2011.23.  Pre-print at http://arxiv.org/abs/1102.5046 .
 
 * Kernel 1 – Graph Construction
+  :PROPERTIES:
+  :CUSTOM_ID: kernel1
+  :END:
 
 ** Description
 
 The first kernel may transform the edge list to any data structures
-(held in internal or external memory) that are used for the remaining
-kernels. For instance, kernel 1 may construct a (sparse) graph from a
-list of tuples; each tuple contains endpoint vertex identifiers for an
-edge, and a weight that represents data assigned to the edge.
+(held in internal or external memory) that are used *unmodified* for the
+remaining kernels. For instance, [[#kernel1][Kernel 1]] may construct a (sparse) graph
+from a list of tuples; each tuple contains endpoint vertex identifiers
+for an edge, and a weight that represents data assigned to the edge.
 
-#+ XXX: Unsure about this part.  I'd rather permit structural
-#+ optimizations here so long as they're used for *all* kernels.
-#+   - However, any layout or arrangement computations intended to
-#+    increase locality, improve load-balance, or reduce hot-spotting
-#+    must be counted in the benchmark execution time.  Therefore, /no
-#+    comparison of or binning by vertex degrees is permitted during this
-#+    kernel 1 (graph construction)/.
+The graph may be represented in any manner, but it must not be modified
+by or between subsequent kernels.  The general graph structure must not
+include information specific to algorithms implementing [[#kernel2][Kernel 2]] or
+[[#kernel3][Kernel 3]] like degree thresholds or short-cut edges.
 
-The graph may be represented in any manner, but it may not be modified
-by or between subsequent kernels. Space may be reserved in the data
-structure for marking or locking.
-Only one copy of a kernel will be
-run at a time; that kernel has exclusive access to any such marking or
-locking space and is permitted to modify that space (only).
+#+begin_openissue
+I'm inclined to allow such information simply so the reference
+implementation doesn't have to recompute \Delta for every run of the
+\Delta-stepping SSSP algorithm.  Most people do it wrong and pick a
+magic \Delta out of thin air.  I'd prefer to encourage proper
+implementations.
+#+end_openissue
 
 There are various internal memory representations for sparse graphs,
 including (but not limited to) sparse matrices and (multi-level)
 linked lists. For the purposes of this application, the kernel is
 provided only the edge list and the edge list's size.  Further
 information such as the number of vertices must be computed within this
-kernel.  Algorithm \ref{alg:kernel1} provides a high-level sample
-implementation of kernel 1.
+kernel.  Algorithm \ref{alg:kernel.1} provides a high-level sample
+implementation of [[#kernel1][Kernel 1]].
 
 The process of constructing the graph data structure (in internal or
-external memory) from the set of tuples must be timed.
+external memory) from the set of tuples must be timed and is reported in
+the [[#benchmarkoutput][output]].
 
-#+CAPTION: High-level implementation of kernel 1
-#+LABEL: alg:kernel1
-#+BEGIN_SRC Octave
-function G = kernel_1 (ij)
-%% Compute a sparse adjacency matrix representation
-%% of the graph with edges from ij.
+# <<alg:kernel.1>>
+#+CAPTION: High-level implementation of Kernel 1
+#+NAME: alg:kernel.1
+#+INCLUDE: "octave/kernel_1.m" src Octave
 
-  %% Remove self-edges.
-  ij(:, ij(1,:) == ij(2,:)) = [];
-  %% Adjust away from zero labels.
-  ij = ij + 1;
-  %% Find the maximum label for sizing.
-  N = max (max (ij));
-  %% Create the matrix, ensuring it is square.
-  G = sparse (ij(1,:), ij(2,:), ones (1, size (ij, 2)), N, N);
-  %% Symmetrize to model an undirected graph.
-  G = spones (G + G.');
-#+END_SRC
+* Sampling Initial Vertices
 
-** References
+The search keys must be randomly sampled without replacement from the
+vertices in the graph.  If there are fewer than eight vertices, select all
+vertices.  This should never occur with the graph sizes in this
+benchmark.  The number of vertices selected is included in the output,
+but this step is untimed.  These vertices are used in all kernels
+below and need be sampled only once.  The search vertices are derived
+from the output of PRNG(NE, k) for k > 0, treating the random 128 bits
+as a pair of double-precision floating point numbers.  Algorithm
+\ref{alg:sample.roots} shows a high-level sample implementation.
 
-Section 17.6 Algorithms in C third edition Part 5 Graph Algorithms,
-Robert Sedgewick (Program 17.9)
-
-* Sampling 64 search keys
-
-The search keys must be randomly sampled from the vertices in the
-graph.  To avoid trivial searches, sample only from vertices that are
-connected to some other vertex.  Their degrees, not counting self-loops,
-must be at least one.  If there are fewer than 64 such vertices, run
-fewer than 64 searches.  This should never occur with the graph sizes
-in this benchmark, but there is a non-zero probability of producing a
-trivial or nearly trivial graph.  The number of search keys used is
-included in the output, but this step is untimed.
+# <<alg:sample.roots>>
+#+CAPTION: High-level implementation of Kernel 1
+#+NAME: alg:sample.roots
+#+INCLUDE: "octave/sample_roots.m" src Octave
 
 * Kernel 2 – Breadth-First Search
+  :PROPERTIES:
+  :CUSTOM_ID: kernel2
+  :END:
 
 ** Description
 
 A Breadth-First Search (BFS) of a graph starts with a single source
 vertex, then, in phases, finds and labels its neighbors, then the
-neighbors of its neighbors, etc.  This is a fundamental method on
-which many graph algorithms are based. A formal description of BFS can
-be found in Cormen, Leiserson, and Rivest.  Below, we specify the
-input and output for a BFS benchmark, and we impose some constraints
-on the computation.  However, we do not constrain the choice of BFS
-algorithm itself, as long as it produces a correct BFS tree as output.
+neighbors of its neighbors, etc.  This is a fundamental method on which
+many graph algorithms are based. A formal description of BFS can be
+found in Cormen, Leiserson, and Rivest.  We specify the input and output
+for a BFS benchmark, and we impose some constraints on the computation.
+However, we do not constrain the choice of BFS algorithm itself, as long
+as the implementation produces a correct BFS tree as output.
 
-This benchmark's memory access pattern (internal or external) is data-dependent
-with small average prefetch depth.  As in a simple
+This benchmark's memory access pattern (internal or external) is
+data-dependent with small average prefetch depth.  As in a simple
 concurrent linked-list traversal benchmark, performance reflects an
-architecture's throughput when executing concurrent threads, each of
-low memory concurrency and high memory reference density.  Unlike such
-a benchmark, this one also measures resilience to hot-spotting when
-many of the memory references are to the same location; efficiency
-when every thread's execution path depends on the asynchronous
-side-effects of others; and the ability to dynamically load balance
-unpredictably sized work units.  Measuring synchronization performance
-is not a primary goal here.
+architecture's throughput when executing concurrent threads, each of low
+memory concurrency and high memory reference density.  Unlike such a
+benchmark, this one also measures resilience to hot-spotting when many
+of the memory references are to the same location; efficiency when every
+thread's execution path depends on the asynchronous side-effects of
+others; and the ability to dynamically load balance unpredictably sized
+work units.  Measuring synchronization performance is not a primary goal
+here.
 
-You may not search from multiple search keys concurrently.
+You may not search from multiple initial vertices concurrently.  No
+information can be passed between different invocations of this kernel.
+The kernel may return a depth array to be used in validation.
 
 *ALGORITHM NOTE* We allow a benign race condition when vertices at BFS
-level k are discovering vertices at level k+1.  Specifically, we do
+level /k/ are discovering vertices at level /k/ + 1.  Specifically, we do
 not require synchronization to ensure that the first visitor must
 become the parent while locking out subsequent visitors.  As long as
 the discovered BFS tree is correct at the end, the algorithm is
@@ -378,296 +502,274 @@ considered to be correct.
 
 ** Kernel 2 Output
 
-For each search key, the routine must return an array containing valid
-breadth-first search parent information (per vertex).  The parent of
-the search_key is itself, and the parent of any vertex not included in
-the tree is -1.  Algorithm \ref{alg:kernel2} provides a sample (and
-inefficient) high-level implementation of kernel two.
+For each initial vertex, the routine must return the valid breadth-first
+search parent information per vertex in the graph.  The parent of the
+initial vertex is itself.  The graph is fully connected, so all vertices
+have parents.  Algorithm \ref{alg:kernel.2} provides a sample (and
+inefficient) high-level implementation of [[#kernel2][Kernel 2]].
 
-#+CAPTION: High-level implementation of kernel 2
-#+LABEL: alg:kernel2
-#+BEGIN_SRC Octave
-function parent = kernel_2 (G, root)
-%% Compute a sparse adjacency matrix representation
-%% of the graph with edges from ij.
+# <<alg:kernel.2>>
+#+CAPTION: High-level implementation of Kernel 2
+#+NAME: alg:kernel.2
+#+INCLUDE: "octave/kernel_2.m" src Octave
 
-  N = size (G, 1);
-  %% Adjust from zero labels.
-  root = root + 1;
-  parent = zeros (N, 1);
-  parent (root) = root;
+* Kernel 3 – Single Source Shortest Paths
+  :PROPERTIES:
+  :CUSTOM_ID: kernel3
+  :END:
 
-  vlist = zeros (N, 1);
-  vlist(1) = root;
-  lastk = 1;
-  for k = 1:N,
-    v = vlist(k);
-    if v == 0, break; end
-    [I,J,V] = find (G(:, v));
-    nxt = I(parent(I) == 0);
-    parent(nxt) = v;
-    vlist(lastk + (1:length (nxt))) = nxt;
-    lastk = lastk + length (nxt);
-  end
+** Description
 
-  %% Adjust to zero labels.
-  parent = parent - 1;
+A single-source shortest paths (SSSP) computation finds the shortest
+distance from a given starting vertex to every other vertex in the
+graph.  A formal description of SSSP on graphs with non-negative weights
+also can be found in Cormen, Leiserson, and Rivest.  We specify the
+input and output for a SSSP benchmark, and we impose some constraints on
+the computation.  However, we do not constrain the choice of SSSP
+algorithm itself, as long as the implementation produces a correct SSSP
+distance vector and parent tree as output.  This is a separate kernel
+and cannot use data computed by [[#kernel2][Kernel 2]] (BFS).
 
-#+END_SRC
+This kernel extends the overall benchmark with additional tests and data
+access per vertex.  Many but not all algorithms for SSSP are similar to
+BFS and suffer from similar issues of hot-spotting and duplicate memory
+references.
+
+You may not search from multiple initial vertices concurrently.  No
+information can be passed between different invocations of this kernel.
+
+*ALGORITHM NOTE* We allow benign race conditions within SSSP as well.
+We do not require that a /first/ visitor must prevent subsequent
+visitors from taking the parent slot.  As long as the SSSP distances and
+parent tree are correct at the end, the algorithm is considered to be
+correct.
+
+** Kernel 3 Output
+
+For each initial vertex, the routine must return a the distance of each
+vertex from the initial vertex and the parent of each vertex in a valid
+single-source shortest path tree.  The parent of the initial vertex is
+itself.  The graph is fully connected, so all vertices have parents.
+Algorithm \ref{alg:kernel.3} provides a sample (and inefficient)
+high-level implementation of [[#kernel3][Kernel 3]].
+
+# <<alg:kernel.3>>
+#+CAPTION: High-level implementation of Kernel 3
+#+NAME: alg:kernel.3
+#+INCLUDE: "octave/kernel_3.m" src Octave
+
+** References
+
+The Shortest Path Problem: Ninth DIMACS Implementation Challenge.
+C. Demetrescu, A.V. Goldberg, and D.S. Johnson, eds.  DIMACS series in
+discrete mathematics and theoretical computer science, American
+Mathematical Society, 2009.
+
+9th DIMACS Implementation Challenge - Shortest Paths.
+http://www.dis.uniroma1.it/~challenge9/
 
 * Validation
 
-It is not intended that the results of full-scale runs of this
-benchmark can be validated by exact comparison to a standard reference
-result. At full scale, the data set is enormous, and its exact details
-depend on the pseudo-random number generator and BFS algorithm used. Therefore,
-the
-validation of an implementation of the benchmark uses soft checking of
-the results.
-
-We emphasize that the intent of this benchmark is to exercise these
-algorithms on the largest data sets that will fit on machines being
-evaluated. However, for debugging purposes it may be desirable to run
-on small data sets, and it may be desirable to verify parallel results
-against serial results, or even against results from the executable
-specification.
+It is not intended that the results of full-scale runs of this benchmark
+can be validated by exact comparison to a standard reference result.  At
+full scale, the data set is enormous, and its exact details depend on
+the BFS or SSSP algorithm used.  Therefore, the validation of an
+implementation of the benchmark uses soft checking of the results.
+Validation is *not* part of the timed results.
 
 The executable specification verifies its results by comparing them
-with results computed directly from the tuple list.
+with results computed directly from the tuple list.  Note that the SSSP
+kernel uses the sum of the weights for a particular edge that may have
+multiple entries in the input tuple list.
 
-Kernel 2 validation: after each search, run (but do not time) a
-function that ensures that the discovered breadth-first tree is
-correct by ensuring that:
+Here we specify the validation for the SSSP computation ([[Kernel 3]]) and
+treat BFS ([[Kernel 2]]) as a special case.  Let /w(u, v)/ be the weight of
+an edge /{u, v}/, and let /d(u)/ be the distance of vertex /u/ from the
+source.  After each search, run a function that ensures that
+the discovered SSSP tree of parents is correct by ensuring that:
 
-  1) the BFS tree is a tree and does not contain cycles,
-  2) each tree edge connects vertices whose BFS levels differ by
-     exactly one,
-  3) every edge in the input list has vertices with levels that differ
-     by at most one or that both are not in the BFS tree,
-  4) the BFS tree spans an entire connected component's vertices, and
-  5) a node and its parent are joined by an edge of the original graph.
+  1) the SSSP tree is a rooted tree and does not contain cycles,
+  2) a node and its parent are joined by an edge of the original graph,
+  3) /w(u, v) + d(u) - d(v) \le 0/ for all unordered input edges /{u, v}/
+     where /d(u) < d(v)/, and
+  4) /w(u, v) + d(u) - d(v) == 0/ when /u/ is a parent of /v/.
 
-Algorithm \ref{alg:validate} shows a sample validation routine.
+A BFS tree is a SSSP tree with all total edge distances set to one and a
+maximum constraint gap (line three above) of one.  The distance /d(u)/
+is the depth of vertex /u/.
 
-#+CAPTION: High-level implementation of kernel 2 validation
-#+LABEL: alg:validate
-#+BEGIN_SRC Octave
-function out = validate (parent, ij, search_key)
-  out = 1;
-  parent = parent + 1;
-  search_key = search_key + 1;
+Algorithm \ref{alg:verify} shows a sample validation routine.  This
+sample optionally takes a distance vector =d= and parameter =is_bfs=.
+The latter, =is_bfs=, is set to 1 (true) for BFS validation and 0
+(false) for SSSP validation.  The same core validation routine may be
+used for both kernels.
 
-  if parent (search_key) != search_key,
-    out = 0;
-    return;
-  end
+# <<alg:verify>>
+#+CAPTION: High-level implementation of Kernel Validation
+#+NAME: alg:verify
+#+INCLUDE: "octave/verify.m" src Octave
 
-  ij = ij + 1;
-  N = max (max (ij));
-  slice = find (parent > 0);
-
-  level = zeros (size (parent));
-  level (slice) = 1;
-  P = parent (slice);
-  mask = P != search_key;
-  k = 0;
-  while any (mask),
-    level(slice(mask)) = level(slice(mask)) + 1;
-    P = parent (P);
-    mask = P != search_key;
-    k = k + 1;
-    if k > N,
-      %% There must be a cycle in the tree.
-      out = -3;
-      return;
-    end
-  end
-
-  lij = level (ij);
-  neither_in = lij(1,:) == 0 & lij(2,:) == 0;
-  both_in = lij(1,:) > 0 & lij(2,:) > 0;
-  if any (not (neither_in | both_in)),
-    out = -4;
-    return
-  end
-  respects_tree_level = abs (lij(1,:) - lij(2,:)) <= 1;
-  if any (not (neither_in | respects_tree_level)),
-    out = -5;
-    return
-  end
-#+END_SRC
-
-* Computing and outputting performance information
+* Computing and Presenting Performance Information
 
 ** Timing
 
 Start the time for a search immediately prior to visiting the search
-root.  Stop the time for that search when the output has been written
-to memory.  Do not time any I/O outside of the search routine.  If
-your algorithm relies on problem-specific data structures (by our
-definition, these are informed by vertex degree), you must include the
-setup time for such structures in /each search/. The spirit of the
-benchmark is to gauge the performance of a single search.  We run many
-searches in order to compute means and variances, not to amortize data
-structure setup time.
+root.  Stop the time for that search when the output has been written to
+memory.  Do not time any I/O outside of the search routine.  If your
+algorithm relies on problem-specific data like a degree threshold in
+[[#kernel2][Kernel 2]] or a setting for \Delta or short-cut edges in a \Delta-stepping
+algorithm for [[#kernel3][Kernel 3]], you must include the setup time for such
+structures in /each search/.  The spirit of the benchmark is to gauge
+the performance of a single search.  We run many searches in order to
+compute means and variances, not to amortize data analysis time.
+
+#+begin_openissue
+As above, I wouldn't mind permitting initial computation of \Delta, etc.
+#+end_openissue
+
+** Submission Format
+   :PROPERTIES:
+   :CUSTOM_ID: benchmarkoutput
+   :END:
+
+*VERY MUCH IN REVISION* but something easily machine parse-able for simple submission.
+
+Each submission for the Graph500 list consists of a collection of
+headers followed by per-search-root data.  The submission system will
+accept US-ASCII; use other character sets at your own risk.
+Submissions *must* include a reference implementation if possible
+and *may* include a tuned implementation.  These need not be run on the
+same scale data; custom implementations can use more efficient
+structures to scale to larger data.  All times and rates must be
+provided to at least 8 significant digits.
+
+Each timing data set is preceded by the following header information in
+a simple tagged format similar to message headers.  The tag is followed
+by a colon character, whitespace, and then the information.  The
+following tags are defined:
+  - MACHINE :: The name used for the entry on the Graph500 list.
+  - COMMENT :: An optional comment on the machine.
+  - IMPLEMENTATION :: Denotes the implementation used.  If the
+                      implementation is a reference implementation, the
+                      information begins with "Reference" and will be
+                      one of the following.  Otherwise the
+                      implementation is considered custom and the
+                      information is an optional description.
+    * Reference sequential
+    * Reference OpenMP
+    * Reference MPI
+    * Reference MPI+OpenMP
+    * /Reference UPC/ (if available)
+    * /Reference OpenCL/ (if available)
+    * /Reference MPI+OpenCL/ (if available)
+  - SCALE :: Graph generation parameter
+  - EDGEFACTOR :: Graph generation parameter, 16 for current submitted results
+  - NROOT :: Number of searches run, 8 for current submitted results
+  - K1TIME :: Time required for [[Kernel 1]], graph construction.
+
+The line-oriented timing data set includes both times and data for
+external verification.  Each line consists of comma-separated fields.
+The first line defines the order of the columns using the names below.
+Each subsequent line collects the following data in a comma-separated
+format:
+  - root :: the search root,
+  - k2time :: the time for [[Kernel 2]],
+  - k2max :: the largest depth found in [[Kernel 2]],
+  - k3time :: the time for [[Kernel 3]], and
+  - k3max :: the longest path length found in [[Kernel 3]].
+Additional columns will be ignored but could include verification time
+
+An example submission as formatted by Algorithm \ref{alg:output}'s
+high-level sample code:
+#+BEGIN_EXAMPLE
+MACHINE: Jason's old laptop
+COMMENT: An aging, soon-to-be-replaced laptop.
+IMPLEMENTATION: Pseudo-reference, unoptimized Octave
+SCALE: 10
+EDGEFACTOR: 16
+NROOT: 8
+K1TIME: 2.32195854e-03
+K2TEPSMEAN: 2.04692067e+05
+K2TEPSSTDDEV: 6.70493566e+02
+K3TEPSMEAN: 1.54498795e+04
+K3TEPSSTDDEV: 4.37845139e+01
+
+root,k2time,k2max,k2vtime,k3time,k3max,k3vtime
+17,8.02350044e-02,5,3.56197357e-03,1.06167698e+00,432,4.38284874e-03
+29,8.14871788e-02,4,3.46302986e-03,1.04800510e+00,380,4.42886353e-03
+321,7.95331001e-02,5,3.56221199e-03,1.06550789e+00,370,4.40406799e-03
+521,7.94630051e-02,5,3.45492363e-03,1.05305600e+00,419,4.37593460e-03
+626,7.93781281e-02,5,3.57389450e-03,1.05695200e+00,417,4.69207764e-03
+665,7.98439980e-02,5,3.49688530e-03,1.05845094e+00,411,4.42218781e-03
+741,7.99541473e-02,5,3.40604782e-03,1.07182288e+00,414,4.42504883e-03
+885,8.04429054e-02,5,3.59177589e-03,1.06821895e+00,401,4.47583199e-03
+#+END_EXAMPLE
+
+# <<alg:output>>
+#+CAPTION: High-level implementation of the output routine
+#+NAME: alg:output
+#+INCLUDE: "octave/output.m" src Octave
+
+* Evaluation Criteria
+  :PROPERTIES:
+  :CUSTOM_ID: evaluation
+  :END:
+
+In approximate order of importance, the goals of this benchmark are to
+promote the following:
+ - fair adherence to the intent of the benchmark specification
+ - minimum execution time for a given problem size, and
+ - maximum problem size for a given machine.
+
+The Graph500 ranking is defined by the performance metric TEPS defined
+below.  Ties with respect to TEPS are broken in favor of the larger
+problem.
+
+There are many other possible metrics and ranking options available.
+Other possible rankings include considering size first and various
+combined metrics to balance both size and performance.  The Graph500
+ranking is based on TEPS because current platforms require large data
+sizes to achieve high TEPS.
+
+Graph500 *encourages* submitting results for varying sizes and not just
+the highest performing entry.  These submissions will be made available
+analysis.
 
 ** Performance Metric (TEPS)
 
 In order to compare the performance of Graph 500 "Search"
 implementations across a variety of architectures, programming models,
-and productivity languages and frameworks, we adopt a new performance
-metric described in this section. In the spirit of well-known
-computing rates floating-point operations per second (flops) measured
-by the LINPACK benchmark and global updates per second (GUPs) measured
-by the HPCC RandomAccess benchmark, we define a new rate called traversed
-edges per second (TEPS). We measure TEPS through the benchmarking of
-kernel 2 as follows. Let time_K2(n) be the measured execution time for
-kernel 2. Let m be the number of input edge tuples within the
-component traversed by the search, counting any multiple edges and
-self-loops. We define the normalized performance rate (number of edge
+and productivity languages and frameworks, we adopt a the performance
+metric described in this section. In the spirit of well-known computing
+rates floating-point operations per second (FLOPS) measured by the
+LINPACK benchmark and global updates per second (GUPS) measured by the
+HPCC RandomAccess benchmark, we define a rate called traversed edges per
+second (TEPS). We measure TEPS through the benchmarking of Kernels [[#kernel2][2]] and
+[[#kernel3][3]] as follows. Let time_k(n) be the measured execution time for [[#kernel2][Kernel 2]]
+or [[#kernel3][Kernel 3]].  We define the normalized performance rate (number of edge
 traversals per second) as:
-
 #+BEGIN_CENTER
-		       TEPS(n) = m / time_K2(n)
+		       TEPS(n) = NE / time_k(n) .
 #+END_CENTER
+The generator in this specification produces a fully connected,
+undirected graph, so the results of every kernel depend on the entire
+graph with NE = edgefactor * 2^SCALE edges.  Using NE rather than
+counting individual traversals is analogous to defining the FLOPS of
+matrix multiplication as 2 * n^3 or LU decomposition as 4/3 * n^3 rather
+than counting the actual operations performed in optimized kernels.
 
-** Output
-
-The output must contain the following information:
-  - SCALE :: Graph generation parameter
-  - edgefactor :: Graph generation parameter
-  - NBFS :: Number of BFS searches run, 64 for non-trivial graphs
-  - construction\_time :: The single kernel 1 time
-  - min\_time, firstquartile\_time, median\_time, thirdquartile\_time, max\_time :: Quartiles for the kernel 2 times
-  - mean\_time, stddev\_time :: Mean and standard deviation of the kernel 2 times
-  - min\_nedge, firstquartile\_nedge, median\_nedge, thirdquartile\_nedge, max\_nedge :: Quartiles for the number of
-       input edges visited by kernel 2, see TEPS section above.
-  - mean\_nedge, stddev\_nedge :: Mean and standard deviation of the number of
-       input edges visited by kernel 2, see TEPS section above.
-  - min\_TEPS, firstquartile\_TEPS, median\_TEPS, thirdquartile\_TEPS, max\_TEPS :: Quartiles for the kernel 2 TEPS
-  - harmonic\_mean\_TEPS, harmonic\_stddev\_TEPS :: Mean and standard
-       deviation of the kernel 2 TEPS.  *Note*: Because TEPS is a
-       rate, the rates are compared using *harmonic* means.
-
-Additional fields are permitted.  Algorithm \ref{alg:output} provides
-a high-level sample.
-
-#+CAPTION: High-level implementation of the output routine
-#+LABEL: alg:output
-#+BEGIN_SRC Octave
-function output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge)
-  printf ("SCALE: %d\n", SCALE);
-  printf ("edgefactor: %d\n", edgefactor);
-  printf ("NBFS: %d\n", NBFS);
-  printf ("construction_time: %20.17e\n", kernel_1_time);
-
-  S = statistics (kernel_2_time);
-  printf ("min_time: %20.17e\n", S(1));
-  printf ("firstquartile_time: %20.17e\n", S(2));
-  printf ("median_time: %20.17e\n", S(3));
-  printf ("thirdquartile_time: %20.17e\n", S(4));
-  printf ("max_time: %20.17e\n", S(5));
-  printf ("mean_time: %20.17e\n", S(6));
-  printf ("stddev_time: %20.17e\n", S(7));
-
-  S = statistics (kernel_2_nedge);
-  printf ("min_nedge: %20.17e\n", S(1));
-  printf ("firstquartile_nedge: %20.17e\n", S(2));
-  printf ("median_nedge: %20.17e\n", S(3));
-  printf ("thirdquartile_nedge: %20.17e\n", S(4));
-  printf ("max_nedge: %20.17e\n", S(5));
-  printf ("mean_nedge: %20.17e\n", S(6));
-  printf ("stddev_nedge: %20.17e\n", S(7));
-
-  TEPS = kernel_2_nedge ./ kernel_2_time;
-  N = length (TEPS);
-  S = statistics (TEPS);
-  S(6) = mean (TEPS, 'h');
-  %% Harmonic standard deviation from:
-  %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
-  %% Means and Their Application to Index Numbers, 1940.
-  %% http://www.jstor.org/stable/2235723
-  tmp = zeros (N, 1);
-  tmp(TEPS > 0) = 1./TEPS(TEPS > 0);
-  tmp = tmp - 1/S(6);
-  S(7) = (sqrt (sum (tmp.^2)) / (N-1)) * S(6)^2;
-  
-  printf ("min_TEPS: %20.17e\n", S(1));
-  printf ("firstquartile_TEPS: %20.17e\n", S(2));
-  printf ("median_TEPS: %20.17e\n", S(3));
-  printf ("thirdquartile_TEPS: %20.17e\n", S(4));
-  printf ("max_TEPS: %20.17e\n", S(5));
-  printf ("harmonic_mean_TEPS: %20.17e\n", S(6));
-  printf ("harmonic_stddev_TEPS: %20.17e\n", S(7));
-#+END_SRC
-
-** References
-
-Nilan Norris, The Standard Errors of the Geometric and Harmonic Means
-and Their Application to Index Numbers, The Annals of Mathematical
-Statistics, vol. 11, num. 4, 1940.
-http://www.jstor.org/stable/2235723
-
-* Sample driver
+*  Sample Driver
 
 A high-level sample driver for the above routines is given in
 Algorithm \ref{alg:driver}.
 
+# <<alg:driver>>
 #+CAPTION: High-level sample driver
-#+LABEL: alg:driver
-#+BEGIN_SRC Octave
-SCALE = 10;
-edgefactor = 16;
-NBFS = 64;
+#+NAME: alg:driver
+#+INCLUDE: "octave/Graph500.m" src Octave
 
-rand ("seed", 103);
 
-ij = kronecker_generator (SCALE, edgefactor);
+# Local Variables:
+# org-export-html-postamble: nil
+# End:
 
-tic;
-G = kernel_1 (ij);
-kernel_1_time = toc;
-
-N = size (G, 1);
-coldeg = full (spstats (G));
-search_key = randperm (N);
-search_key(coldeg(search_key) == 0) = [];
-if length (search_key) > NBFS,
-  search_key = search_key(1:NBFS);
-else
-  NBFS = length (search_key);
-end
-search_key = search_key - 1;  
-
-kernel_2_time = Inf * ones (NBFS, 1);
-kernel_2_nedge = zeros (NBFS, 1);
-
-indeg = histc (ij(:), 1:N); % For computing the number of edges
-
-for k = 1:NBFS,
-  tic;
-  parent = kernel_2 (G, search_key(k));
-  kernel_2_time(k) = toc;
-  err = validate (parent, ij, search_key (k));
-  if err <= 0,
-    error (sprintf ("BFS %d from search key %d failed to validate: %d",
-		    k, search_key(k), err));
-  end
-  kernel_2_nedge(k) = sum (indeg(parent >= 0))/2; % Volume/2
-end
-
-output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
-#+END_SRC
-
-* Evaluation Criteria
-
-In approximate order of importance, the goals of this benchmark are:
- - Fair adherence to the intent of the benchmark specification
- - Maximum problem size for a given machine
- - Minimum execution time for a given problem size
-
-Less important goals:
- - Minimum code size (not including validation code)
- - Minimal development time
- - Maximal maintainability
- - Maximal extensibility

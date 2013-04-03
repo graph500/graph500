@@ -7,7 +7,7 @@
 #define NAME "Graph500 sequential list"
 #define VERSION 0
 
-#include "generator/graph_generator.h"
+#include "packed_edge.h"
 
 /** Pass the edge list to an external graph creation routine. */
 int create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge);

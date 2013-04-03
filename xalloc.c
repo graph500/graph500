@@ -29,7 +29,27 @@
 #define MAP_HUGETLB 0
 #endif
 
-extern void *xmalloc (size_t);
+void*
+xmalloc (size_t n)
+{
+  void* p = malloc(n);
+  if (!p) {
+    fprintf(stderr, "Out of memory trying to allocate %zu byte(s)\n", n);
+    abort();
+  }
+  return p;
+}
+
+void*
+xcalloc (size_t n, size_t k)
+{
+  void* p = calloc(n, k);
+  if (!p) {
+    fprintf(stderr, "Out of memory trying to allocate %zu byte(s)\n", n);
+    abort();
+  }
+  return p;
+}
 
 #if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
 #define MAX_LARGE 32

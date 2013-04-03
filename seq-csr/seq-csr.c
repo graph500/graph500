@@ -13,7 +13,7 @@
 #include "../compat.h"
 #include "../graph500.h"
 #include "../xalloc.h"
-#include "../generator/graph_generator.h"
+#include "../packed_edge.h"
 
 #define MINVECT_SIZE 2
 

@@ -1,14 +1,10 @@
-/* -*- mode: C; mode: folding; fill-column: 70; -*- */
-/* Copyright 2010-2011,  Georgia Institute of Technology, USA. */
-/* See COPYING for license. */
 #if !defined(PRNG_HEADER_)
 #define PRNG_HEADER_
 
-/** Initialze the PRNG, called in a sequential context. */
-void init_random (void);
-
-extern uint64_t userseed;
-extern uint_fast32_t prng_seed[5];
-extern void *prng_state;
+void init_prng (void);
+int64_t scramble (int64_t);
+uint8_t random_weight (int64_t);
+void random_edgevals (float *, int64_t);
+void sample_roots (int64_t *);
 
 #endif /* PRNG_HEADER_ */

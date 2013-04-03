@@ -17,23 +17,12 @@
 #endif
 
 #include "graph500.h"
-#include "options.h"
+#include "globals.h"
 
 int VERBOSE = 0;
-int use_RMAT = 0;
 
 char *dumpname = NULL;
 char *rootname = NULL;
-
-double A = A_PARAM;
-double B = B_PARAM;
-double C = C_PARAM;
-double D = 1.0 - (A_PARAM + B_PARAM + C_PARAM);
-
-int NBFS = NBFS_max;
-
-int64_t SCALE = default_SCALE;
-int64_t edgefactor = default_edgefactor;
 
 void
 get_options (int argc, char **argv) {
@@ -42,13 +31,15 @@ get_options (int argc, char **argv) {
   extern int optind;
   extern char *optarg;
   int c, err = 0;
-  int nset = 0;
-  int whichset = 0;
+
+  long scale = SCALE_DEFAULT, edgefactor = EF_DEFAULT,
+    maxweight = MAXWEIGHT_DEFAULT, nroot = NROOT_DEFAULT;
+  double a = A_DEFAULT, b = B_DEFAULT, noisefact = NOISEFACT_DEFAULT;
 
   if (getenv ("VERBOSE"))
     VERBOSE = 1;
 
-  while ((c = getopt (argc, argv, "v?hRs:e:A:a:B:b:C:c:D:d:Vo:r:")) != -1)
+  while ((c = getopt (argc, argv, "v?hs:e:w:A:a:B:b:N:n:Vo:r:")) != -1)
     switch (c) {
     case 'v':
       printf ("%s version %d\n", NAME, VERSION);
@@ -59,56 +50,24 @@ get_options (int argc, char **argv) {
       printf ("Options:\n"
 	      "  v   : version\n"
 	      "  h|? : this message\n"
-	      "  R   : use R-MAT from SSCA2 (default: use Kronecker generator)\n"
-	      "  s   : R-MAT scale (default %" PRId64 ")\n"
-	      "  e   : R-MAT edge factor (default %" PRId64 ")\n"
-	      "  A|a : R-MAT A (default %lg) >= 0\n"
-	      "  B|b : R-MAT B (default %lg) >= 0\n"
-	      "  C|c : R-MAT C (default %lg) >= 0\n"
-	      "  D|d : R-MAT D (default %lg) >= 0\n"
-	      "        Note: Setting 3 of A,B,C,D requires the arguments to sum to\n"
-	      "        at most 1.  Otherwise, the parameters are added and normalized\n"
-	      "        so that the sum is 1.\n"
+	      "  s   : scale (default %d\n"
+	      "  e   : edge factor (default %d)\n"
+	      "  w   : maximum weight (default %d)\n"
+	      "  A|a : A (default %g) >= 0\n"
+	      "  B|b : B (default %g) >= 0\n"
+	      "  N   : noise factor (default %g)\n"
+	      "  n   : number of search roots (default %d)\n"
 	      "  V   : Enable extra (Verbose) output\n"
 	      "  o   : Read the edge list from (or dump to) the named file\n"
 	      "  r   : Read the BFS roots from (or dump to) the named file\n"
-	      "\n"
-	      "Outputs take the form of \"key: value\", with keys:\n"
-	      "  SCALE\n"
-	      "  edgefactor\n"
-	      "  construction_time\n"
-	      "  min_time\n"
-	      "  firstquartile_time\n"
-	      "  median_time\n"
-	      "  thirdquartile_time\n"
-	      "  max_time\n"
-	      "  mean_time\n"
-	      "  stddev_time\n"
-	      "  min_nedge\n"
-	      "  firstquartile_nedge\n"
-	      "  median_nedge\n"
-	      "  thirdquartile_nedge\n"
-	      "  max_nedge\n"
-	      "  mean_nedge\n"
-	      "  stddev_nedge\n"
-	      "  min_TEPS\n"
-	      "  firstquartile_TEPS\n"
-	      "  median_TEPS\n"
-	      "  thirdquartile_TEPS\n"
-	      "  max_TEPS\n"
-	      "  harmonic_mean_TEPS\n"
-	      "  harmonic_stddev_TEPS\n"
-	      , default_SCALE, default_edgefactor,
-	      A_PARAM, B_PARAM, C_PARAM,
-	      (1.0 - (A_PARAM + B_PARAM + C_PARAM))
-	      );
+	      "\n",
+	      SCALE_DEFAULT, EF_DEFAULT, MAXWEIGHT_DEFAULT,
+	      A_DEFAULT, B_DEFAULT, NOISEFACT_DEFAULT,
+	      NROOT_DEFAULT);
       exit (EXIT_SUCCESS);
       break;
     case 'V':
       VERBOSE = 1;
-      break;
-    case 'R':
-      use_RMAT = 1;
       break;
     case 'o':
       dumpname = strdup (optarg);
@@ -126,13 +85,17 @@ get_options (int argc, char **argv) {
       break;
     case 's':
       errno = 0;
-      SCALE = strtol (optarg, NULL, 10);
+      scale = strtol (optarg, NULL, 10);
       if (errno) {
 	fprintf (stderr, "Error parsing scale %s\n", optarg);
 	err = -1;
       }
-      if (SCALE <= 0) {
-	fprintf (stderr, "Scale must be non-negative.\n");
+      if (scale <= 0) {
+	fprintf (stderr, "Scale must be positive.\n");
+	err = -1;
+      }
+      if (scale > SCALE_MAX) {
+	fprintf (stderr, "Scale cannot exceed %d.\n", SCALE_MAX);
 	err = -1;
       }
       break;
@@ -144,85 +107,79 @@ get_options (int argc, char **argv) {
 	err = -1;
       }
       if (edgefactor <= 0) {
-	fprintf (stderr, "Edge factor must be non-negative.\n");
+	fprintf (stderr, "Edge factor must be positive.\n");
+	err = -1;
+      }
+      break;
+    case 'w':
+      errno = 0;
+      maxweight = strtol (optarg, NULL, 10);
+      if (errno) {
+	fprintf (stderr, "Error parsing maximum weight %s\n", optarg);
+	err = -1;
+      }
+      if (maxweight <= 0) {
+	fprintf (stderr, "Maximum weight must be positive.\n");
+	err = -1;
+      }
+      if (maxweight > UINT8_MAX) {
+	fprintf (stderr, "Maximum weight must fit in eight bits.\n");
 	err = -1;
       }
       break;
     case 'A':
     case 'a':
       errno = 0;
-      A = strtod (optarg, NULL);
-      if (whichset & 1) {
-	fprintf (stderr, "A already set\n");
-	err = -1;
-      }
+      a = strtod (optarg, NULL);
       if (errno) {
 	fprintf (stderr, "Error parsing A %s\n", optarg);
 	err = -1;
       }
-      if (A < 0) {
+      if (a < 0) {
 	fprintf (stderr, "A must be non-negative\n");
 	err = -1;
       }
-      whichset |= 1;
-      ++nset;
       break;
     case 'B':
     case 'b':
       errno = 0;
-      B = strtod (optarg, NULL);
-      if (whichset & 2) {
-	fprintf (stderr, "B already set\n");
-	err = -1;
-      }
+      b = strtod (optarg, NULL);
       if (errno) {
 	fprintf (stderr, "Error parsing B %s\n", optarg);
 	err = -1;
       }
-      if (B < 0) {
+      if (b < 0) {
 	fprintf (stderr, "B must be non-negative\n");
 	err = -1;
       }
-      whichset |= 2;
-      ++nset;
       break;
-    case 'C':
-    case 'c':
+    case 'N':
       errno = 0;
-      C = strtod (optarg, NULL);
-      if (whichset & 4) {
-	fprintf (stderr, "C already set\n");
-	err = -1;
-      }
+      noisefact = strtod (optarg, NULL);
       if (errno) {
-	fprintf (stderr, "Error parsing C %s\n", optarg);
+	fprintf (stderr, "Error parsing noise factor %s\n", optarg);
 	err = -1;
       }
-      if (C < 0) {
-	fprintf (stderr, "C must be non-negative\n");
+      if (noisefact < 0) {
+	fprintf (stderr, "Noise factor must be non-negative\n");
 	err = -1;
       }
-      whichset |= 4;
-      ++nset;
       break;
-    case 'D':
-    case 'd':
+    case 'n':
       errno = 0;
-      D = strtod (optarg, NULL);
-      if (whichset & 8) {
-	fprintf (stderr, "D already set\n");
-	err = -1;
-      }
+      nroot = strtol (optarg, NULL, 10);
       if (errno) {
-	fprintf (stderr, "Error parsing D %s\n", optarg);
+	fprintf (stderr, "Error parsing scale %s\n", optarg);
 	err = -1;
       }
-      if (D < 0) {
-	fprintf (stderr, "D must be non-negative\n");
+      if (nroot <= 0) {
+	fprintf (stderr, "Number of search roots must be positive.\n");
 	err = -1;
       }
-      whichset |= 8;
-      ++nset;
+      if (nroot > NROOT_MAX) {
+	fprintf (stderr, "Number of search roots cannot exceed %d.\n", NROOT_MAX);
+	err = -1;
+      }
       break;
     default:
       fprintf (stderr, "Unrecognized option\n");
@@ -231,38 +188,6 @@ get_options (int argc, char **argv) {
 
   if (err)
     exit (EXIT_FAILURE);
-  if (nset == 3) {
-    switch (whichset) {
-    case (4+2+1) :
-      D = 1.0 - (A + B + C);
-      break;
-    case (8+2+1) :
-      C = 1.0 - (A + B + D);
-      break;
-    case (8+4+1) :
-      B = 1.0 - (A + C + D);
-      break;
-    case (8+4+2) :
-      A = 1.0 - (B + C + D);
-      break;
-    default:
-      fprintf (stderr, "Impossible combination of three bits...\n");
-      abort ();
-    }
-    if (A < 0 || B < 0 || C < 0 || D < 0) {
-      fprintf (stderr, "When setting three R-MAT parameters, all must be < 1.\n"
-	       "  A = %lg\n  B = %lg\n  C = %lg\n  D = %lg\n",
-	       A, B, C, D);
-      exit (EXIT_FAILURE);
-    }
-  } else if (nset > 0) {
-    long double sum = A;
-    sum += B;
-    sum += C;
-    sum += D;
-    A /= sum;
-    B /= sum;
-    C /= sum;
-    D = 1.0 - (A + B + C);
-  }
+
+  init_globals (scale, edgefactor, maxweight, nroot, a, b, noisefact);
 }

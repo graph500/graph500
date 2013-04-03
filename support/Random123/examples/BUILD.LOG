@@ -1,0 +1,36 @@
+cc -O -I../include   kat_c.c   -o kat_c
+g++ -O -I../include   kat_cpp.cpp   -o kat_cpp
+nvcc -O -I../include   kat_cuda.cu   -o kat_cuda
+CC="cc" CPPFLAGS="-I../include" ./gencl.sh kat_opencl_kernel.ocl kat_opencl_kernel.i
+cc -O -I. -I../include   kat_opencl.c  -lOpenCL -o kat_opencl
+cc -O -I../include   kat_u01_c.c   -o kat_u01_c
+g++ -O -I../include   kat_u01_cpp.cpp   -o kat_u01_cpp
+nvcc -O -I../include   kat_u01_cuda.cu   -o kat_u01_cuda
+CC="cc" CPPFLAGS="-I../include" ./gencl.sh kat_u01_opencl_kernel.ocl kat_u01_opencl_kernel.i
+cc -O -I. -I../include   kat_u01_opencl.c  -lOpenCL -o kat_u01_opencl
+g++ -O -I../include   pi_aes.cpp   -o pi_aes
+cc -O -I../include   pi_capi.c   -o pi_capi
+g++ -O -I../include   pi_cppapi.cpp   -o pi_cppapi
+nvcc -O -I../include   pi_cuda.cu   -o pi_cuda
+nvcc -O -I../include   pi_cudapp.cu   -o pi_cudapp
+cc -O `gsl-config --cflags` -I../include   pi_gsl.c  `gsl-config --libs` -o pi_gsl
+g++ -O -I../include   pi_microurng.cpp   -o pi_microurng
+CC="cc" CPPFLAGS="-I../include" ./gencl.sh pi_opencl_kernel.ocl pi_opencl_kernel.i
+cc -O -I. -I../include   pi_opencl.c  -lOpenCL -o pi_opencl
+cc -O -I../include   pi_u01.c   -o pi_u01
+cc -O -I../include   simple.c   -o simple
+g++ -O -I../include   simplepp.cpp   -o simplepp
+nvcc -O -I../include   time_cuda.cu   -o time_cuda
+CC="cc" CPPFLAGS="-I../include" ./gencl.sh time_opencl_kernel.ocl time_opencl_kernel.i
+cc -O -I. -I../include   time_opencl.c  -lOpenCL -o time_opencl
+cc -O -I../include   time_serial.c   -o time_serial
+cc -O -I../include -D_REENTRANT=1 -D_THREAD_SAFE=1   time_thread.c  -lpthread -o time_thread
+g++ -O -I../include   timers.cpp   -o timers
+g++ -O -I../include   ut_Engine.cpp   -o ut_Engine
+g++ -O -I../include   ut_M128.cpp   -o ut_M128
+g++ -O -I../include   ut_ReinterpretCtr.cpp   -o ut_ReinterpretCtr
+g++ -O -I../include   ut_aes.cpp   -o ut_aes
+cc -O -I../include   ut_ars.c   -o ut_ars
+g++ -O -I../include   ut_carray.cpp   -o ut_carray
+g++ -O -I../include   ut_features.cpp   -o ut_features
+cc -O `gsl-config --cflags` -I../include   ut_gsl.c  `gsl-config --libs` -o ut_gsl
