@@ -22,7 +22,7 @@ Version History:
  - V0.3 :: Draft, created 30 September 2010
  - V1.0 :: Created 1 October 2010
  - V1.1 :: Created 3 October 2010
- - V2.0 :: Created XXX 2012
+ - V3.0 :: Created XXX 2013
 
 Version 0.1 of this document was part of the Graph 500 community
 benchmark effort, led by Richard Murphy (then at Sandia National
@@ -30,7 +30,8 @@ Laboratories).  The intent is that there will be at least three
 variants of implementations, on shared memory and threaded systems, on
 distributed memory clusters, and on external memory map-reduce
 clouds. This specification is for the first of potentially several
-benchmark problems.
+benchmark problems.  The version number jumped to three to synchronize
+with the reference code.
 
 #+begin_openissue
 One "open issue" remains:  What can be precomputed?  The spec currently
