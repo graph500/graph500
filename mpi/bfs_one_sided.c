@@ -17,6 +17,8 @@
 #include <string.h>
 #include <limits.h>
 
+char IMPLEMENTATION[] = "MPI BFS_ONE_SIDED";
+
 static oned_csr_graph g;
 
 void make_graph_data_structure(const tuple_graph* const tg) {

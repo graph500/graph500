@@ -7,7 +7,7 @@ include make.inc
 CPPFLAGS+=-Isupport/Random123/include
 
 GRAPH500_SOURCES=graph500.c options.c verify.c generator.c \
-	prng.c globals.c xalloc.c timer.c 
+	prng.c output_results.c globals.c xalloc.c timer.c
 
 MAKE_EDGELIST_SOURCES=make-edgelist.c options.c prng.c \
 	xalloc.c timer.c 

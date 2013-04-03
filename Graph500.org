@@ -678,6 +678,8 @@ format:
   - k3time :: the time for [[Kernel 3]], and
   - k3max :: the longest path length found in [[Kernel 3]].
 Additional columns will be ignored but could include verification time
+or other information.  If a kernel is not run, output -1 for the time
+and max data.
 
 An example submission as formatted by Algorithm \ref{alg:output}'s
 high-level sample code:

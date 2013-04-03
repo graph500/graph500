@@ -85,7 +85,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
   const struct packed_edge * restrict IJ = IJ_in;
 
   int err;
-  int64_t nedge_traversed;
+  int64_t maxdepth = -1;
   int64_t * restrict seen_edge, * restrict level;
 
   const int64_t nv = max_bfsvtx+1;
@@ -99,7 +99,6 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
     return -999;
 
   err = 0;
-  nedge_traversed = 0;
   seen_edge = xmalloc_large (2 * (nv) * sizeof (*seen_edge));
   level = &seen_edge[nv];
 
@@ -110,11 +109,12 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
   OMP("omp parallel shared(err)") {
     int64_t k;
     int terr = 0;
+    int64_t tmaxdepth = -1;
     OMP("omp for")
       for (k = 0; k < nv; ++k)
 	seen_edge[k] = 0;
 
-    OMP("omp for reduction(+:nedge_traversed)")
+    OMP("omp for")
     MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < nedge; ++k) {
 	const int64_t i = get_v0_from_edge (&IJ[k]);
@@ -141,7 +141,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 	   NOTE: This counts self-edges and repeated edges.  They're
 	   part of the input data.
 	*/
-	++nedge_traversed;
+
 	/* Mark seen tree edges. */
 	if (i != j) {
 	  if (bfs_tree[i] == j)
@@ -160,6 +160,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
       /* Check that every BFS edge was seen and that there's only one root. */
       OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
 	for (k = 0; k < nv; ++k) {
+	  if (level[k] > tmaxdepth) tmaxdepth = level[k];
 	  terr = err;
 	  if (!terr && k != root) {
 	    if (bfs_tree[k] >= 0 && !seen_edge[k])
@@ -170,10 +171,14 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 	  }
 	}
     }
+
+    OMP("omp critical") {
+      if (tmaxdepth > maxdepth) maxdepth = tmaxdepth;
+    }
   }
  done:
 
   xfree_large (seen_edge);
   if (err) return err;
-  return nedge_traversed;
+  return maxdepth;
 }

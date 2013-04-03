@@ -18,6 +18,8 @@
 #include <limits.h>
 #include <assert.h>
 
+char IMPLEMENTATION[] = "MPI BFS_CUSTOM";
+
 /* Add your own BFS code into this file (or a copy of it). */
 
 /* Data structure definitions: customize these for your own data distribution

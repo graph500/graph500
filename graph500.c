@@ -27,32 +27,26 @@
 #include "timer.h"
 #include "xalloc.h"
 #include "options.h"
+#include "output_results.h"
 
 static int64_t bfs_root[NROOT_MAX];
 
 static double generation_time;
 static double construction_time;
 static double bfs_time[NROOT_MAX];
-static int64_t bfs_nedge[NROOT_MAX];
+static int64_t bfs_depth[NROOT_MAX];
+static double bfs_verify_time[NROOT_MAX];
 
 static packed_edge * restrict IJ;
 
 static void run_bfs (void);
-static void output_results (const int64_t SCALE, int64_t nvtx_scale,
-			    int64_t edgefactor,
-			    const double A, const double B,
-			    const double generation_time,
-			    const double construction_time,
-			    const int NBFS,
-			    const double *bfs_time, const int64_t *bfs_nedge);
 
 int
 main (int argc, char **argv)
 {
   ssize_t sz;
 
-  if (argc > 1)
-    get_options (argc, argv);
+  get_options (argc, argv);
 
   init_prng ();
 
@@ -90,8 +84,11 @@ main (int argc, char **argv)
 
   xfree_large (IJ);
 
-  output_results (SCALE, NV, EF, A, B,
-		  generation_time, construction_time, NROOT, bfs_time, bfs_nedge);
+  extern char IMPLEMENTATION[];
+  output_results (IMPLEMENTATION,
+		  generation_time, construction_time,
+		  bfs_root,
+		  bfs_time, bfs_depth, bfs_verify_time);
 
   return EXIT_SUCCESS;
 }
@@ -149,11 +146,12 @@ run_bfs (void)
     }
 
     if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
-    bfs_nedge[m] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[m], IJ, NE);
+    TIME(bfs_verify_time[m],
+	 bfs_depth[m] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[m], IJ, NE));
     if (VERBOSE) fprintf (stderr, "done\n");
-    if (bfs_nedge[m] < 0) {
+    if (bfs_depth[m] < 0) {
       fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
-	       m, bfs_root[m], bfs_nedge[m]);
+	       m, bfs_root[m], bfs_depth[m]);
       abort ();
     }
 
@@ -256,47 +254,4 @@ statistics (double *out, double *data, int64_t n)
   }
   s = (sqrt (s)/(n-1)) * out[7] * out[7];
   out[8] = s;
-}
-
-void
-output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
-		const double A, const double B,
-		const double generation_time,
-		const double construction_time,
-		const int NBFS, const double *bfs_time, const int64_t *bfs_nedge)
-{
-  int k;
-  int64_t sz;
-  double *tm;
-  double *stats;
-
-  tm = alloca (NBFS * sizeof (*tm));
-  stats = alloca (NSTAT * sizeof (*stats));
-  if (!tm || !stats) {
-    perror ("Error allocating within final statistics calculation.");
-    abort ();
-  }
-
-  sz = (1L << SCALE) * edgefactor * 2 * sizeof (int64_t);
-  printf ("SCALE: %" PRId64 "\nnvtx: %" PRId64 "\nedgefactor: %" PRId64 "\n"
-	  "terasize: %20.17e\n",
-	  SCALE, nvtx_scale, edgefactor, sz/1.0e12);
-  printf ("A: %20.17e\nB: %20.17e\n\n", A, B);
-  printf ("generation_time: %20.17e\n", generation_time);
-  printf ("construction_time: %20.17e\n", construction_time);
-  printf ("nbfs: %d\n", NBFS);
-
-  memcpy (tm, bfs_time, NBFS*sizeof(tm[0]));
-  statistics (stats, tm, NBFS);
-  PRINT_STATS("time", 0);
-
-  for (k = 0; k < NBFS; ++k)
-    tm[k] = bfs_nedge[k];
-  statistics (stats, tm, NBFS);
-  PRINT_STATS("nedge", 0);
-
-  for (k = 0; k < NBFS; ++k)
-    tm[k] = bfs_nedge[k] / bfs_time[k];
-  statistics (stats, tm, NBFS);
-  PRINT_STATS("TEPS", 1);
 }

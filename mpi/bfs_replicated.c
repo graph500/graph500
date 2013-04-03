@@ -20,6 +20,8 @@
 #include <limits.h>
 #include <assert.h>
 
+char IMPLEMENTATION[] = "MPI BFS_REPLICATED";
+
 static oned_csr_graph g;
 static int g_lg_local_queue_size;
 static int64_t g_local_queue_summary_size;

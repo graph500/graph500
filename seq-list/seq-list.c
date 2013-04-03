@@ -12,6 +12,8 @@
 #include "../compat.h"
 #include "../graph500.h"
 
+char IMPLEMENTATION[] = "sequential list";
+
 static int64_t maxvtx, maxdeg, nIJ;
 static const struct packed_edge * restrict IJ;
 static int64_t * restrict head, * restrict deg, * restrict next;

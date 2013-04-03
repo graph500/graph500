@@ -20,6 +20,8 @@
 #include <limits.h>
 #include <assert.h>
 
+char IMPLEMENTATION[] = "MPI BFS_REPLICATED_CSC";
+
 static oned_csc_graph g;
 static unsigned long* g_in_queue;
 static unsigned long* g_in_queue_summary;

@@ -50,7 +50,7 @@ get_options (int argc, char **argv) {
       printf ("Options:\n"
 	      "  v   : version\n"
 	      "  h|? : this message\n"
-	      "  s   : scale (default %d\n"
+	      "  s   : scale (default %d)\n"
 	      "  e   : edge factor (default %d)\n"
 	      "  w   : maximum weight (default %d)\n"
 	      "  A|a : A (default %g) >= 0\n"

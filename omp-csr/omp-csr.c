@@ -28,6 +28,8 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 #define ALPHA 14
 #define BETA  24
 
+char IMPLEMENTATION[] = "Reference OpenMP";
+
 static int64_t maxvtx, nv, sz;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
 static int64_t * restrict xadjstore; /* Length MINVECT_SIZE + (xoff[nv] == nedge) */

@@ -162,13 +162,13 @@ static int check_bfs_depth_map_using_predecessors(const tuple_graph* const tg, c
 #pragma omp parallel for reduction(&&:validation_passed)
     for (i = 0; i < (ptrdiff_t)nlocalverts; ++i) {
       if (get_pred_from_pred_entry(pred[i]) == -1 &&
-          get_depth_from_pred_entry(pred[i]) != UINT16_MAX) {
-        fprintf(stderr, "%d: Validation error: depth of vertex %" PRId64 " with no predecessor is %" PRIu16 ", not UINT16_MAX.\n", rank, vertex_to_global_for_pred(rank, i), get_depth_from_pred_entry(pred[i]));
-        validation_passed = 0;
+	  get_depth_from_pred_entry(pred[i]) != UINT16_MAX) {
+	fprintf(stderr, "%d: Validation error: depth of vertex %" PRId64 " with no predecessor is %" PRIu16 ", not UINT16_MAX.\n", rank, vertex_to_global_for_pred(rank, i), get_depth_from_pred_entry(pred[i]));
+	validation_passed = 0;
       } else if (get_pred_from_pred_entry(pred[i]) != -1 &&
-                 get_depth_from_pred_entry(pred[i]) == UINT16_MAX) {
-        fprintf(stderr, "%d: Validation error: predecessor of claimed unreachable vertex %" PRId64 " is %" PRId64 ", not -1.\n", rank, vertex_to_global_for_pred(rank, i), get_pred_from_pred_entry(pred[i]));
-        validation_passed = 0;
+		 get_depth_from_pred_entry(pred[i]) == UINT16_MAX) {
+	fprintf(stderr, "%d: Validation error: predecessor of claimed unreachable vertex %" PRId64 " is %" PRId64 ", not -1.\n", rank, vertex_to_global_for_pred(rank, i), get_pred_from_pred_entry(pred[i]));
+	validation_passed = 0;
       }
     }
   }
@@ -226,7 +226,7 @@ static int check_bfs_depth_map_using_predecessors(const tuple_graph* const tg, c
  * of pred to contain the BFS level number (or -1 if not visited) of each
  * vertex; this is based on the predecessor map if the user didn't provide it.
  * */
-int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, int64_t* const pred, int64_t* const edge_visit_count_ptr) {
+int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, int64_t* const pred, int64_t* const edge_visit_count_ptr, int64_t *maxdepth_out) {
 
   assert (tg->edgememory_size >= 0 && tg->max_edgememory_size >= tg->edgememory_size && tg->max_edgememory_size <= tg->nglobaledges);
   assert (pred);
@@ -389,23 +389,34 @@ int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts,
     free(edge_endpoint);
     destroy_scatter_constant(pred_valid_win);
     ptrdiff_t i;
-#pragma omp parallel for reduction(&&:validation_passed)
-    for (i = 0; i < (ptrdiff_t)nlocalverts; ++i) {
-      int64_t p = get_pred_from_pred_entry(pred[i]);
-      if (p == -1) continue;
-      int found_pred_edge = pred_valid[i];
-      if (root_owner == rank && root_local == (size_t)i) found_pred_edge = 1; /* Root vertex */
-      if (!found_pred_edge) {
-        int64_t v = vertex_to_global_for_pred(rank, i);
-        fprintf(stderr, "%d: Validation error: no graph edge from vertex %" PRId64 " to its parent %" PRId64 ".\n", rank, v, get_pred_from_pred_entry(pred[i]));
-        validation_passed = 0;
+    *maxdepth_out = -1;
+#pragma omp parallel
+    {
+      int64_t tmaxdepth = -1;
+#pragma omp for reduction(&&:validation_passed)
+      for (i = 0; i < (ptrdiff_t)nlocalverts; ++i) {
+	int64_t p = get_pred_from_pred_entry(pred[i]);
+	if (p == -1) continue;
+	int64_t d = get_depth_from_pred_entry(pred[i]);
+	if (d > tmaxdepth) tmaxdepth = d;
+	int found_pred_edge = pred_valid[i];
+	if (root_owner == rank && root_local == (size_t)i) found_pred_edge = 1; /* Root vertex */
+	if (!found_pred_edge) {
+	  int64_t v = vertex_to_global_for_pred(rank, i);
+	  fprintf(stderr, "%d: Validation error: no graph edge from vertex %" PRId64 " to its parent %" PRId64 ".\n", rank, v, get_pred_from_pred_entry(pred[i]));
+	  validation_passed = 0;
+	}
       }
+#pragma omp critical
+      if (tmaxdepth > *maxdepth_out) *maxdepth_out = tmaxdepth;
     }
     MPI_Free_mem(pred_valid);
 
     MPI_Allreduce(MPI_IN_PLACE, &edge_visit_count, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
     *edge_visit_count_ptr = edge_visit_count;
   }
+
+  MPI_Allreduce(MPI_IN_PLACE, maxdepth_out, 1, MPI_INT64_T, MPI_MAX, MPI_COMM_WORLD);
 
   /* Collect the global validation result. */
   MPI_Allreduce(MPI_IN_PLACE, &validation_passed, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);

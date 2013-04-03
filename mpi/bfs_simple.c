@@ -18,6 +18,8 @@
 #include <limits.h>
 #include <assert.h>
 
+char IMPLEMENTATION[] = "Reference MPI";
+
 static oned_csr_graph g;
 static int64_t* g_oldq;
 static int64_t* g_newq;

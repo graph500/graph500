@@ -31,41 +31,8 @@
 #include "../globals.h"
 #include "../generator.h"
 #include "../prng.h"
+#include "../output_results.h"
 #include "../xalloc.h"
-
-static int compare_doubles(const void* a, const void* b) {
-  double aa = *(const double*)a;
-  double bb = *(const double*)b;
-  return (aa < bb) ? -1 : (aa == bb) ? 0 : 1;
-}
-
-enum {s_minimum, s_firstquartile, s_median, s_thirdquartile, s_maximum, s_mean, s_std, s_LAST};
-static void get_statistics(const double x[], int n, double r[s_LAST]) {
-  double temp;
-  int i;
-  /* Compute mean. */
-  temp = 0;
-  for (i = 0; i < n; ++i) temp += x[i];
-  temp /= n;
-  r[s_mean] = temp;
-  /* Compute std. dev. */
-  temp = 0;
-  for (i = 0; i < n; ++i) temp += (x[i] - r[s_mean]) * (x[i] - r[s_mean]);
-  temp /= n - 1;
-  r[s_std] = sqrt(temp);
-  /* Sort x. */
-  double* xx = (double*)xmalloc(n * sizeof(double));
-  memcpy(xx, x, n * sizeof(double));
-  qsort(xx, n, sizeof(double), compare_doubles);
-  /* Get order statistics. */
-  r[s_minimum] = xx[0];
-  r[s_firstquartile] = (xx[(n - 1) / 4] + xx[n / 4]) * .5;
-  r[s_median] = (xx[(n - 1) / 2] + xx[n / 2]) * .5;
-  r[s_thirdquartile] = (xx[n - 1 - (n - 1) / 4] + xx[n - 1 - n / 4]) * .5;
-  r[s_maximum] = xx[n - 1];
-  /* Clean up. */
-  free(xx);
-}
 
 int main(int argc, char** argv) {
   MPI_Init(&argc, &argv);
@@ -198,7 +165,8 @@ int main(int argc, char** argv) {
   double make_graph_stop = MPI_Wtime();
   double make_graph_time = make_graph_stop - make_graph_start;
   if (rank == 0) { /* Not an official part of the results */
-    fprintf(stderr, "graph_generation:               %f s\n", make_graph_time);
+    if (getenv("VERBOSE"))
+      fprintf(stderr, "graph_generation:               %f s\n", make_graph_time);
   }
 
   /* Make user's graph data structure. */
@@ -207,7 +175,8 @@ int main(int argc, char** argv) {
   double data_struct_stop = MPI_Wtime();
   double data_struct_time = data_struct_stop - data_struct_start;
   if (rank == 0) { /* Not an official part of the results */
-    fprintf(stderr, "construction_time:              %f s\n", data_struct_time);
+    if (getenv("VERBOSE"))
+      fprintf(stderr, "construction_time:              %f s\n", data_struct_time);
   }
 
   /* Number of edges visited in each BFS; a double so get_statistics can be
@@ -217,6 +186,7 @@ int main(int argc, char** argv) {
   /* Run BFS. */
   int validation_passed = 1;
   double* bfs_times = (double*)xmalloc(NROOT * sizeof(double));
+  int64_t* bfs_depth = (int64_t*)xmalloc(NROOT * sizeof(*bfs_depth));
   double* validate_times = (double*)xmalloc(NROOT * sizeof(double));
   uint64_t nlocalverts = get_nlocalverts_for_pred();
   int64_t* pred = (int64_t*)xMPI_Alloc_mem(nlocalverts * sizeof(int64_t));
@@ -225,7 +195,8 @@ int main(int argc, char** argv) {
   for (bfs_root_idx = 0; bfs_root_idx < NROOT; ++bfs_root_idx) {
     int64_t root = bfs_roots[bfs_root_idx];
 
-    if (rank == 0) fprintf(stderr, "Running BFS %d\n", bfs_root_idx);
+    if (rank == 0 && getenv ("VERBOSE"))
+      fprintf(stderr, "Running BFS %d\n", bfs_root_idx);
 
     /* Clear the pred array. */
     memset(pred, 0, nlocalverts * sizeof(int64_t));
@@ -235,29 +206,33 @@ int main(int argc, char** argv) {
     run_bfs(root, &pred[0]);
     double bfs_stop = MPI_Wtime();
     bfs_times[bfs_root_idx] = bfs_stop - bfs_start;
-    if (rank == 0) fprintf(stderr, "Time for BFS %d is %f\n", bfs_root_idx, bfs_times[bfs_root_idx]);
+    if (rank == 0 && getenv ("VERBOSE"))
+      fprintf(stderr, "Time for BFS %d is %f\n", bfs_root_idx, bfs_times[bfs_root_idx]);
 
     /* Validate result. */
-    if (rank == 0) fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);
+    if (rank == 0 && getenv ("VERBOSE"))
+      fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);
 
     double validate_start = MPI_Wtime();
     int64_t edge_visit_count;
-    int validation_passed_one = validate_bfs_result(&tg, max_used_vertex + 1, nlocalverts, root, pred, &edge_visit_count);
+    int validation_passed_one = validate_bfs_result(&tg, max_used_vertex + 1, nlocalverts, root, pred, &edge_visit_count, &bfs_depth[bfs_root_idx]);
     double validate_stop = MPI_Wtime();
     validate_times[bfs_root_idx] = validate_stop - validate_start;
-    if (rank == 0) fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);
+    if (rank == 0 && getenv ("VERBOSE"))
+      fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);
     edge_counts[bfs_root_idx] = (double)edge_visit_count;
-    if (rank == 0) fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);
+    if (rank == 0 && getenv ("VERBOSE"))
+      fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);
 
     if (!validation_passed_one) {
       validation_passed = 0;
-      if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
+      if (rank == 0 && getenv ("VERBOSE"))
+	fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
       break;
     }
   }
 
   MPI_Free_mem(pred);
-  free(bfs_roots);
   free_graph_data_structure();
 
   if (tg.data_in_file) {
@@ -271,65 +246,15 @@ int main(int argc, char** argv) {
     if (!validation_passed) {
       fprintf(stdout, "No results printed for invalid run.\n");
     } else {
-      int i;
-      fprintf(stdout, "SCALE:                          %d\n", SCALE);
-      fprintf(stdout, "edgefactor:                     %d\n", edgefactor);
-      fprintf(stdout, "NBFS:                           %d\n", NROOT);
-      fprintf(stdout, "graph_generation:               %g\n", make_graph_time);
-      fprintf(stdout, "num_mpi_processes:              %d\n", size);
-      fprintf(stdout, "construction_time:              %g\n", data_struct_time);
-      double stats[s_LAST];
-      get_statistics(bfs_times, NROOT, stats);
-      fprintf(stdout, "min_time:                       %g\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_time:             %g\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_time:                    %g\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_time:             %g\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_time:                       %g\n", stats[s_maximum]);
-      fprintf(stdout, "mean_time:                      %g\n", stats[s_mean]);
-      fprintf(stdout, "stddev_time:                    %g\n", stats[s_std]);
-      get_statistics(edge_counts, NROOT, stats);
-      fprintf(stdout, "min_nedge:                      %.11g\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_nedge:            %.11g\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_nedge:                   %.11g\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_nedge:            %.11g\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_nedge:                      %.11g\n", stats[s_maximum]);
-      fprintf(stdout, "mean_nedge:                     %.11g\n", stats[s_mean]);
-      fprintf(stdout, "stddev_nedge:                   %.11g\n", stats[s_std]);
-      double* secs_per_edge = (double*)xmalloc(NROOT * sizeof(double));
-      for (i = 0; i < NROOT; ++i) secs_per_edge[i] = bfs_times[i] / edge_counts[i];
-      get_statistics(secs_per_edge, NROOT, stats);
-      fprintf(stdout, "min_TEPS:                       %g\n", 1. / stats[s_maximum]);
-      fprintf(stdout, "firstquartile_TEPS:             %g\n", 1. / stats[s_thirdquartile]);
-      fprintf(stdout, "median_TEPS:                    %g\n", 1. / stats[s_median]);
-      fprintf(stdout, "thirdquartile_TEPS:             %g\n", 1. / stats[s_firstquartile]);
-      fprintf(stdout, "max_TEPS:                       %g\n", 1. / stats[s_minimum]);
-      fprintf(stdout, "harmonic_mean_TEPS:             %g\n", 1. / stats[s_mean]);
-      /* Formula from:
-       * Title: The Standard Errors of the Geometric and Harmonic Means and
-       *        Their Application to Index Numbers
-       * Author(s): Nilan Norris
-       * Source: The Annals of Mathematical Statistics, Vol. 11, No. 4 (Dec., 1940), pp. 445-448
-       * Publisher(s): Institute of Mathematical Statistics
-       * Stable URL: http://www.jstor.org/stable/2235723
-       * (same source as in specification). */
-      fprintf(stdout, "harmonic_stddev_TEPS:           %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(NROOT - 1)));
-      free(secs_per_edge); secs_per_edge = NULL;
-      free(edge_counts); edge_counts = NULL;
-      get_statistics(validate_times, NROOT, stats);
-      fprintf(stdout, "min_validate:                   %g\n", stats[s_minimum]);
-      fprintf(stdout, "firstquartile_validate:         %g\n", stats[s_firstquartile]);
-      fprintf(stdout, "median_validate:                %g\n", stats[s_median]);
-      fprintf(stdout, "thirdquartile_validate:         %g\n", stats[s_thirdquartile]);
-      fprintf(stdout, "max_validate:                   %g\n", stats[s_maximum]);
-      fprintf(stdout, "mean_validate:                  %g\n", stats[s_mean]);
-      fprintf(stdout, "stddev_validate:                %g\n", stats[s_std]);
-#if 0
-      for (i = 0; i < NROOT; ++i) {
-        fprintf(stdout, "Run %3d:                        %g s, validation %g s\n", i + 1, bfs_times[i], validate_times[i]);
-      }
-#endif
+      extern char IMPLEMENTATION[];
+
+      output_results (IMPLEMENTATION,
+		      make_graph_time, data_struct_time,
+		      bfs_roots,
+		      bfs_times, bfs_depth, validate_times);
     }
   }
+  free(bfs_roots);
   free(bfs_times);
   free(validate_times);
 

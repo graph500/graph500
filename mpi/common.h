@@ -149,7 +149,7 @@ void* xmalloc(size_t nbytes); /* In utils.c */
 void* xcalloc(size_t n, size_t unit); /* In utils.c */
 void* xrealloc(void* p, size_t nbytes); /* In utils.c */
 
-int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, int64_t* const pred, int64_t* const edge_visit_count_ptr); /* In validate.c */
+int validate_bfs_result(const tuple_graph* const tg, const int64_t nglobalverts, const size_t nlocalverts, const int64_t root, int64_t* const pred, int64_t* const edge_visit_count_ptr, int64_t * maxdepth_out); /* In validate.c */
 
 /* Definitions in each BFS file, using static global variables for internal
  * storage: */
