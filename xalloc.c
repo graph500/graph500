@@ -119,6 +119,7 @@ xmalloc_large (size_t sz)
 void
 xfree_large (void *p)
 {
+  if (!p) return;
 #if defined(__MTA__)||defined(USE_MMAP_LARGE)||defined(USE_MMAP_LARGE_EXT)
   int k, found = 0;
   for (k = 0; k < n_large_alloc; ++k) {

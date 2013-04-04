@@ -14,6 +14,7 @@
 #include "../graph500.h"
 #include "../xalloc.h"
 #include "../packed_edge.h"
+#include "../generator.h"
 
 #define MINVECT_SIZE 2
 
@@ -86,8 +87,14 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
   int64_t nself_edges = 0;
 
   for (int64_t k = 0; k < nedge; ++k) {
-    int64_t i = get_v0_from_edge(&IJ[k]);
-    int64_t j = get_v1_from_edge(&IJ[k]);
+    int64_t i, j;
+    uint8_t w;
+#if !defined(STORED_EDGELIST)
+    make_edge (k, &i, &j, &w);
+#else
+    i = get_v0_from_edge(&IJ[k]);
+    j = get_v1_from_edge(&IJ[k]);
+#endif
     assert (i >= 0);
     assert (j >= 0);
     if (i != j) { /* Skip self-edges. */
@@ -114,8 +121,14 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
   /* Copy endpoints. */
   for (int64_t k = 0; k < nedge; ++k) {
-    int64_t i = get_v0_from_edge(&IJ[k]);
-    int64_t j = get_v1_from_edge(&IJ[k]);
+    int64_t i, j;
+    uint8_t w;
+#if !defined(STORED_EDGELIST)
+    make_edge (k, &i, &j, &w);
+#else
+    i = get_v0_from_edge(&IJ[k]);
+    j = get_v1_from_edge(&IJ[k]);
+#endif
     assert (i >= 0);
     assert (j >= 0);
     if (i != j) { /* Skip self-edges. */

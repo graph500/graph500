@@ -38,7 +38,7 @@ static double bfs_time[NROOT_MAX];
 static int64_t bfs_depth[NROOT_MAX];
 static double bfs_verify_time[NROOT_MAX];
 
-static packed_edge * restrict IJ;
+static packed_edge * restrict IJ = NULL;
 
 static void run_bfs (void);
 
@@ -55,11 +55,14 @@ main (int argc, char **argv)
     fprintf (stderr, "Running with %" PRId64 " vertices and %" PRId64 " edges.\n",
 	     NV, NE);
 
+  generation_time = construction_time = 0;
+
   /*
     If running the benchmark under an architecture simulator, replace
     the following if () {} else {} with a statement pointing IJ
     to wherever the edge list is mapped into the simulator's memory.
   */
+#if defined(STORED_EDGELIST)
   sz = NE * sizeof (*IJ);
   IJ = xmalloc_large (sz);
   if (!dumpname) {
@@ -80,6 +83,13 @@ main (int argc, char **argv)
     close (fd);
     if (VERBOSE) fprintf (stderr, " done.\n");
   }
+#else
+  if (dumpname) {
+    fprintf (stderr, "Reading the edge list but not storing it is unsupported."
+	     "  Sorry.  But not really.\n");
+    return EXIT_FAILURE;
+  }
+#endif
 
   run_bfs ();
 

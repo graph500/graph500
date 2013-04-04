@@ -12,6 +12,8 @@
 #include <assert.h>
 
 #include "xalloc.h"
+#include "packed_edge.h"
+#include "generator.h"
 #include "verify.h"
 
 static int
@@ -117,8 +119,14 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
     OMP("omp for")
     MTA("mta assert parallel") MTA("mta use 100 streams")
       for (k = 0; k < nedge; ++k) {
-	const int64_t i = get_v0_from_edge (&IJ[k]);
-	const int64_t j = get_v1_from_edge (&IJ[k]);
+	int64_t i, j;
+	uint8_t w;
+#if !defined(STORED_EDGELIST)
+	make_edge (k, &i, &j, &w);
+#else
+	i = get_v0_from_edge(&IJ[k]);
+	j = get_v1_from_edge(&IJ[k]);
+#endif
 	int64_t lvldiff;
 	terr = err;
 
