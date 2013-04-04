@@ -12,7 +12,7 @@ GRAPH500_SOURCES=graph500.c options.c verify.c generator.c \
 MAKE_EDGELIST_SOURCES=make-edgelist.c options.c generator.c \
 	prng.c globals.c xalloc.c timer.c
 
-BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist
+BIN=seq-csr/seq-csr make-edgelist
 
 ifeq ($(BUILD_OPENMP), Yes)
 BIN += omp-csr/omp-csr
@@ -34,7 +34,6 @@ CPPFLAGS += -I./generator
 make-edgelist: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
 make-edgelist:	$(MAKE_EDGELIST_SOURCES)
 
-seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES)
 seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES)
 
 omp-csr/omp-csr-old: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
