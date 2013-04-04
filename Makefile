@@ -9,10 +9,10 @@ CPPFLAGS+=-Isupport/Random123/include
 GRAPH500_SOURCES=graph500.c options.c verify.c generator.c \
 	prng.c output_results.c globals.c xalloc.c timer.c
 
-MAKE_EDGELIST_SOURCES=make-edgelist.c options.c prng.c \
-	xalloc.c timer.c 
+MAKE_EDGELIST_SOURCES=make-edgelist.c options.c generator.c \
+	prng.c globals.c xalloc.c timer.c
 
-BIN=seq-list/seq-list seq-csr/seq-csr # make-edgelist
+BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist
 
 ifeq ($(BUILD_OPENMP), Yes)
 BIN += omp-csr/omp-csr
