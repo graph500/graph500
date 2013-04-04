@@ -100,7 +100,7 @@ run_bfs (void)
   int m, err;
 
   if (VERBOSE) fprintf (stderr, "Creating graph...");
-  TIME(construction_time, err = create_graph_from_edgelist (IJ, NE));
+  TIME(construction_time, err = create_graph_from_edgelist (IJ, NE, NV));
   if (VERBOSE) fprintf (stderr, "done.\n");
   if (err) {
     fprintf (stderr, "Failure creating graph.\n");

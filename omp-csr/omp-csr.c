@@ -35,27 +35,6 @@ static int64_t * restrict xoff; /* Length 2*nv+2 */
 static int64_t * restrict xadjstore; /* Length MINVECT_SIZE + (xoff[nv] == nedge) */
 static int64_t * restrict xadj;
 
-static void
-find_nv (const struct packed_edge * restrict IJ, const int64_t nedge)
-{
-  maxvtx = -1;
-  OMP("omp parallel") {
-    int64_t k, gmaxvtx, tmaxvtx = -1;
-
-    OMP("omp for")
-      for (k = 0; k < nedge; ++k) {
-	if (get_v0_from_edge(&IJ[k]) > tmaxvtx)
-	  tmaxvtx = get_v0_from_edge(&IJ[k]);
-	if (get_v1_from_edge(&IJ[k]) > tmaxvtx)
-	  tmaxvtx = get_v1_from_edge(&IJ[k]);
-      }
-    gmaxvtx = maxvtx;
-    while (tmaxvtx > gmaxvtx)
-      gmaxvtx = int64_casval (&maxvtx, gmaxvtx, tmaxvtx);
-  }
-  nv = 1+maxvtx;
-}
-
 static int
 alloc_graph (int64_t nedge)
 {
@@ -229,9 +208,10 @@ gather_edges (const struct packed_edge * restrict IJ, int64_t nedge)
 }
 
 int
-create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge)
+create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in)
 {
-  find_nv (IJ, nedge);
+  nv = nv_in;
+  maxvtx = nv-1;
   if (alloc_graph (nedge)) return -1;
   if (setup_deg_off (IJ, nedge)) {
     xfree_large (xoff);

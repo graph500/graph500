@@ -111,6 +111,7 @@ reference generator.
       simplified validation routine.
   - Kernel 1, graph construction:
     - Removed restrictions on internal data structure.
+    - No longer computes the number of vertices.
   - Kernel 2, BFS:
     - No significant changes to the specification, but the reference
       implementation should be faster.
@@ -429,12 +430,12 @@ implementations.
 #+end_openissue
 
 There are various internal memory representations for sparse graphs,
-including (but not limited to) sparse matrices and (multi-level)
-linked lists. For the purposes of this application, the kernel is
-provided only the edge list and the edge list's size.  Further
-information such as the number of vertices must be computed within this
-kernel.  Algorithm \ref{alg:kernel.1} provides a high-level sample
-implementation of [[#kernel1][Kernel 1]].
+including (but not limited to) sparse matrices and (multi-level) linked
+lists. For the purposes of this application, the kernel is provided only
+the total number of vertices, the edge list, and the edge list's size.
+Further information must be computed within this kernel.  Algorithm
+\ref{alg:kernel.1} provides a high-level sample implementation of
+[[#kernel1][Kernel 1]].
 
 The process of constructing the graph data structure (in internal or
 external memory) from the set of tuples must be timed and is reported in
