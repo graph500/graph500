@@ -19,68 +19,35 @@
 
 char IMPLEMENTATION[] = "Reference sequential";
 
-static int64_t maxvtx, nv, sz;
+static int64_t maxvtx, nv;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
-static int64_t * restrict xadjstore; /* Length MINVECT_SIZE + (xoff[nv] == nedge) */
 static int64_t * restrict xadj;
-
-static int
-alloc_graph (int64_t nedge)
-{
-  sz = (2*nv+2) * sizeof (*xoff);
-  xoff = xmalloc_large_ext (sz);
-  if (!xoff) return -1;
-  return 0;
-}
 
 static void
 free_graph (void)
 {
-  xfree_large (xadjstore);
-  xfree_large (xoff);
+  if (xadj) xfree_large (xadj);
+  if (xoff) xfree_large (xoff);
 }
 
-#define XOFF(k) (xoff[2*(k)])
-#define XENDOFF(k) (xoff[1+2*(k)])
-
-static int
-setup_deg_off (const struct packed_edge * restrict IJ, int64_t nedge)
+static inline void
+canonical_order_edge (int64_t * restrict ip, int64_t * restrict jp)
 {
-  int64_t k, accum;
-  for (k = 0; k < 2*nv+2; ++k)
-    xoff[k] = 0;
-  for (k = 0; k < nedge; ++k) {
-    int64_t i = get_v0_from_edge(&IJ[k]);
-    int64_t j = get_v1_from_edge(&IJ[k]);
-    if (i != j) { /* Skip self-edges. */
-      if (i >= 0) ++XOFF(i);
-      if (j >= 0) ++XOFF(j);
-    }
+  int64_t i = *ip, j = *jp;
+#if !defined(ORDERED_TRIL)
+  if (((i ^ j) & 0x01) == (i < j)) {
+    *ip = i;
+    *jp = j;
+  } else {
+    *ip = j;
+    *jp = i;
   }
-  accum = 0;
-  for (k = 0; k < nv; ++k) {
-    int64_t tmp = XOFF(k);
-    if (tmp < MINVECT_SIZE) tmp = MINVECT_SIZE;
-    XOFF(k) = accum;
-    accum += tmp;
+#else
+  if (i < j) {
+    *ip = j;
+    *jp = i;
   }
-  XOFF(nv) = accum;
-  for (k = 0; k < nv; ++k)
-    XENDOFF(k) = XOFF(k);
-  if (!(xadjstore = xmalloc_large_ext ((accum + MINVECT_SIZE) * sizeof (*xadjstore))))
-    return -1;
-  xadj = &xadjstore[MINVECT_SIZE]; /* Cheat and permit xadj[-1] to work. */
-  for (k = 0; k < accum + MINVECT_SIZE; ++k)
-    xadjstore[k] = -1;
-  return 0;
-}
-
-static void
-scatter_edge (const int64_t i, const int64_t j)
-{
-  int64_t where;
-  where = XENDOFF(i)++;
-  xadj[where] = j;
+#endif
 }
 
 static int
@@ -93,60 +60,167 @@ i64cmp (const void *a, const void *b)
   return 0;
 }
 
-static void
-pack_vtx_edges (const int64_t i)
-{
-  int64_t kcur, k;
-  if (XOFF(i)+1 >= XENDOFF(i)) return;
-  qsort (&xadj[XOFF(i)], XENDOFF(i)-XOFF(i), sizeof(*xadj), i64cmp);
-  kcur = XOFF(i);
-  for (k = XOFF(i)+1; k < XENDOFF(i); ++k)
-    if (xadj[k] != xadj[kcur])
-      xadj[++kcur] = xadj[k];
-  ++kcur;
-  for (k = kcur; k < XENDOFF(i); ++k)
-    xadj[k] = -1;
-  XENDOFF(i) = kcur;
-}
-
-static void
-pack_edges (void)
-{
-  int64_t v;
-
-  for (v = 0; v < nv; ++v)
-    pack_vtx_edges (v);
-}
-
-static void
-gather_edges (const struct packed_edge * restrict IJ, int64_t nedge)
-{
-  int64_t k;
-
-  for (k = 0; k < nedge; ++k) {
-    int64_t i = get_v0_from_edge(&IJ[k]);
-    int64_t j = get_v1_from_edge(&IJ[k]);
-    if (i >= 0 && j >= 0 && i != j) {
-      scatter_edge (i, j);
-      scatter_edge (j, i);
-    }
-  }
-
-  pack_edges ();
-}
-
 int 
 create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in)
 {
+  int64_t * restrict xoff_half = NULL;
+  int64_t * restrict xadj_half = NULL;
+  size_t sz;
+  int64_t accum;
+
   nv = nv_in;
   maxvtx = nv-1;
-  if (alloc_graph (nedge)) return -1;
-  if (setup_deg_off (IJ, nedge)) {
-    xfree_large (xoff);
-    return -1;
+  xoff = NULL;
+  xadj = NULL;
+
+  /* Allocate offset arrays.  */
+  sz = (nv+1) * sizeof (*xoff);
+  xoff = xmalloc_large_ext (sz);
+  xoff_half = xmalloc_large_ext (sz);
+  if (!xoff || !xoff_half) goto err;
+
+  /* Set up xoff_half to hold a single copy of the edges. */
+  for (int64_t k = 0; k <= nv; ++k)
+    xoff_half[k] = 0;
+
+  int64_t nself_edges = 0;
+
+  for (int64_t k = 0; k < nedge; ++k) {
+    int64_t i = get_v0_from_edge(&IJ[k]);
+    int64_t j = get_v1_from_edge(&IJ[k]);
+    assert (i >= 0);
+    assert (j >= 0);
+    if (i != j) { /* Skip self-edges. */
+      canonical_order_edge (&i, &j);
+      ++xoff_half[i+1];
+    } else
+      ++nself_edges;
   }
-  gather_edges (IJ, nedge);
+
+  /* Prefix sum to convert counts to offsets. */
+  accum = 0;
+  for (int64_t k = 1; k <= nv; ++k) {
+    int64_t tmp = xoff_half[k];
+    xoff_half[k] = accum;
+    accum += tmp;
+  }
+
+  assert (accum + nself_edges == nedge);
+  /* All either counted or ignored. */
+
+  /* Allocate endpoint storage.  Do not yet know final number of edges. */
+  xadj_half = xmalloc_large_ext (accum * sizeof (*xadj_half));
+  if (!xadj_half) goto err;
+
+  /* Copy endpoints. */
+  for (int64_t k = 0; k < nedge; ++k) {
+    int64_t i = get_v0_from_edge(&IJ[k]);
+    int64_t j = get_v1_from_edge(&IJ[k]);
+    assert (i >= 0);
+    assert (j >= 0);
+    if (i != j) { /* Skip self-edges. */
+      int64_t where;
+      canonical_order_edge (&i, &j);
+      where = xoff_half[i+1]++;
+      xadj_half[where] = j;
+    }
+  }
+
+  int64_t ndup = 0;
+
+  for (int64_t i = 0; i <= nv; ++i)
+    xoff[i] = 0;
+
+  /* Collapse duplicates and count final numbers. */
+  for (int64_t i = 0; i < nv; ++i) {
+    int64_t kcur = xoff_half[i];
+    const int64_t kend = xoff_half[i+1];
+
+    if (kcur == kend) continue; /* Empty. */
+
+    qsort (&xadj_half[kcur], kend-kcur, sizeof (*xadj_half), i64cmp);
+
+    for (int64_t k = kcur+1; k < kend; ++k)
+      if (xadj_half[k] != xadj_half[kcur]) {
+	xadj_half[++kcur] = xadj_half[k];
+      }
+    ++kcur;
+    if (kcur != kend)
+      xadj_half[kcur] = -1;
+    ndup += kend - kcur;
+
+    /* Current vertex i count. */
+    xoff[i+1] += kcur - xoff_half[i];
+
+    /* Scatter adjacent vertex j counts. */
+    for (int64_t k = xoff_half[i]; k < kcur; ++k) {
+      const int64_t j = xadj_half[k];
+      ++xoff[j+1];
+    }
+  }
+
+  assert (xoff[0] == 0);
+
+  /* Another prefix sum to convert counts to offsets. */
+  accum = 0;
+  for (int64_t k = 1; k <= nv; ++k) {
+    int64_t tmp = xoff[k];
+    xoff[k] = accum;
+    accum += tmp;
+  }
+
+  assert (xoff[0] == 0);
+
+  assert (accum % 2 == 0);
+  if (accum/2 + ndup + nself_edges != nedge) {
+    fprintf (stderr, "%" PRId64" / 2 + %" PRId64 " + %" PRId64 " (%" PRId64 ") != %" PRId64 "   ( %" PRId64 " )\n",
+	     accum, ndup, nself_edges, (accum/2 + ndup + nself_edges), nedge,
+	     nedge - (accum/2 + ndup + nself_edges) );
+  }
+  assert (accum/2 + ndup + nself_edges == nedge);
+
+  /* Allocate final endpoint storage. */
+  xadj = xmalloc_large_ext (accum * sizeof (*xadj));
+  if (!xadj) goto err;
+
+  /* Copy to final locations. */
+  for (int64_t i = 0; i < nv; ++i) {
+    const int64_t khalfstart = xoff_half[i];
+    const int64_t khalfend = xoff_half[i+1];
+    int64_t khalflen = khalfend - khalfstart;
+    const int64_t kstart = xoff[i+1];
+    int64_t k;
+
+    if (!khalflen) continue; /* Empty. */
+
+    /* Copy the contiguous portion. */
+    for (k = 0; k < khalflen; ++k) {
+      const int64_t j = xadj_half[khalfstart + k];
+      if (j < 0) break;
+      xadj[kstart + k] = j;
+    }
+    xoff[i+1] += k;
+
+    /* Scatter the other side. */
+    for (int64_t k2 = 0; k2 < k; ++k2) {
+      const int64_t j = xadj_half[khalfstart + k2];
+      const int64_t where = xoff[j+1]++;
+      xadj[where] = i;
+    }
+  }
+
+  assert (accum == xoff[nv]);
+
+  xfree_large (xoff_half);
+  xfree_large (xadj_half);
   return 0;
+
+ err:
+  if (xoff_half) xfree_large (xoff_half);
+  if (xadj_half) xfree_large (xadj_half);
+  if (xoff) xfree_large (xoff);
+  if (xadj) xfree_large (xadj);
+  return -1;
 }
 
 int
@@ -175,9 +249,9 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
     int64_t k;
     for (k = k1; k < oldk2; ++k) {
       const int64_t v = vlist[k];
-      const int64_t veo = XENDOFF(v);
+      const int64_t veo = xoff[v+1];
       int64_t vo;
-      for (vo = XOFF(v); vo < veo; ++vo) {
+      for (vo = xoff[v]; vo < veo; ++vo) {
 	const int64_t j = xadj[vo];
 	if (bfs_tree[j] == -1) {
 	  bfs_tree[j] = v;
