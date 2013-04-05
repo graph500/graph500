@@ -45,8 +45,6 @@ static void run_bfs (void);
 int
 main (int argc, char **argv)
 {
-  ssize_t sz;
-
   get_options (argc, argv);
 
   init_prng ();
@@ -63,7 +61,7 @@ main (int argc, char **argv)
     to wherever the edge list is mapped into the simulator's memory.
   */
 #if defined(STORED_EDGELIST)
-  sz = NE * sizeof (*IJ);
+  size_t sz = NE * sizeof (*IJ);
   IJ = xmalloc_large (sz);
   if (!dumpname) {
     if (VERBOSE) fprintf (stderr, "Generating edge list...");

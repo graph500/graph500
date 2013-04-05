@@ -84,7 +84,9 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 		 const struct packed_edge *IJ_in, int64_t nedge)
 {
   int64_t * restrict bfs_tree = bfs_tree_in;
+#if defined(STORED_EDGELIST)
   const struct packed_edge * restrict IJ = IJ_in;
+#endif
 
   int err;
   int64_t maxdepth = -1;
