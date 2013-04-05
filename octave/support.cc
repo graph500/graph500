@@ -74,8 +74,8 @@ DEFUN_DLD(dpPRNG, args, ,
 
   iprng (v1, v2, ov);
 
-  out(0) = u01_open_open_64_53 ( uint64_t (ov[0]) << 32 | uint64_t (ov[1]));
-  out(1) = u01_open_open_64_53 ( uint64_t (ov[2]) << 32 | uint64_t (ov[3]));
+  out(0) = u01_open_open_64_53 ( uint64_t (ov[1]) << 32 | uint64_t (ov[0]));
+  out(1) = u01_open_open_64_53 ( uint64_t (ov[3]) << 32 | uint64_t (ov[2]));
 
   return octave_value (out);
 }

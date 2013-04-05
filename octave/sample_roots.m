@@ -12,7 +12,7 @@ function root = sample_roots (NV, NROOT, NE)
   m = 1;
   cur = 0;
   for m=1:NROOT-1,
-    rv = dpPRNG (NE, m);
+    rv = dpPRNG (NE, m-1);
     r = rv(1);
     S = 0;
     quot = top / N;
@@ -26,7 +26,7 @@ function root = sample_roots (NV, NROOT, NE)
     root(m) = cur;
     N -= 1;
   endfor
-  rv = dpPRNG (NE, NROOT);
+  rv = dpPRNG (NE, NROOT-1);
   r = rv(1);
   S = floor (N * r);
   cur += S;

@@ -126,7 +126,7 @@ sample_roots (int64_t * root)
     root[m] = cur;
     n -= 1;
   }
-  r = dprng (NE, NROOT);
+  r = dprng (NE, NROOT-1);
   S = floor (n * r);
   cur += S;
   root[NROOT-1] = cur;
