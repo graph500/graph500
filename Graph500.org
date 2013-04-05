@@ -100,7 +100,8 @@ reference generator.
     - Changed graph generator parameters.
     - Begin with a tree to connect all vertices.
     - Use a location-based hash for a PRNG.  All implementations should
-      produce identical graphs.
+      produce identical graphs.  The edge list need not be generated
+      explicitly but may be computed on-the-fly.
     - "Permute" edge list locations by index multiplication rather than
       a full permutation.  This scatters the tree edges around the edge
       list without excess data motion.
@@ -109,13 +110,13 @@ reference generator.
       is fully connected.
     - Both search kernels (2 and 3) use a single, unified, and
       simplified validation routine.
-  - Kernel 1, graph construction:
+  - [[#kernel1][Kernel 1, graph construction]]:
     - Removed restrictions on internal data structure.
     - No longer computes the number of vertices.
-  - Kernel 2, BFS:
+  - [[#kernel2][Kernel 2, BFS]]:
     - No significant changes to the specification, but the reference
       implementation should be faster.
-  - Kernel 3, single-source shortest paths benchmark:
+  - [[#kernel3][Kernel 3, single-source shortest paths]]:
     - *New kernel*.
   - Results:
     - New submission format.  Submissions provide sizes and times but do
@@ -230,13 +231,15 @@ sampling.
 
 * Edge List Generation
 
-The benchmark first generates a list of NE undirected edges that
-represent a fully connected, undirected graph on NV vertices.  The edges
-are permuted in a pseudo-random fashion with a computable and invertable
+The benchmark defines a list of NE undirected edges that represent a
+fully connected, undirected graph on NV vertices.  The edges are
+permuted in a pseudo-random fashion with a computable and invertable
 permutation.  The list locations will dictate where edge entries appear,
 and the list indices (unpermuted locations) will determine the edge kind
-and provide the input for the PRNG.  After generation, vertex numbers
-are scrambled to eliminate generator locality.
+and provide the input for the PRNG.  Vertex numbers are scrambled to
+eliminate generator locality.  This list of edges may be generated
+explicitly, read from storage, or may be generated on-the-fly within
+[[#kernel1][Kernel 1]].  All edge generation must occur before [[#kernel2][Kernel 2]].
 
 Our goal is to provide a natural yet even starting line for all
 implementations.  If an implementation distinguishes between available

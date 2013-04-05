@@ -369,7 +369,8 @@ reference generator.
 <li>Begin with a tree to connect all vertices.
 </li>
 <li>Use a location-based hash for a PRNG.  All implementations should
-produce identical graphs.
+produce identical graphs.  The edge list need not be generated
+explicitly but may be computed on-the-fly.
 </li>
 <li>"Permute" edge list locations by index multiplication rather than
 a full permutation.  This scatters the tree edges around the edge
@@ -387,20 +388,22 @@ simplified validation routine.
 </li>
 </ul>
 </li>
-<li>Kernel 1, graph construction:
+<li><a href="#kernel1">Kernel 1, graph construction</a>:
 <ul class="org-ul">
 <li>Removed restrictions on internal data structure.
 </li>
+<li>No longer computes the number of vertices.
+</li>
 </ul>
 </li>
-<li>Kernel 2, BFS:
+<li><a href="#kernel2">Kernel 2, BFS</a>:
 <ul class="org-ul">
 <li>No significant changes to the specification, but the reference
 implementation should be faster.
 </li>
 </ul>
 </li>
-<li>Kernel 3, single-source shortest paths benchmark:
+<li><a href="#kernel3">Kernel 3, single-source shortest paths</a>:
 <ul class="org-ul">
 <li><b>New kernel</b>.
 </li>
@@ -593,13 +596,15 @@ NY, USA.  <a href="http://dx.doi.org/10.1145/2063384.2063405">http://dx.doi.org/
 <h2 id="sec-5"><span class="section-number-2">5</span> Edge List Generation</h2>
 <div class="outline-text-2" id="text-5">
 <p>
-The benchmark first generates a list of NE undirected edges that
-represent a fully connected, undirected graph on NV vertices.  The edges
-are permuted in a pseudo-random fashion with a computable and invertable
+The benchmark defines a list of NE undirected edges that represent a
+fully connected, undirected graph on NV vertices.  The edges are
+permuted in a pseudo-random fashion with a computable and invertable
 permutation.  The list locations will dictate where edge entries appear,
 and the list indices (unpermuted locations) will determine the edge kind
-and provide the input for the PRNG.  After generation, vertex numbers
-are scrambled to eliminate generator locality.
+and provide the input for the PRNG.  Vertex numbers are scrambled to
+eliminate generator locality.  This list of edges may be generated
+explicitly, read from storage, or may be generated on-the-fly within
+<a href="#kernel1">Kernel 1</a>.  All edge generation must occur before <a href="#kernel2">Kernel 2</a>.
 </p>
 
 <p>
@@ -961,12 +966,12 @@ implementations.
 
 <p>
 There are various internal memory representations for sparse graphs,
-including (but not limited to) sparse matrices and (multi-level)
-linked lists. For the purposes of this application, the kernel is
-provided only the edge list and the edge list's size.  Further
-information such as the number of vertices must be computed within this
-kernel.  Algorithm \ref{alg:kernel.1} provides a high-level sample
-implementation of <a href="#kernel1">Kernel 1</a>.
+including (but not limited to) sparse matrices and (multi-level) linked
+lists. For the purposes of this application, the kernel is provided only
+the total number of vertices, the edge list, and the edge list's size.
+Further information must be computed within this kernel.  Algorithm
+\ref{alg:kernel.1} provides a high-level sample implementation of
+<a href="#kernel1">Kernel 1</a>.
 </p>
 
 <p>
