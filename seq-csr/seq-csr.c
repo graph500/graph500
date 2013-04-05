@@ -19,7 +19,7 @@
 
 char IMPLEMENTATION[] = "Reference sequential";
 
-static int64_t maxvtx, nv;
+static int64_t nv;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
 static int64_t * restrict xadj;
 
@@ -59,7 +59,6 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
   int64_t accum;
 
   nv = nv_in;
-  maxvtx = nv-1;
   xoff = NULL;
   xadj = NULL;
 
@@ -226,16 +225,13 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 }
 
 int
-make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
-	       int64_t srcvtx)
+make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx)
 {
   int64_t * restrict bfs_tree = bfs_tree_out;
   int err = 0;
 
   int64_t * restrict vlist = NULL;
   int64_t k1, k2;
-
-  *max_vtx_out = maxvtx;
 
   vlist = xmalloc_large (nv * sizeof (*vlist));
   if (!vlist) return -1;

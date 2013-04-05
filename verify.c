@@ -11,6 +11,7 @@
 
 #include <assert.h>
 
+#include "globals.h"
 #include "xalloc.h"
 #include "packed_edge.h"
 #include "generator.h"
@@ -79,8 +80,7 @@ compute_levels (int64_t * level,
 }
 
 int64_t
-verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
-		 int64_t root,
+verify_bfs_tree (int64_t *bfs_tree_in, int64_t root,
 		 const struct packed_edge *IJ_in, int64_t nedge)
 {
   int64_t * restrict bfs_tree = bfs_tree_in;
@@ -92,21 +92,19 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
   int64_t maxdepth = -1;
   int64_t * restrict seen_edge, * restrict level;
 
-  const int64_t nv = max_bfsvtx+1;
-
   /*
     This code is horrifically contorted because many compilers
     complain about continue, return, etc. in parallel sections.
   */
 
-  if (root > max_bfsvtx || bfs_tree[root] != root)
+  if (root >= NV || bfs_tree[root] != root)
     return -999;
 
   err = 0;
-  seen_edge = xmalloc_large (2 * (nv) * sizeof (*seen_edge));
-  level = &seen_edge[nv];
+  seen_edge = xmalloc_large (2 * NV * sizeof (*seen_edge));
+  level = &seen_edge[NV];
 
-  err = compute_levels (level, nv, bfs_tree, root);
+  err = compute_levels (level, NV, bfs_tree, root);
 
   if (err) goto done;
 
@@ -115,7 +113,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
     int terr = 0;
     int64_t tmaxdepth = -1;
     OMP("omp for")
-      for (k = 0; k < nv; ++k)
+      for (k = 0; k < NV; ++k)
 	seen_edge[k] = 0;
 
     OMP("omp for")
@@ -133,10 +131,10 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
 	terr = err;
 
 	if (i < 0 || j < 0) continue;
-	if (i > max_bfsvtx && j <= max_bfsvtx) terr = -10;
-	if (j > max_bfsvtx && i <= max_bfsvtx) terr = -11;
+	if (i >= NV && j < NV) terr = -10;
+	if (j >= NV && i < NV) terr = -11;
 	if (terr) { err = terr; OMP("omp flush(err)"); }
-	if (terr || i > max_bfsvtx /* both i & j are on the same side of max_bfsvtx */)
+	if (terr || i >= NV /* both i & j are on the same side of NV */)
 	  continue;
 
 	/* All neighbors must be in the tree. */
@@ -169,7 +167,7 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t max_bfsvtx,
     if (!terr) {
       /* Check that every BFS edge was seen and that there's only one root. */
       OMP("omp for") MTA("mta assert parallel") MTA("mta use 100 streams")
-	for (k = 0; k < nv; ++k) {
+	for (k = 0; k < NV; ++k) {
 	  if (level[k] > tmaxdepth) tmaxdepth = level[k];
 	  terr = err;
 	  if (!terr && k != root) {

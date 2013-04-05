@@ -8,8 +8,7 @@ int create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge,
 				int64_t nv);
 
 /** Create the BFS tree from a given source vertex. */
-int make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
-		   int64_t srcvtx);
+int make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx);
 
 /** Clean up. */
 void destroy_graph (void);
