@@ -12,6 +12,7 @@ function output (machine, SCALE, edgefactor,
   printf ("SCALE: %d\n", SCALE);
   printf ("EDGEFACTOR: %d\n", edgefactor);
   printf ("NROOT: %d\n", length (root));
+  printf ("PRNGCHECK: %d\n", PRNGCHECK (SCALE, edgefactor));
   printf ("K1TIME: %11.8e\n", kernel_1_time);
 
   NV = 2**SCALE;

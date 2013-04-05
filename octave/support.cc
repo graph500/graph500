@@ -31,6 +31,19 @@ iprng (int64_t v1, int64_t v2, uint32_t *ov)
   ov[3] = ctr_out.v[3];
 }
 
+DEFUN_DLD(PRNGCHECK, args, ,
+          "PRNGCHECK")
+{
+  const int64_t v1 = args(0).int64_scalar_value();
+  const int64_t v2 = args(1).int64_scalar_value();
+
+  uint32_t ov[4];
+
+  iprng (v1, v2, ov);
+
+  return octave_value ((int32_t)ov[0]);
+}
+
 DEFUN_DLD(PRNG, args, ,
           "PRNG")
 {

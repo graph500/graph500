@@ -52,8 +52,8 @@ for k = 1:NROOT,
   end
 end
 
-output ("Jason's old laptop", SCALE, edgefactor,
+output ("An old server", SCALE, edgefactor,
 	root, kernel_1_time,
 	kernel_2_time, kernel_2_dmax, kernel_2_verify_time,
 	kernel_3_time, kernel_3_dmax, kernel_3_verify_time,
-        "An aging, soon-to-be-replaced laptop.");
+        "Utterly unoptimized.");

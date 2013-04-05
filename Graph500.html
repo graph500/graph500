@@ -187,7 +187,7 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#sec-2">2. Overall Benchmark Structure</a></li>
 <li><a href="#sec-3">3. Parameter Summary</a></li>
-<li><a href="#sec-4">4. Pseudo-Random Number Generation</a>
+<li><a href="#prng">4. Pseudo-Random Number Generation</a>
 <ul>
 <li><a href="#sec-4-1">4.1. References</a></li>
 </ul>
@@ -555,9 +555,10 @@ rather than repeating the expressions above.
 </dl>
 </div>
 </div>
-<div id="outline-container-4" class="outline-2">
-<h2 id="sec-4"><span class="section-number-2">4</span> Pseudo-Random Number Generation</h2>
-<div class="outline-text-2" id="text-4">
+<div id="outline-container-prng" class="outline-2">
+<h2 id="prng"><a id="sec-4" name="sec-4"></a><span class="section-number-2">4</span> Pseudo-Random Number Generation</h2>
+<div class="outline-text-2" id="text-prng">
+
 <p>
 The pseudo-random number generator (PRNG) used in this benchmark,
 <code>threefry32x4_10</code> from the Random123 package referenced below,
@@ -1529,6 +1530,10 @@ information is an optional description.
 </dd>
 <dt> K1TIME </dt><dd>Time required for <i>Kernel 1</i>, graph construction.
 </dd>
+<dt> PRNGCHECK </dt><dd>The first 32-bit integer produced by the <a href="#prng">pseudo-random
+number generator</a> when given SCALE and EDGEFACTOR as
+its two inputs.
+</dd>
 </dl>
 
 <p>
@@ -1561,27 +1566,28 @@ An example submission as formatted by Algorithm \ref{alg:output}'s
 high-level sample code:
 </p>
 <pre class="example">
-MACHINE: Jason's old laptop
-COMMENT: An aging, soon-to-be-replaced laptop.
+MACHINE: An old server
+COMMENT: Utterly unoptimized.
 IMPLEMENTATION: Pseudo-reference, unoptimized Octave
 SCALE: 10
 EDGEFACTOR: 16
 NROOT: 8
-K1TIME: 2.32195854e-03
-K2TEPSMEAN: 2.04692067e+05
-K2TEPSSTDDEV: 6.70493566e+02
-K3TEPSMEAN: 1.54498795e+04
-K3TEPSSTDDEV: 4.37845139e+01
+PRNGCHECK: -1675640393
+K1TIME: 4.40597534e-03
+K2TEPSMEAN: 1.89332672e+05
+K2TEPSSTDDEV: 3.57963437e+03
+K3TEPSMEAN: 1.53105428e+04
+K3TEPSSTDDEV: 1.46591972e+01
 
 root,k2time,k2max,k2vtime,k3time,k3max,k3vtime
-17,8.02350044e-02,5,3.56197357e-03,1.06167698e+00,432,4.38284874e-03
-29,8.14871788e-02,4,3.46302986e-03,1.04800510e+00,380,4.42886353e-03
-321,7.95331001e-02,5,3.56221199e-03,1.06550789e+00,370,4.40406799e-03
-521,7.94630051e-02,5,3.45492363e-03,1.05305600e+00,419,4.37593460e-03
-626,7.93781281e-02,5,3.57389450e-03,1.05695200e+00,417,4.69207764e-03
-665,7.98439980e-02,5,3.49688530e-03,1.05845094e+00,411,4.42218781e-03
-741,7.99541473e-02,5,3.40604782e-03,1.07182288e+00,414,4.42504883e-03
-885,8.04429054e-02,5,3.59177589e-03,1.06821895e+00,401,4.47583199e-03
+17,9.68379974e-02,5,5.63788414e-03,1.07305384e+00,443,5.03301620e-03
+277,8.45580101e-02,5,4.50897217e-03,1.06948209e+00,440,5.24210930e-03
+385,8.70478153e-02,4,3.77082825e-03,1.06899595e+00,356,4.94313240e-03
+444,8.68079662e-02,5,3.67808342e-03,1.06801605e+00,395,4.61721420e-03
+634,8.43141079e-02,5,3.29995155e-03,1.06892514e+00,370,4.51779366e-03
+735,8.43629837e-02,5,3.21006775e-03,1.06855893e+00,363,4.68397141e-03
+793,8.41951370e-02,4,3.16190720e-03,1.06830716e+00,357,4.69899178e-03
+971,8.41600895e-02,4,3.16095352e-03,1.07555914e+00,354,5.14578819e-03
 </pre>
 
 <div class="org-src-container">
@@ -1600,6 +1606,7 @@ root,k2time,k2max,k2vtime,k3time,k3max,k3vtime
   printf ("SCALE: %d\n", SCALE);
   printf ("EDGEFACTOR: %d\n", edgefactor);
   printf ("NROOT: %d\n", length (root));
+  printf ("PRNGCHECK: %d\n", PRNGCHECK (SCALE, edgefactor));
   printf ("K1TIME: %11.8e\n", kernel_1_time);
 
   NV = 2**SCALE;
@@ -1778,11 +1785,11 @@ for k = 1:NROOT,
   end
 end
 
-output ("Jason's old laptop", SCALE, edgefactor,
+output ("An old server", SCALE, edgefactor,
         root, kernel_1_time,
         kernel_2_time, kernel_2_dmax, kernel_2_verify_time,
         kernel_3_time, kernel_3_dmax, kernel_3_verify_time,
-        "An aging, soon-to-be-replaced laptop.");
+        "Utterly unoptimized.");
 </pre>
 </div>
 </div>

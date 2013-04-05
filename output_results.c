@@ -14,6 +14,7 @@
 
 #include "globals.h"
 #include "packed_edge.h"
+#include "prng.h"
 
 #define NSTAT 9
 #define PRINT_STATS(lbl, israte)					\
@@ -31,7 +32,6 @@
       printf ("harmonic_stddev_%s: %20.17e\n", lbl, stats[8]);	\
     }									\
   } while (0)
-
 
 static int
 dcmp (const void *a, const void *b)
@@ -143,6 +143,7 @@ output_results (const char * implementation,
 
   sz = NE * sizeof (packed_edge);
   printf ("TERASIZE: %.8e\n", sz/1.0e12);
+  printf ("PRNGCHECK: %" PRId32 "\n", prng_check ());
   printf ("A: %e\nB: %e\n", (double)A, (double)B);
   printf ("K0TIME: %.8e\n", generation_time);
   printf ("K1TIME: %.8e\n", construction_time);

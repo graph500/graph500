@@ -139,6 +139,14 @@ sample_roots (int64_t * root)
 #endif
 }
 
+int32_t
+prng_check (void)
+{
+    threefry4x32_ctr_t out;
+    out = threefry4x32 (ctr2 (SCALE, EF), key);
+    return out.v[0];
+}
+
 /* Helper routines. */
 
 threefry4x32_ctr_t

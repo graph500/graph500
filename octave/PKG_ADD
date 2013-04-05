@@ -1,3 +1,4 @@
 autoload ("scramble", "support.oct");
+autoload ("PRNGCHECK", "support.oct");
 autoload ("PRNG", "support.oct");
 autoload ("dpPRNG", "support.oct");
