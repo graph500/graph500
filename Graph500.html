@@ -882,7 +882,6 @@ implementation implement this more efficiently by generating all the
     rnd(idx) = PRNG (k, 1+floor (scl/2));
   endfor
   rnd = reshape (rnd(1:2*SCALE), 2, SCALE);
-  if mod (SCALE, 2), rnd(:,SCALE+1) = []; endif
   rnd = rnd.'; # Silly optimization for
   # column-major ordering.
 
@@ -1037,7 +1036,7 @@ as a pair of double-precision floating point numbers.  Algorithm
   m = 1;
   cur = 0;
   for m=1:NROOT-1,
-    rv = dpPRNG (NE, m);
+    rv = dpPRNG (NE, m-1);
     r = rv(1);
     S = 0;
     quot = top / N;
@@ -1051,7 +1050,7 @@ as a pair of double-precision floating point numbers.  Algorithm
     root(m) = cur;
     N -= 1;
   endfor
-  rv = dpPRNG (NE, NROOT);
+  rv = dpPRNG (NE, NROOT-1);
   r = rv(1);
   S = floor (N * r);
   cur += S;
@@ -1569,25 +1568,25 @@ high-level sample code:
 MACHINE: An old server
 COMMENT: Utterly unoptimized.
 IMPLEMENTATION: Pseudo-reference, unoptimized Octave
-SCALE: 10
+SCALE: 13
 EDGEFACTOR: 16
 NROOT: 8
-PRNGCHECK: -1675640393
-K1TIME: 4.40597534e-03
-K2TEPSMEAN: 1.89332672e+05
-K2TEPSSTDDEV: 3.57963437e+03
-K3TEPSMEAN: 1.53105428e+04
-K3TEPSSTDDEV: 1.46591972e+01
+PRNGCHECK: 2125733328
+K1TIME: 3.29949856e-02
+K2TEPSMEAN: 1.93051023e+05
+K2TEPSSTDDEV: 3.20682627e+02
+K3TEPSMEAN: 1.29841800e+04
+K3TEPSSTDDEV: 4.75862957e+00
 
 root,k2time,k2max,k2vtime,k3time,k3max,k3vtime
-17,9.68379974e-02,5,5.63788414e-03,1.07305384e+00,443,5.03301620e-03
-277,8.45580101e-02,5,4.50897217e-03,1.06948209e+00,440,5.24210930e-03
-385,8.70478153e-02,4,3.77082825e-03,1.06899595e+00,356,4.94313240e-03
-444,8.68079662e-02,5,3.67808342e-03,1.06801605e+00,395,4.61721420e-03
-634,8.43141079e-02,5,3.29995155e-03,1.06892514e+00,370,4.51779366e-03
-735,8.43629837e-02,5,3.21006775e-03,1.06855893e+00,363,4.68397141e-03
-793,8.41951370e-02,4,3.16190720e-03,1.06830716e+00,357,4.69899178e-03
-971,8.41600895e-02,4,3.16095352e-03,1.07555914e+00,354,5.14578819e-03
+1035,6.83776140e-01,6,3.69050503e-02,1.01047730e+01,509,4.41679955e-02
+2009,6.76754951e-01,7,3.07211876e-02,1.00874569e+01,617,4.44149971e-02
+3098,6.76012993e-01,6,3.07238102e-02,1.00858800e+01,513,4.43210602e-02
+3123,6.80670023e-01,7,3.09062004e-02,1.00944400e+01,607,4.44040298e-02
+6102,6.77286148e-01,6,3.05948257e-02,1.00998359e+01,503,4.43980694e-02
+6136,6.77664995e-01,7,3.06560993e-02,1.00921929e+01,515,4.43840027e-02
+7263,6.82636023e-01,7,3.10678482e-02,1.01108069e+01,518,4.29000854e-02
+8013,6.76799059e-01,6,3.07610035e-02,1.00825830e+01,540,4.38771248e-02
 </pre>
 
 <div class="org-src-container">
@@ -1731,7 +1730,7 @@ Algorithm \ref{alg:driver}.
 
 <div class="org-src-container">
 <label class="org-src-name">High-level sample driver</label>
-<pre class="src src-Octave" id="alg:driver">SCALE = 10;
+<pre class="src src-Octave" id="alg:driver">SCALE = 13;
 
 edgefactor = 16;
 maxweight = 255;

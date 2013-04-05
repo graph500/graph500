@@ -1,4 +1,4 @@
-SCALE = 10;
+SCALE = 13;
 
 edgefactor = 16;
 maxweight = 255;

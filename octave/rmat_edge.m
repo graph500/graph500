@@ -16,7 +16,6 @@ function [v1, v2, w] = rmat_edge (k, SCALE)
     rnd(idx) = PRNG (k, 1+floor (scl/2));
   endfor
   rnd = reshape (rnd(1:2*SCALE), 2, SCALE);
-  if mod (SCALE, 2), rnd(:,SCALE+1) = []; endif
   rnd = rnd.'; # Silly optimization for
   # column-major ordering.
 
