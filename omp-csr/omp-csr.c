@@ -20,42 +20,50 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 #include "../xalloc.h"
 #include "../packed_edge.h"
 #include "../timer.h"
+#include "../generator.h"
+#include "../sorts.h"
 
 #include "bitmap.h"
 
-#define MINVECT_SIZE 2
 #define THREAD_BUF_LEN 16384
 #define ALPHA 14
 #define BETA  24
 
 char IMPLEMENTATION[] = "Reference OpenMP";
 
-static int64_t maxvtx, nv, sz;
+static int64_t maxvtx, nv;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
-static int64_t * restrict xadjstore; /* Length MINVECT_SIZE + (xoff[nv] == nedge) */
 static int64_t * restrict xadj;
-
-static int
-alloc_graph (int64_t nedge)
-{
-  sz = (2*nv+2) * sizeof (*xoff);
-  xoff = xmalloc_large_ext (sz);
-  if (!xoff) return -1;
-  return 0;
-}
 
 static void
 free_graph (void)
 {
-  xfree_large (xadjstore);
-  xfree_large (xoff);
+  if (xadj) xfree_large (xadj);
+  if (xoff) xfree_large (xoff);
 }
 
-#define XOFF(k) (xoff[2*(k)])
-#define XENDOFF(k) (xoff[1+2*(k)])
+static inline void
+canonical_order_edge (int64_t * restrict ip, int64_t * restrict jp)
+{
+  int64_t i = *ip, j = *jp;
+#if !defined(ORDERED_TRIL)
+  if (((i ^ j) & 0x01) == (i < j)) {
+    *ip = i;
+    *jp = j;
+  } else {
+    *ip = j;
+    *jp = i;
+  }
+#else
+  if (i < j) {
+    *ip = j;
+    *jp = i;
+  }
+#endif
+}
 
 static int64_t
-prefix_sum (int64_t *buf)
+prefix_sum (const size_t N, int64_t * restrict A, int64_t * restrict buf)
 {
   int nt, tid;
   int64_t slice_begin, slice_end, t1, t2, k;
@@ -63,14 +71,14 @@ prefix_sum (int64_t *buf)
   nt = omp_get_num_threads ();
   tid = omp_get_thread_num ();
 
-  t1 = nv / nt;
-  t2 = nv % nt;
+  t1 = N / nt;
+  t2 = N % nt;
   slice_begin = t1 * tid + (tid < t2? tid : t2);
   slice_end = t1 * (tid+1) + ((tid+1) < t2? (tid+1) : t2);
 
   buf[tid] = 0;
   for (k = slice_begin; k < slice_end; ++k)
-    buf[tid] += XOFF(k);
+    buf[tid] += A[k];
   OMP("omp barrier");
   OMP("omp single")
     for (k = 1; k < nt; ++k)
@@ -80,145 +88,205 @@ prefix_sum (int64_t *buf)
   else
     t1 = 0;
   for (k = slice_begin; k < slice_end; ++k) {
-    int64_t tmp = XOFF(k);
-    XOFF(k) = t1;
+    int64_t tmp = A[k];
+    A[k] = t1;
     t1 += tmp;
   }
-  OMP("omp flush (xoff)");
+  OMP("omp flush (A)");
   OMP("omp barrier");
   return buf[nt-1];
-}
-
-static int
-setup_deg_off (const struct packed_edge * restrict IJ, int64_t nedge)
-{
-  int err = 0;
-  int64_t *buf = NULL;
-  xadj = NULL;
-  OMP("omp parallel") {
-    int64_t k, accum;
-    OMP("omp for")
-      for (k = 0; k < 2*nv+2; ++k)
-	xoff[k] = 0;
-    OMP("omp for")
-      for (k = 0; k < nedge; ++k) {
-	int64_t i = get_v0_from_edge(&IJ[k]);
-	int64_t j = get_v1_from_edge(&IJ[k]);
-	if (i != j) { /* Skip self-edges. */
-	  if (i >= 0)
-	    OMP("omp atomic")
-	      ++XOFF(i);
-	  if (j >= 0)
-	    OMP("omp atomic")
-	      ++XOFF(j);
-	}
-      }
-    OMP("omp single") {
-      buf = alloca (omp_get_num_threads () * sizeof (*buf));
-      if (!buf) {
-	perror ("alloca for prefix-sum hosed");
-	abort ();
-      }
-    }
-    OMP("omp for")
-      for (k = 0; k < nv; ++k)
-	if (XOFF(k) < MINVECT_SIZE) XOFF(k) = MINVECT_SIZE;
-
-    accum = prefix_sum (buf);
-
-    OMP("omp for")
-      for (k = 0; k < nv; ++k)
-	XENDOFF(k) = XOFF(k);
-    OMP("omp single") {
-      XOFF(nv) = accum;
-      if (!(xadjstore = xmalloc_large_ext ((XOFF(nv) + MINVECT_SIZE) * sizeof (*xadjstore))))
-	err = -1;
-      if (!err) {
-	xadj = &xadjstore[MINVECT_SIZE]; /* Cheat and permit xadj[-1] to work. */
-	for (k = 0; k < XOFF(nv) + MINVECT_SIZE; ++k)
-	  xadjstore[k] = -1;
-      }
-    }
-  }
-  return !xadj;
-}
-
-static void
-scatter_edge (const int64_t i, const int64_t j)
-{
-  int64_t where;
-  where = int64_fetch_add (&XENDOFF(i), 1);
-  xadj[where] = j;
-}
-
-static int
-i64cmp (const void *a, const void *b)
-{
-  const int64_t ia = *(const int64_t*)a;
-  const int64_t ib = *(const int64_t*)b;
-  if (ia < ib) return -1;
-  if (ia > ib) return 1;
-  return 0;
-}
-
-static void
-pack_vtx_edges (const int64_t i)
-{
-  int64_t kcur, k;
-  if (XOFF(i)+1 >= XENDOFF(i)) return;
-  qsort (&xadj[XOFF(i)], XENDOFF(i)-XOFF(i), sizeof(*xadj), i64cmp);
-  kcur = XOFF(i);
-  for (k = XOFF(i)+1; k < XENDOFF(i); ++k)
-    if (xadj[k] != xadj[kcur])
-      xadj[++kcur] = xadj[k];
-  ++kcur;
-  for (k = kcur; k < XENDOFF(i); ++k)
-    xadj[k] = -1;
-  XENDOFF(i) = kcur;
-}
-
-static void
-pack_edges (void)
-{
-  int64_t v;
-
-  OMP("omp for")
-    for (v = 0; v < nv; ++v)
-      pack_vtx_edges (v);
-}
-
-static void
-gather_edges (const struct packed_edge * restrict IJ, int64_t nedge)
-{
-  OMP("omp parallel") {
-    int64_t k;
-
-    OMP("omp for")
-      for (k = 0; k < nedge; ++k) {
-	int64_t i = get_v0_from_edge(&IJ[k]);
-	int64_t j = get_v1_from_edge(&IJ[k]);
-	if (i >= 0 && j >= 0 && i != j) {
-	  scatter_edge (i, j);
-	  scatter_edge (j, i);
-	}
-      }
-
-    pack_edges ();
-  }
 }
 
 int
 create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in)
 {
+  int64_t * restrict xoff_half = NULL;
+  int64_t * restrict xadj_half = NULL;
+  int64_t *buf = NULL;
+  size_t sz;
+  int64_t accum;
+  int errflag = 0;
+
+  int64_t nself_edges = 0;
+  int64_t ndup = 0;
+
   nv = nv_in;
   maxvtx = nv-1;
-  if (alloc_graph (nedge)) return -1;
-  if (setup_deg_off (IJ, nedge)) {
-    xfree_large (xoff);
-    return -1;
+  xoff = NULL;
+  xadj = NULL;
+
+  /* Allocate offset arrays.  */
+  sz = (nv+1) * sizeof (*xoff);
+  xoff = xmalloc_large_ext (sz);
+  xoff_half = xmalloc_large_ext (sz);
+  if (!xoff || !xoff_half) { errflag = 1; goto end; }
+
+  OMP("omp parallel") {
+    OMP("omp single")
+      buf = xmalloc (omp_get_num_threads () * sizeof (*buf));
+    if (!buf) { errflag = 1; goto inner_err; }
+
+    /* Set up xoff_half to hold a single copy of the edges. */
+    OMP("omp for")
+      for (int64_t k = 0; k <= nv; ++k)
+	xoff_half[k] = 0;
+
+    OMP("omp for reduction(+:nself_edges)")
+      for (int64_t k = 0; k < nedge; ++k) {
+	int64_t i, j;
+#if !defined(STORED_EDGELIST)
+	uint8_t w;
+	make_edge (k, &i, &j, &w);
+#else
+	i = get_v0_from_edge(&IJ[k]);
+	j = get_v1_from_edge(&IJ[k]);
+#endif
+	assert (i >= 0);
+	assert (j >= 0);
+	if (i != j) { /* Skip self-edges. */
+	  canonical_order_edge (&i, &j);
+	  OMP("omp atomic")
+	    ++xoff_half[i+1];
+	} else
+	  ++nself_edges;
+      }
+
+    /* Prefix sum to convert counts to offsets. */
+    accum = prefix_sum (nv, &xoff_half[1], buf);
+
+    assert (accum + nself_edges == nedge);
+    /* All either counted or ignored. */
+
+    /* Allocate endpoint storage.  Do not yet know final number of edges. */
+    OMP("omp single")
+      xadj_half = xmalloc_large_ext (accum * sizeof (*xadj_half));
+    if (!xadj_half) { errflag = 1; goto inner_err; }
+
+    /* Copy endpoints. */
+    OMP("omp for")
+      for (int64_t k = 0; k < nedge; ++k) {
+	int64_t i, j;
+#if !defined(STORED_EDGELIST)
+	uint8_t w;
+	make_edge (k, &i, &j, &w);
+#else
+	i = get_v0_from_edge(&IJ[k]);
+	j = get_v1_from_edge(&IJ[k]);
+#endif
+	assert (i >= 0);
+	assert (j >= 0);
+	if (i != j) { /* Skip self-edges. */
+	  int64_t where;
+	  canonical_order_edge (&i, &j);
+	  where = int64_fetch_add (&xoff_half[i+1], 1);
+	  xadj_half[where] = j;
+	}
+      }
+
+    OMP("omp for")
+      for (int64_t i = 0; i <= nv; ++i)
+	xoff[i] = 0;
+
+    /* Collapse duplicates and count final numbers. */
+    OMP("omp for reduction(+:ndup)")
+      for (int64_t i = 0; i < nv; ++i) {
+	int64_t kcur = xoff_half[i];
+	const int64_t kend = xoff_half[i+1];
+
+	if (kcur == kend) continue; /* Empty. */
+
+	introsort_i64 (&xadj_half[kcur], kend-kcur);
+
+	for (int64_t k = kcur+1; k < kend; ++k)
+	  if (xadj_half[k] != xadj_half[kcur]) {
+	    xadj_half[++kcur] = xadj_half[k];
+	  }
+	++kcur;
+	if (kcur != kend)
+	  xadj_half[kcur] = -1;
+	ndup += kend - kcur;
+
+	/* Current vertex i count. */
+	OMP("omp atomic")
+	  xoff[i+1] += kcur - xoff_half[i];
+
+	/* Scatter adjacent vertex j counts. */
+	for (int64_t k = xoff_half[i]; k < kcur; ++k) {
+	  const int64_t j = xadj_half[k];
+	  OMP("omp atomic") ++xoff[j+1];
+	}
+      }
+
+    assert (xoff[0] == 0);
+
+    /* Another prefix sum to convert counts to offsets. */
+    accum = prefix_sum (nv, &xoff[1], buf);
+
+    assert (xoff[0] == 0);
+
+    assert (accum % 2 == 0);
+    if (accum/2 + ndup + nself_edges != nedge) {
+      fprintf (stderr, "%" PRId64" / 2 + %" PRId64 " + %" PRId64 " (%" PRId64 ") != %" PRId64 "   ( %" PRId64 " )\n",
+	       accum, ndup, nself_edges, (accum/2 + ndup + nself_edges), nedge,
+	       nedge - (accum/2 + ndup + nself_edges) );
+    }
+    assert (accum/2 + ndup + nself_edges == nedge);
+
+    /* Allocate final endpoint storage. */
+    OMP("omp single")
+      xadj = xmalloc_large_ext (accum * sizeof (*xadj));
+    if (!xadj) { errflag = 1; goto inner_err; }
+
+    /* Copy to final locations. */
+    OMP("omp for")
+      for (int64_t i = 0; i < nv; ++i) {
+	const int64_t khalfstart = xoff_half[i];
+	const int64_t khalfend = xoff_half[i+1];
+	int64_t khalflen = khalfend - khalfstart;
+	const int64_t kstart = xoff[i+1];
+	int64_t k;
+
+	if (!khalflen) continue; /* Empty. */
+
+	/* Copy the contiguous portion. */
+	for (k = 0; k < khalflen; ++k) {
+	  const int64_t j = xadj_half[khalfstart + k];
+	  if (j < 0) break;
+	  xadj[kstart + k] = j;
+	}
+	xoff[i+1] += k;
+      }
+
+    OMP("omp for")
+      for (int64_t i = 0; i < nv; ++i) {
+	/* Scatter the other side. */
+	const int64_t khalfstart = xoff_half[i];
+	const int64_t khalfend = xoff_half[i+1];
+	for (int64_t k = khalfstart; k < khalfend; ++k) {
+	  const int64_t j = xadj_half[k];
+	  if (j < 0) break;
+	  const int64_t where = int64_fetch_add (&xoff[j+1], 1);
+	  xadj[where] = i;
+	}
+      }
+
+    assert (accum == xoff[nv]);
+
+  inner_err:
+    /* Errors handled after threads join. */;
   }
-  gather_edges (IJ, nedge);
-  return 0;
+
+ end:
+  if (buf) free (buf);
+  if (xoff_half) xfree_large (xoff_half);
+  if (xadj_half) xfree_large (xadj_half);
+  if (errflag) {
+    if (xoff) xfree_large (xoff);
+    if (xadj) xfree_large (xadj);
+    xoff = NULL;
+    xadj = NULL;
+  }
+  return errflag;
 }
 
 static void
@@ -282,7 +350,7 @@ bfs_bottom_up_step(int64_t *bfs_tree, bitmap_t *past, bitmap_t *next)
   OMP("omp for reduction(+ : awake_count)")
     for (int64_t i=0; i<nv; i++) {
       if (bfs_tree[i] == -1) {
-	  for (int64_t vo = XOFF(i); vo < XENDOFF(i); vo++) {
+	  for (int64_t vo = xoff[i]; vo < xoff[1+i]; vo++) {
 	    const int64_t j = xadj[vo];
 	  if (bm_get_bit(past, j)) {
 	    // printf("%lu\n",i);
@@ -307,9 +375,9 @@ bfs_top_down_step(int64_t *bfs_tree, int64_t *vlist, int64_t *local, int64_t *k1
   OMP("omp for")
 	for (int64_t k = *k1_p; k < oldk2; ++k) {
 	  const int64_t v = vlist[k];
-	  const int64_t veo = XENDOFF(v);
+	  const int64_t veo = xoff[1+v];
 	  int64_t vo;
-	  for (vo = XOFF(v); vo < veo; ++vo) {
+	  for (vo = xoff[v]; vo < veo; ++vo) {
 	    const int64_t j = xadj[vo];
 	    if (bfs_tree[j] == -1) {
 	      if (int64_cas (&bfs_tree[j], -1, v)) {
@@ -363,13 +431,13 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
   bm_init(&next, nv);
 
   int64_t down_cutoff = nv / BETA;
-  int64_t scout_count = XENDOFF(srcvtx) - XOFF(srcvtx);
+  int64_t scout_count = xoff[1+srcvtx] - xoff[srcvtx];
 
   OMP("omp parallel shared(k1, k2, scout_count)") {
     int64_t k;
     int64_t nbuf[THREAD_BUF_LEN];
     int64_t awake_count = 1;
-    int64_t edges_to_check = XOFF(nv);
+    int64_t edges_to_check = xoff[nv];
 
     OMP("omp for")
       for (k = 0; k < srcvtx; ++k)
@@ -399,7 +467,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
       OMP("omp for reduction(+ : scout_count)")
       for (int64_t i=k1; i<k2; i++) {
 	int64_t v = vlist[i];
-	scout_count += XENDOFF(v) - XOFF(v);
+	scout_count += xoff[1+v] - xoff[v];
       }
     }
   }

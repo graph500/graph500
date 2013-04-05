@@ -5,6 +5,8 @@ BUILD_OPENMP = No
 BUILD_XMT = No
 include make.inc
 CPPFLAGS+=-Isupport/Random123/include
+# Add -DSTORED_EDGELIST to CPPFLAGS to generate and store the edge list
+# rather than generating on the fly.
 
 GRAPH500_SOURCES=graph500.c options.c verify.c generator.c \
 	prng.c sorts.c output_results.c globals.c xalloc.c timer.c
@@ -37,7 +39,6 @@ make-edgelist:	$(MAKE_EDGELIST_SOURCES)
 seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES)
 
 omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
-omp-csr/omp-csr: CPPFLAGS:=$(CPPFLAGS) -DSTORED_EDGELIST
 omp-csr/omp-csr: omp-csr/omp-csr.c omp-csr/bitmap.h $(GRAPH500_SOURCES)
 
 xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
