@@ -15,8 +15,7 @@
 #include "../xalloc.h"
 #include "../packed_edge.h"
 #include "../generator.h"
-
-#define MINVECT_SIZE 2
+#include "../sorts.h"
 
 char IMPLEMENTATION[] = "Reference sequential";
 
@@ -49,16 +48,6 @@ canonical_order_edge (int64_t * restrict ip, int64_t * restrict jp)
     *jp = i;
   }
 #endif
-}
-
-static int
-i64cmp (const void *a, const void *b)
-{
-  const int64_t ia = *(const int64_t*)a;
-  const int64_t ib = *(const int64_t*)b;
-  if (ia < ib) return -1;
-  if (ia > ib) return 1;
-  return 0;
 }
 
 int 
@@ -151,7 +140,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
     if (kcur == kend) continue; /* Empty. */
 
-    qsort (&xadj_half[kcur], kend-kcur, sizeof (*xadj_half), i64cmp);
+    introsort_i64 (&xadj_half[kcur], kend-kcur);
 
     for (int64_t k = kcur+1; k < kend; ++k)
       if (xadj_half[k] != xadj_half[kcur]) {
