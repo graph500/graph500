@@ -77,8 +77,8 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
   for (int64_t k = 0; k < nedge; ++k) {
     int64_t i, j;
-    uint8_t w;
 #if !defined(STORED_EDGELIST)
+    uint8_t w;
     make_edge (k, &i, &j, &w);
 #else
     i = get_v0_from_edge(&IJ[k]);
@@ -111,8 +111,8 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
   /* Copy endpoints. */
   for (int64_t k = 0; k < nedge; ++k) {
     int64_t i, j;
-    uint8_t w;
 #if !defined(STORED_EDGELIST)
+    uint8_t w;
     make_edge (k, &i, &j, &w);
 #else
     i = get_v0_from_edge(&IJ[k]);
