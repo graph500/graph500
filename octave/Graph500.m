@@ -28,7 +28,8 @@ for k = 1:NROOT,
   kernel_2_time(k) = toc;
   kernel_2_dmax(k) = max (d);
   tic;
-  err = verify (parent, ijw, root (k), d, 1);
+  err = verify (SCALE, parent, ijw, root (k), d,
+		ceil (NE/kernel_2_time(k)), 1);
   kernel_2_verify_time(k) = toc;
   if err <= 0,
     error (sprintf (["BFS %d from search key %d"
@@ -43,7 +44,8 @@ for k = 1:NROOT,
   kernel_3_time(k) = toc;
   kernel_3_dmax(k) = max (d);
   tic;
-  err = verify (parent, ijw, root (k), d, 0);
+  err = verify (SCALE, parent, ijw, root (k), d,
+		ceil (NE/kernel_3_time(k)), 0);
   kernel_3_verify_time(k) = toc;
   if err <= 0,
     error (sprintf (["SSSP %d from search key %d"

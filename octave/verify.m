@@ -1,4 +1,4 @@
-function out = verify (parent, ijw, root, d, is_bfs)
+function out = verify (SCALE, parent, ijw, root, d, prngidx, is_bfs)
   out = 1;
 
   ## Adjust to 1-offset.
@@ -67,20 +67,20 @@ function out = verify (parent, ijw, root, d, is_bfs)
     out = -3;
   endif
 
-  ## Coping with duplicate edges without
-  ## collapsing them ahead of time:
+  ## Coping with duplicate edges without collapsing them
+  ## ahead of time:
   ##
-  ##   1) Explicitly collapse the parent-child
-  ##   edges, check that gap is zero.
+  ##   1) Explicitly collapse the parent-child edges, check
+  ##   that gap is zero.
   ##
-  ##   2) Check other edges.  For all negative
-  ##   gaps if not bfs, gather those edges and
+  ##   2) Check other edges for a sample of vertices.  For
+  ##   all negative gaps if not bfs, gather those edges and
   ##   re-check.
 
   pc_edge = ijw(parent_child_edge_list, :);
   [PC_i, PC_j, PC_w] = find (sparse (pc_edge(:, 1),
 				     pc_edge(:, 2),
-				     pc_edge(:, 3)));
+				     pc_edge(:, 3), N, N));
   if is_bfs,
      gap = 1 + d(PC_i) - d(PC_j);
   else
@@ -93,18 +93,29 @@ function out = verify (parent, ijw, root, d, is_bfs)
      return;
   endif
 
+  ## Determine which vertices to check.
+  check_i = sample_roots (N, 2*SCALE, prngidx);
+  to_check = ismember (pc_edge(:, 1), check_i) | \
+    ismember (pc_edge(:, 2), check_i);
+  to_check = pc_edge (to_check, :);
+
+  [ijw_i, ijw_j, ijw_w] = find (sparse (to_check(:, 1),
+					to_check(:, 2),
+					to_check(:, 3),
+					N, N));
+  ## Note: This checks every edge adjacent to the
+  ## vertices.  Only needs to check up to the edge
+  ## factor.
+
   if is_bfs,
-    gap = 1 + d(ijw(:, 1)) - d(ijw(:, 2));
-    if any (gap > 1),
+    gap = 1 + d(ijw_i) - d(ijw_j);
+    if any (abs (gap) > 1),
       ## Some edge crosses two levels down the
       ## tree, cannot be from a BFS.
       out = -6;
       return;
     endif
   else
-    [ijw_i, ijw_j, ijw_w] = find (sparse (ijw(:, 1),
-					  ijw(:, 2),
-					  ijw(:, 3)));
     gap = ijw_w + d(ijw_i) - d(ijw_j);
   endif
 

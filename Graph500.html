@@ -211,7 +211,7 @@ for the JavaScript code in this tag.
 <li><a href="#sec-6-1">6.1. Description</a></li>
 </ul>
 </li>
-<li><a href="#sec-7">7. Sampling Initial Vertices</a></li>
+<li><a href="#sampleroot">7. Sampling Initial Vertices</a></li>
 <li><a href="#kernel2">8. Kernel 2 – Breadth-First Search</a>
 <ul>
 <li><a href="#sec-8-1">8.1. Description</a></li>
@@ -1000,9 +1000,10 @@ endfunction
 </div>
 </div>
 </div>
-<div id="outline-container-7" class="outline-2">
-<h2 id="sec-7"><span class="section-number-2">7</span> Sampling Initial Vertices</h2>
-<div class="outline-text-2" id="text-7">
+<div id="outline-container-sampleroot" class="outline-2">
+<h2 id="sampleroot"><a id="sec-7" name="sec-7"></a><span class="section-number-2">7</span> Sampling Initial Vertices</h2>
+<div class="outline-text-2" id="text-sampleroot">
+
 <p>
 The search keys must be randomly sampled without replacement from the
 vertices in the graph.  If there are fewer than eight vertices, select all
@@ -1019,6 +1020,7 @@ as a pair of double-precision floating point numbers.  Algorithm
 <label class="org-src-name">High-level implementation of Kernel 1</label>
 <pre class="src src-Octave" id="alg:sample.roots">function root = sample_roots (NV, NROOT, NE)
   NROOT = min (NROOT, NV);
+  NE = int64 (NE);
 
   root = -ones (1, NROOT);
 
@@ -1275,10 +1277,18 @@ Validation is <b>not</b> part of the timed results.
 </p>
 
 <p>
-The executable specification verifies its results by comparing them
-with results computed directly from the tuple list.  Note that the SSSP
+The executable specification verifies its results by comparing them with
+results computed directly from the tuple list.  Note that the SSSP
 kernel uses the sum of the weights for a particular edge that may have
-multiple entries in the input tuple list.
+multiple entries in the input tuple list.  Because the edges need
+re-collapsed into a graph form, only a sampling of the edges are
+checked.  First, select 2*SCALE vertices similarly to <a href="#sampleroot">sampling the root
+vertices</a>.  Instead of using PRNG(NE, k), use PRNG(ceil(NE /
+<i>kerneltime</i>), k) where <i>kerneltime</i> is the time required by the kernel
+being verified.  This produces a less predictable sequence of vertices.
+For each such vertex, only the lesser of edgefactor and the vertex's
+degree adjacent edges need to be checked.  This specification does not
+require any particular adjacent edges.
 </p>
 
 <p>
@@ -1295,7 +1305,9 @@ the discovered SSSP tree of parents is correct by ensuring that:
 <li>a node and its parent are joined by an edge of the original graph,
 </li>
 <li><i>w(u, v) + d(u) - d(v) &le; 0</i> for all unordered input edges <i>{u, v}</i>
-where <i>d(u) &lt; d(v)</i>, and
+where <i>d(u) &lt; d(v)</i>, 
+</li>
+<li><i>abs(w(u, v) + d(u) - d(v)) &le; 1</i> for a BFS tree, and
 </li>
 <li><i>w(u, v) + d(u) - d(v) == 0</i> when <i>u</i> is a parent of <i>v</i>.
 </li>
@@ -1317,7 +1329,7 @@ used for both kernels.
 
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of Kernel Validation</label>
-<pre class="src src-Octave" id="alg:verify">function out = verify (parent, ijw, root, d, is_bfs)
+<pre class="src src-Octave" id="alg:verify">function out = verify (SCALE, parent, ijw, root, d, prngidx, is_bfs)
   out = 1;
 
   ## Adjust to 1-offset.
@@ -1386,20 +1398,20 @@ used for both kernels.
     out = -3;
   endif
 
-  ## Coping with duplicate edges without
-  ## collapsing them ahead of time:
+  ## Coping with duplicate edges without collapsing them
+  ## ahead of time:
   ##
-  ##   1) Explicitly collapse the parent-child
-  ##   edges, check that gap is zero.
+  ##   1) Explicitly collapse the parent-child edges, check
+  ##   that gap is zero.
   ##
-  ##   2) Check other edges.  For all negative
-  ##   gaps if not bfs, gather those edges and
+  ##   2) Check other edges for a sample of vertices.  For
+  ##   all negative gaps if not bfs, gather those edges and
   ##   re-check.
 
   pc_edge = ijw(parent_child_edge_list, :);
   [PC_i, PC_j, PC_w] = find (sparse (pc_edge(:, 1),
                                      pc_edge(:, 2),
-                                     pc_edge(:, 3)));
+                                     pc_edge(:, 3), N, N));
   if is_bfs,
      gap = 1 + d(PC_i) - d(PC_j);
   else
@@ -1412,18 +1424,29 @@ used for both kernels.
      return;
   endif
 
+  ## Determine which vertices to check.
+  check_i = sample_roots (N, 2*SCALE, prngidx);
+  to_check = ismember (pc_edge(:, 1), check_i) | \
+    ismember (pc_edge(:, 2), check_i);
+  to_check = pc_edge (to_check, :);
+
+  [ijw_i, ijw_j, ijw_w] = find (sparse (to_check(:, 1),
+                                        to_check(:, 2),
+                                        to_check(:, 3),
+                                        N, N));
+  ## Note: This checks every edge adjacent to the
+  ## vertices.  Only needs to check up to the edge
+  ## factor.
+
   if is_bfs,
-    gap = 1 + d(ijw(:, 1)) - d(ijw(:, 2));
-    if any (gap &gt; 1),
+    gap = 1 + d(ijw_i) - d(ijw_j);
+    if any (abs (gap) &gt; 1),
       ## Some edge crosses two levels down the
       ## tree, cannot be from a BFS.
       out = -6;
       return;
     endif
   else
-    [ijw_i, ijw_j, ijw_w] = find (sparse (ijw(:, 1),
-                                          ijw(:, 2),
-                                          ijw(:, 3)));
     gap = ijw_w + d(ijw_i) - d(ijw_j);
   endif
 
@@ -1755,7 +1778,8 @@ for k = 1:NROOT,
   kernel_2_time(k) = toc;
   kernel_2_dmax(k) = max (d);
   tic;
-  err = verify (parent, ijw, root (k), d, 1);
+  err = verify (SCALE, parent, ijw, root (k), d,
+                ceil (NE/kernel_2_time(k)), 1);
   kernel_2_verify_time(k) = toc;
   if err &lt;= 0,
     error (sprintf (["BFS %d from search key %d"
@@ -1770,7 +1794,8 @@ for k = 1:NROOT,
   kernel_3_time(k) = toc;
   kernel_3_dmax(k) = max (d);
   tic;
-  err = verify (parent, ijw, root (k), d, 0);
+  err = verify (SCALE, parent, ijw, root (k), d,
+                ceil (NE/kernel_3_time(k)), 0);
   kernel_3_verify_time(k) = toc;
   if err &lt;= 0,
     error (sprintf (["SSSP %d from search key %d"

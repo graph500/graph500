@@ -451,6 +451,9 @@ the [[#benchmarkoutput][output]].
 #+INCLUDE: "octave/kernel_1.m" src Octave
 
 * Sampling Initial Vertices
+  :PROPERTIES:
+  :CUSTOM_ID: sampleroot
+  :END:
 
 The search keys must be randomly sampled without replacement from the
 vertices in the graph.  If there are fewer than eight vertices, select all
@@ -583,10 +586,18 @@ the BFS or SSSP algorithm used.  Therefore, the validation of an
 implementation of the benchmark uses soft checking of the results.
 Validation is *not* part of the timed results.
 
-The executable specification verifies its results by comparing them
-with results computed directly from the tuple list.  Note that the SSSP
+The executable specification verifies its results by comparing them with
+results computed directly from the tuple list.  Note that the SSSP
 kernel uses the sum of the weights for a particular edge that may have
-multiple entries in the input tuple list.
+multiple entries in the input tuple list.  Because the edges need
+re-collapsed into a graph form, only a sampling of the edges are
+checked.  First, select 2*SCALE vertices similarly to [[#sampleroot][sampling the root
+vertices]].  Instead of using PRNG(NE, k), use PRNG(ceil(NE /
+/kerneltime/), k) where /kerneltime/ is the time required by the kernel
+being verified.  This produces a less predictable sequence of vertices.
+For each such vertex, only the lesser of edgefactor and the vertex's
+degree adjacent edges need to be checked.  This specification does not
+require any particular adjacent edges.
 
 Here we specify the validation for the SSSP computation ([[Kernel 3]]) and
 treat BFS ([[Kernel 2]]) as a special case.  Let /w(u, v)/ be the weight of
@@ -597,8 +608,9 @@ the discovered SSSP tree of parents is correct by ensuring that:
   1) the SSSP tree is a rooted tree and does not contain cycles,
   2) a node and its parent are joined by an edge of the original graph,
   3) /w(u, v) + d(u) - d(v) \le 0/ for all unordered input edges /{u, v}/
-     where /d(u) < d(v)/, and
-  4) /w(u, v) + d(u) - d(v) == 0/ when /u/ is a parent of /v/.
+     where /d(u) < d(v)/, 
+  4) /abs(w(u, v) + d(u) - d(v)) \le 1/ for a BFS tree, and
+  5) /w(u, v) + d(u) - d(v) == 0/ when /u/ is a parent of /v/.
 
 A BFS tree is a SSSP tree with all total edge distances set to one and a
 maximum constraint gap (line three above) of one.  The distance /d(u)/

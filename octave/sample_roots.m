@@ -1,5 +1,6 @@
 function root = sample_roots (NV, NROOT, NE)
   NROOT = min (NROOT, NV);
+  NE = int64 (NE);
 
   root = -ones (1, NROOT);
 
