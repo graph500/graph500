@@ -280,9 +280,10 @@ with the reference code.
 
 <div class="openissue">
 <p>
-One "open issue" remains:  What can be precomputed?  The spec currently
-disallows precomputing information for the kernels, but I'd prefer not
-computing the &Delta; for &Delta;-stepping SSSP every time.
+One "open issue" remains:  What can be precomputed?  I have permitted
+a constant number of scalars like &Delta; in &Delta;-stepping SSSP but
+not growing information like the component hierarchy for Thorup's
+algorithm.  This will permit a handful of vertex degree thresholds.
 </p>
 
 </div>
@@ -948,21 +949,15 @@ for an edge, and a weight that represents data assigned to the edge.
 
 <p>
 The graph may be represented in any manner, but it must not be modified
-by or between subsequent kernels.  The general graph structure must not
-include information specific to algorithms implementing <a href="#kernel2">Kernel 2</a> or
-<a href="#kernel3">Kernel 3</a> like degree thresholds or short-cut edges.
+by or between subsequent kernels.  A constant number of scalars (not
+proportional to the graph size) may be collected during construction for
+later use.  The general graph structure must not include information
+proportional to the graph size for algorithms implementing <a href="#kernel2">Kernel 2</a> or
+<a href="#kernel3">Kernel 3</a> like short-cut edges or spanning trees.  Using <a href="#kernel3">Kernel 3</a> as an
+example, pre-computing the &Delta; for &Delta;-stepping algorithms is
+permitted, but pre-computing the component hierarchies for Thorup's
+algorithm is not.
 </p>
-
-<div class="openissue">
-<p>
-I'm inclined to allow such information simply so the reference
-implementation doesn't have to recompute &Delta; for every run of the
-&Delta;-stepping SSSP algorithm.  Most people do it wrong and pick a
-magic &Delta; out of thin air.  I'd prefer to encourage proper
-implementations.
-</p>
-
-</div>
 
 <p>
 There are various internal memory representations for sparse graphs,
