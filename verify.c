@@ -80,17 +80,19 @@ compute_levels (int64_t * level,
 }
 
 int64_t
-verify_bfs_tree (int64_t *bfs_tree_in, int64_t root,
+verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
+		 const int64_t root,
 		 const struct packed_edge *IJ_in, int64_t nedge)
 {
-  int64_t * restrict bfs_tree = bfs_tree_in;
+  const int64_t * restrict bfs_tree = bfs_tree_in;
+  const int64_t * restrict level = level_in;
 #if defined(STORED_EDGELIST)
   const struct packed_edge * restrict IJ = IJ_in;
 #endif
 
   int err;
   int64_t maxdepth = -1;
-  int64_t * restrict seen_edge, * restrict level;
+  int64_t * restrict seen_edge;
 
   /*
     This code is horrifically contorted because many compilers
@@ -101,10 +103,15 @@ verify_bfs_tree (int64_t *bfs_tree_in, int64_t root,
     return -999;
 
   err = 0;
-  seen_edge = xmalloc_large (2 * NV * sizeof (*seen_edge));
-  level = &seen_edge[NV];
-
-  err = compute_levels (level, NV, bfs_tree, root);
+  if (!level) {
+    int64_t * restrict level_tmp;
+    seen_edge = xmalloc_large (2 * NV * sizeof (*seen_edge));
+    level_tmp = &seen_edge[NV];
+    err = compute_levels (level_tmp, NV, bfs_tree, root);
+    level = level_tmp; /* Type launder to const. */
+  } else {
+    seen_edge = xmalloc_large (NV * sizeof (*seen_edge));
+  }
 
   if (err) goto done;
 

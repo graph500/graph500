@@ -156,7 +156,7 @@ run_bfs (void)
 
     if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
     TIME(bfs_verify_time[m],
-	 bfs_depth[m] = verify_bfs_tree (bfs_tree, bfs_root[m], IJ, NE));
+	 bfs_depth[m] = verify_bfs_tree (bfs_tree, NULL, bfs_root[m], IJ, NE));
     if (VERBOSE) fprintf (stderr, "done\n");
     if (bfs_depth[m] < 0) {
       fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
