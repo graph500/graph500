@@ -23,14 +23,15 @@ function root = sample_roots (NV, NROOT, NE)
       N -= 1;
       quot *= top / N;
     endwhile
-    cur += S;
+    cur += S+1;
     root(m) = cur;
     N -= 1;
   endfor
   rv = dpPRNG (NE, NROOT-1);
   r = rv(1);
   S = floor (N * r);
-  cur += S;
+  cur += S+1;
   root(NROOT) = cur;
+  root -= 1; # Zero-indexed.
   assert (root >= 0 && root < NV);
 endfunction
