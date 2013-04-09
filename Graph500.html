@@ -1282,13 +1282,13 @@ results computed directly from the tuple list.  Note that the SSSP
 kernel uses the sum of the weights for a particular edge that may have
 multiple entries in the input tuple list.  Because the edges need
 re-collapsed into a graph form, only a sampling of the edges are
-checked.  First, select 2*SCALE vertices similarly to <a href="#sampleroot">sampling the root
-vertices</a>.  Instead of using PRNG(NE, k), use PRNG(ceil(NE /
-<i>kerneltime</i>), k) where <i>kerneltime</i> is the time required by the kernel
-being verified.  This produces a less predictable sequence of vertices.
-For each such vertex, only the lesser of edgefactor and the vertex's
-degree adjacent edges need to be checked.  This specification does not
-require any particular adjacent edges.
+checked.  Every tree edge must be checked.  Additionally, select 2*SCALE
+vertices similarly to <a href="#sampleroot">sampling the root vertices</a>.  Instead of using
+PRNG(NE, k), use PRNG(ceil(NE / <i>kerneltime</i>), k) where <i>kerneltime</i> is
+the time required by the kernel being verified.  This produces a less
+predictable sequence of vertices.  For each such vertex, only the lesser
+of edgefactor and the vertex's degree adjacent edges need to be checked.
+This specification does not require any particular adjacent edges.
 </p>
 
 <p>
