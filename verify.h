@@ -6,7 +6,7 @@
 
 /** Verify a BFS tree, return volume or -1 if failed. */
 int64_t verify_bfs_tree (const int64_t *bfs_tree, const int64_t *level,
-			 const int64_t root,
+			 const int64_t root, const double kerneltime,
 			 const struct packed_edge *IJ, int64_t nedge);
 
 #endif /* VERIFY_HEADER_ */
