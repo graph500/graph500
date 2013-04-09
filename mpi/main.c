@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
     }
     MPI_Allreduce(&tg.edgememory_size, &tg.max_edgememory_size, 1, MPI_INT64_T, MPI_MAX, MPI_COMM_WORLD);
     /* Find roots and max used vertex */
-    sample_roots (bfs_roots);
+    sample_roots (bfs_roots, NROOT, NE);
     if (tg.data_in_file) {
       MPI_File_sync(tg.edgefile);
     }

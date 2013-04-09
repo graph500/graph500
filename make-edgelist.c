@@ -81,7 +81,7 @@ main (int argc, char **argv)
 
   if (fd >= 0) {
     if (VERBOSE) fprintf (stderr, "Sample roots...");
-    TIME(root_sample_time, sample_roots (bfs_root));
+    TIME(root_sample_time, sample_roots (bfs_root, NROOT, NE));
     if (VERBOSE) fprintf (stderr, " done in %g seconds.\n", root_sample_time);
     write (fd, bfs_root, NROOT * sizeof (*bfs_root));
     close (fd);

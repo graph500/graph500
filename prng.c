@@ -97,23 +97,23 @@ random_edgevals (float * v, int64_t idx)
 }
 
 void
-sample_roots (int64_t * root)
+sample_roots (int64_t * root, int64_t nroot, int64_t KEY)
 {
   /* Method A in Jeffrey Scott Vitter, "An Efficient Algorithm for
   Sequential Random Sampling," ACM Transactions on Mathematical
   Software, 13(1), March 1987, 58-67. */
 
   double n = NV;
-  int64_t top = NV - NROOT;
+  int64_t top = NV - nroot;
   int64_t cur = 0;
   int64_t S;
   double r;
 
-  for (int m = 0; m < NROOT; ++m) root[m] = -1;
+  for (int m = 0; m < nroot; ++m) root[m] = -1;
 
-  for (int m = 0; m < NROOT-1; ++m) {
+  for (int m = 0; m < nroot-1; ++m) {
     double quot;
-    r = dprng (NE, m);
+    r = dprng (KEY, m);
     S = 0;
     quot = top / n;
     while (quot > r) {
@@ -126,14 +126,14 @@ sample_roots (int64_t * root)
     root[m] = cur;
     n -= 1;
   }
-  r = dprng (NE, NROOT-1);
+  r = dprng (KEY, nroot-1);
   S = floor (n * r);
   cur += S;
-  root[NROOT-1] = cur;
+  root[nroot-1] = cur;
 #if !defined (NDEBUG)
-  for (int m = 0; m < NROOT; ++m) {
+  for (int m = 0; m < nroot; ++m) {
     assert (root[m] >= 0 && root[m] < NV);
-    for (int m2 = m+1; m2 < NROOT; ++m2)
+    for (int m2 = m+1; m2 < nroot; ++m2)
       assert (root[m2] != root[m]);
   }
 #endif
