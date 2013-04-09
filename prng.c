@@ -105,7 +105,7 @@ sample_roots (int64_t * root, int64_t nroot, int64_t KEY)
 
   double n = NV;
   int64_t top = NV - nroot;
-  int64_t cur = 0;
+  int64_t cur = -1;
   int64_t S;
   double r;
 
@@ -122,13 +122,13 @@ sample_roots (int64_t * root, int64_t nroot, int64_t KEY)
       n -= 1;
       quot *= top / n;
     }
-    cur += S;
+    cur += S+1;
     root[m] = cur;
     n -= 1;
   }
   r = dprng (KEY, nroot-1);
   S = floor (n * r);
-  cur += S;
+  cur += S+1;
   root[nroot-1] = cur;
 #if !defined (NDEBUG)
   for (int m = 0; m < nroot; ++m) {
