@@ -224,11 +224,6 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
     assert (xoff[0] == 0);
 
     assert (accum % 2 == 0);
-    if (accum/2 + ndup + nself_edges != nedge) {
-      fprintf (stderr, "%" PRId64" / 2 + %" PRId64 " + %" PRId64 " (%" PRId64 ") != %" PRId64 "   ( %" PRId64 " )\n",
-	       accum, ndup, nself_edges, (accum/2 + ndup + nself_edges), nedge,
-	       nedge - (accum/2 + ndup + nself_edges) );
-    }
     assert (accum/2 + ndup + nself_edges == nedge);
 
     /* Allocate final endpoint storage. */
