@@ -20,6 +20,7 @@
 #include "globals.h"
 
 int VERBOSE = 0;
+int SKIP_VERIFY = 0;
 
 char *dumpname = NULL;
 char *rootname = NULL;
@@ -40,7 +41,7 @@ get_options (int argc, char **argv) {
   if (getenv ("VERBOSE"))
     VERBOSE = 1;
 
-  while ((c = getopt (argc, argv, "v?hs:e:w:A:a:B:b:N:n:Vo:r:")) != -1)
+  while ((c = getopt (argc, argv, "v?hs:e:w:A:a:B:b:N:n:Vo:r:X")) != -1)
     switch (c) {
     case 'v':
       printf ("Graph500 (%s), code version %s, specification version %s\n",
@@ -184,6 +185,9 @@ get_options (int argc, char **argv) {
 	fprintf (stderr, "Number of search roots cannot exceed %d.\n", NROOT_MAX);
 	err = -1;
       }
+      break;
+    case 'X':
+      SKIP_VERIFY = 1;
       break;
     default:
       fprintf (stderr, "Unrecognized option\n");

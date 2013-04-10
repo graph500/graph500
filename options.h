@@ -4,9 +4,10 @@
 #if !defined(OPTIONS_HEADER_)
 #define OPTIONS_HEADER_
 
-extern int VERBOSE;
-extern char *dumpname;
-extern char *rootname;
+extern const int VERBOSE;
+extern const int SKIP_VERIFY;
+extern const char *dumpname;
+extern const char *rootname;
 
 void get_options (int argc, char **argv);
 

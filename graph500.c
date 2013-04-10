@@ -154,15 +154,17 @@ run_bfs (void)
       abort ();
     }
 
-    if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
-    TIME(bfs_verify_time[m],
-	 bfs_depth[m] = verify_bfs_tree (bfs_tree, NULL, bfs_root[m], bfs_time[m],
-					 IJ, NE));
-    if (VERBOSE) fprintf (stderr, "done\n");
-    if (bfs_depth[m] < 0) {
-      fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
-	       m, bfs_root[m], bfs_depth[m]);
-      abort ();
+    if (!SKIP_VERIFY) {
+      if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
+      TIME(bfs_verify_time[m],
+	   bfs_depth[m] = verify_bfs_tree (bfs_tree, NULL, bfs_root[m], bfs_time[m],
+					   IJ, NE));
+      if (VERBOSE) fprintf (stderr, "done\n");
+      if (bfs_depth[m] < 0) {
+	fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
+		 m, bfs_root[m], bfs_depth[m]);
+	abort ();
+      }
     }
 
     xfree_large (bfs_tree);
