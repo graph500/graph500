@@ -4,6 +4,7 @@
 #define _FILE_OFFSET_BITS 64
 #define _THREAD_SAFE
 #include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -18,6 +19,11 @@
 #include "../sorts.h"
 
 char IMPLEMENTATION[] = "Reference sequential";
+#define ALPHA 14
+#define BETA  24
+
+#define WORD_OFFSET(n) (n/64)
+#define BIT_OFFSET(n) (n & 0x3f)
 
 static int64_t nv;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
@@ -224,42 +230,161 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
   return -1;
 }
 
+#define SET_BIT(bm, i) (bm)[WORD_OFFSET((i))] |= (((uint64_t) 1)<<BIT_OFFSET((i)))
+#define GET_BIT(bm, i) (bm)[WORD_OFFSET((i))] & (((uint64_t) 1)<<BIT_OFFSET((i)))
+
+static void
+fill_bitmap_from_queue (uint64_t * restrict bm, int64_t * restrict vlist,
+			int64_t out, int64_t in)
+{
+  for (int64_t q_index = out; q_index < in; q_index++)
+    SET_BIT(bm, vlist[q_index]);
+}
+
+static void
+fill_queue_from_bitmap (uint64_t * restrict bm,
+			int64_t * restrict vlist,
+			int64_t * restrict out, int64_t * restrict in)
+{
+  int64_t len = 0;
+
+  *out = 0;
+
+  for (int64_t k = 0; k < nv; k += 64) {
+    const uint64_t m = bm[k/64];
+    if (!m) continue;
+    for (int kk = 0; kk < 64; ++kk)
+      if (m & (((uint64_t)1) << kk))
+	vlist[len++] = k + kk;
+  }
+
+  *in = len;
+}
+
+static int64_t
+bfs_bottom_up_step (int64_t * restrict bfs_tree,
+		    const uint64_t * restrict past, uint64_t * restrict next)
+{
+  int64_t awake_count = 0;
+
+  for (int64_t i = 0; i < nv; i++) {
+    if (bfs_tree[i] == -1) {
+      for (int64_t vo = xoff[i]; vo < xoff[1+i]; vo++) {
+	const int64_t j = xadj[vo];
+	if (GET_BIT(past, j)) {
+	  bfs_tree[i] = j;
+	  SET_BIT(next, i);
+	  awake_count++;
+	  break;
+	}
+      }
+    }
+  }
+
+  return awake_count;
+}
+
+static void
+bfs_top_down_step (int64_t * restrict bfs_tree,
+		   int64_t * restrict vlist,
+		   int64_t * head_in, int64_t * tail_in)
+{
+  const int64_t tail = *tail_in;
+  int64_t new_tail = tail;
+
+  for (int64_t k = *head_in; k < tail; ++k) {
+    const int64_t v = vlist[k];
+    const int64_t veo = xoff[1+v];
+    int64_t vo;
+    for (vo = xoff[v]; vo < veo; ++vo) {
+      const int64_t j = xadj[vo];
+      if (bfs_tree[j] == -1) {
+	assert (new_tail < nv);
+	vlist[new_tail++] = j;
+	bfs_tree[j] = v;
+      }
+    }
+  }
+
+  *head_in = tail;
+  *tail_in = new_tail;
+
+  return;
+}
+
 int
 make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx)
 {
   int64_t * restrict bfs_tree = bfs_tree_out;
+  uint64_t * bm_storage = NULL;
+  const size_t bmlen = (nv + 63) & ~63;
+  uint64_t * restrict past = NULL;
+  uint64_t * restrict next = NULL;
   int err = 0;
 
   int64_t * restrict vlist = NULL;
   int64_t k1, k2;
 
+  int64_t down_cutoff = nv / BETA;
+  int64_t scout_count = xoff[1+srcvtx] - xoff[srcvtx];
+  int64_t awake_count = 1;
+  int64_t edges_to_check = xoff[nv];
+
+  /* Size sanity checks. */
+#if 8 != CHAR_BIT
+#error "Hard-coded to support eight-bit bytes."
+#endif
+  assert (8 == sizeof (uint64_t));
+
   vlist = xmalloc_large (nv * sizeof (*vlist));
   if (!vlist) return -1;
 
-  for (k1 = 0; k1 < nv; ++k1)
-    bfs_tree[k1] = -1;
+  bm_storage = xmalloc_large (2 * bmlen * sizeof (*bm_storage));
+  if (!bm_storage) {
+    free (vlist);
+    return -2;
+  }
+  past = bm_storage;
+  next = &bm_storage[bmlen];
 
   vlist[0] = srcvtx;
-  bfs_tree[srcvtx] = srcvtx;
   k1 = 0; k2 = 1;
-  while (k1 != k2) {
-    const int64_t oldk2 = k2;
-    int64_t k;
-    for (k = k1; k < oldk2; ++k) {
-      const int64_t v = vlist[k];
-      const int64_t veo = xoff[v+1];
-      int64_t vo;
-      for (vo = xoff[v]; vo < veo; ++vo) {
-	const int64_t j = xadj[vo];
-	if (bfs_tree[j] == -1) {
-	  bfs_tree[j] = v;
-	  vlist[k2++] = j;
-	}
-      }
+
+  for (int64_t k = 0; k < nv; ++k)
+    bfs_tree[k] = -1;
+  bfs_tree[srcvtx] = srcvtx;
+
+  while (awake_count != 0) {
+    if (scout_count < ((edges_to_check - scout_count)/ALPHA)) {
+      // Top-down
+      bfs_top_down_step (bfs_tree, vlist, &k1, &k2);
+      edges_to_check -= scout_count;
+      awake_count = k2-k1;
+    } else {
+      // Bottom-up
+      for (int64_t k = 0; k < bmlen; ++k)
+	next[k] = 0;
+      fill_bitmap_from_queue (next, vlist, k1, k2);
+      do {
+	/* Swap past & next */
+	uint64_t * restrict t = past;
+	past = next;
+	next = t;
+	for (int64_t k = 0; k < bmlen; ++k)
+	  next[k] = 0;
+	awake_count = bfs_bottom_up_step (bfs_tree, past, next);
+      } while ((awake_count > down_cutoff));
+      fill_queue_from_bitmap (next, vlist, &k1, &k2);
     }
-    k1 = oldk2;
+    // Count the number of edges in the frontier
+    scout_count = 0;
+    for (int64_t i=k1; i<k2; i++) {
+      int64_t v = vlist[i];
+      scout_count += xoff[1+v] - xoff[v];
+    }
   }
 
+  xfree_large (bm_storage);
   xfree_large (vlist);
 
   return err;
