@@ -300,11 +300,14 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
 	      terr = -33; /* Edges cross more than one level. */
 	    else if (pd_gap < 0)
 	      terr = -34; /* Constraints violated. */
+#if 0
+	    /* Left-over code for debugging the verifier. */
 	    if (terr)
 	      fprintf (stderr, "rt %d: (%d, %d; %d) [%d]  level[i] %d  level[j] %d  pd_gap %d     %d\n",
 		       (int)root, (int)i, (int)j, (int)w, dir, (int)level[i], (int)level[j],
 		       (int)pd_gap, terr);
 	    assert (!terr);
+#endif
 	  }
 	}
       }

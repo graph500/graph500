@@ -311,7 +311,6 @@ push_buf (int64_t * restrict buf, int * restrict blen,
 
 #define BIT(i) (((uint64_t)1)<<BIT_OFFSET((i)))
 #define ATOMIC_SET_BIT(bm, i) (uint64_fetch_or (&((bm)[WORD_OFFSET((i))]), BIT(i)))
-#define FETCH_SET_BIT(bm, i) (ATOMIC_SET_BIT(bm, i) & BIT(i))
 #define SET_BIT(bm, i) ((bm)[WORD_OFFSET((i))] |= BIT(i))
 #define GET_BIT(bm, i) ((bm)[WORD_OFFSET((i))] & BIT(i))
 
