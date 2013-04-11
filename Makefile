@@ -39,7 +39,7 @@ make-edgelist:	$(MAKE_EDGELIST_SOURCES)
 seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES)
 
 omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
-omp-csr/omp-csr: omp-csr/omp-csr.c omp-csr/bitmap.h $(GRAPH500_SOURCES)
+omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES)
 
 xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
 xmt-csr/xmt-csr: CPPFLAGS:=$(CPPFLAGS) -DSTORED_EDGELIST
