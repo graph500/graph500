@@ -4,16 +4,15 @@
 /* See COPYING for license. */
 #include "../compat.h"
 #include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 
 #include <assert.h>
 
-#include <alloca.h>
-
 static int64_t int64_fetch_add (int64_t* p, int64_t incr);
-static int64_t int64_casval(int64_t* p, int64_t oldval, int64_t newval);
+static uint64_t uint64_fetch_or (uint64_t* p, uint64_t v);
 static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 
 #include "../graph500.h"
@@ -23,11 +22,12 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 #include "../generator.h"
 #include "../sorts.h"
 
-#include "bitmap.h"
-
-#define THREAD_BUF_LEN 16384
+#define THREAD_BUF_LEN 256
 #define ALPHA 14
 #define BETA  24
+
+#define WORD_OFFSET(n) (n/64)
+#define BIT_OFFSET(n) (n & 0x3f)
 
 char IMPLEMENTATION[] = "Reference OpenMP";
 
@@ -283,121 +283,134 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
   return errflag;
 }
 
+static inline void
+flush_buf (const int64_t * restrict buf, const int blen,
+	  int64_t * restrict glist, int64_t * restrict glen)
+{
+  if (blen) {
+    const int64_t base = int64_fetch_add (glen, blen);
+    for (int k = 0; k < blen; ++k)
+      glist[base + k] = buf[k];
+  }
+}
+
+static inline void
+push_buf (int64_t * restrict buf, int * restrict blen,
+	  int64_t k,
+	  int64_t * restrict glist, int64_t * restrict glen)
+{
+  int64_t where;
+  if (*blen == THREAD_BUF_LEN) {
+    flush_buf (buf, THREAD_BUF_LEN, glist, glen);
+    *blen = 0;
+  }
+  where = *blen;
+  ++*blen;
+  buf[where] = k;
+}
+
+#define BIT(i) (((uint64_t)1)<<BIT_OFFSET((i)))
+#define ATOMIC_SET_BIT(bm, i) (uint64_fetch_or (&((bm)[WORD_OFFSET((i))]), BIT(i)))
+#define SET_BIT(bm, i) ((bm)[WORD_OFFSET((i))] |= BIT(i))
+#define GET_BIT(bm, i) ((bm)[WORD_OFFSET((i))] & BIT(i))
+
 static void
-fill_bitmap_from_queue(bitmap_t *bm, int64_t *vlist, int64_t out, int64_t in)
+fill_bitmap_from_queue (uint64_t * restrict bm, size_t bmlen,
+			int64_t * restrict vlist,
+			int64_t out, int64_t in)
 {
   OMP("omp for")
-    for (long q_index=out; q_index<in; q_index++)
-      bm_set_bit_atomic(bm, vlist[q_index]);
+    for (int64_t k = 0; k < bmlen; ++k)
+      bm[k] = 0;
+  OMP("omp for")
+    for (int64_t q_index = out; q_index < in; q_index++)
+      ATOMIC_SET_BIT (bm, vlist[q_index]);
 }
 
 static void
-fill_queue_from_bitmap(bitmap_t *bm, int64_t *vlist, int64_t *out, int64_t *in,
-		       int64_t *local)
+fill_queue_from_bitmap (uint64_t * restrict bm,
+			int64_t * restrict vlist,
+			int64_t * restrict head, int64_t * restrict tail,
+			int64_t * restrict local)
 {
+  int len = 0;
+
   OMP("omp single") {
-    *out = 0;
-    *in = 0;
+    *head = 0;
+    *tail = 0;
   }
-  OMP("omp barrier");
-  int64_t nodes_per_thread = (nv + omp_get_num_threads() - 1) /
-			     omp_get_num_threads();
-  int64_t i = nodes_per_thread * omp_get_thread_num();
-  int local_index = 0;
-  if (i < nv) {
-    int64_t i_end = i + nodes_per_thread;
-    if (i_end >= nv)
-      i_end = nv;
-    if (bm_get_bit(bm, i))
-      local[local_index++] = i;
-    i = bm_get_next_bit(bm,i);
-    while ((i != -1) && (i < i_end)) {
-      local[local_index++] = i;
-      i = bm_get_next_bit(bm,i);
-      if (local_index == THREAD_BUF_LEN) {
-	int my_in = int64_fetch_add(in, THREAD_BUF_LEN);
-	for (local_index=0; local_index<THREAD_BUF_LEN; local_index++) {
-	  vlist[my_in + local_index] = local[local_index];
-	}
-	local_index = 0;
-      }
+
+  OMP("omp for nowait")
+    for (int64_t k = 0; k < nv; k += 64) {
+      const uint64_t m = bm[k/64];
+      if (m)
+	for (int kk = 0; kk < 64; ++kk)
+	  if (m & (((uint64_t)1) << kk))
+	    push_buf (local, &len, k+kk, vlist, tail);
     }
-  }
-  int my_in = int64_fetch_add(in, local_index);
-  for (int i=0; i<local_index; i++) {
-    vlist[my_in + i] = local[i];
-  }
+  flush_buf (local, len, vlist, tail);
+  OMP("omp barrier");
 }
 
-static int64_t
-bfs_bottom_up_step(int64_t *bfs_tree, bitmap_t *past, bitmap_t *next)
+static void
+bfs_bottom_up_step (int64_t * restrict bfs_tree,
+		    const uint64_t * restrict past, uint64_t * restrict next,
+		    const size_t bmlen,
+		    int64_t * awake_count)
 {
-  OMP("omp single") {
-    bm_swap(past, next);
-  }
-  OMP("omp barrier");
-  bm_reset(next);
-  static int64_t awake_count;
-  OMP("omp single")
-    awake_count = 0;
-  OMP("omp barrier");
-  OMP("omp for reduction(+ : awake_count)")
-    for (int64_t i=0; i<nv; i++) {
+  int64_t t_awake_count = 0;
+
+  OMP("omp for")
+    for (int64_t k = 0; k < bmlen; ++k)
+      next[k] = 0;
+
+  OMP("omp for nowait")
+    for (int64_t i = 0; i < nv; i++) {
       if (bfs_tree[i] == -1) {
-	  for (int64_t vo = xoff[i]; vo < xoff[1+i]; vo++) {
-	    const int64_t j = xadj[vo];
-	  if (bm_get_bit(past, j)) {
-	    // printf("%lu\n",i);
+	for (int64_t vo = xoff[i]; vo < xoff[1+i]; vo++) {
+	  const int64_t j = xadj[vo];
+	  if (GET_BIT (past, j)) {
+	    ATOMIC_SET_BIT (next, i);
 	    bfs_tree[i] = j;
-	    bm_set_bit_atomic(next, i);
-	    awake_count++;
+	    t_awake_count++;
 	    break;
 	  }
 	}
       }
     }
+
+  OMP("omp atomic") *awake_count += t_awake_count;
   OMP("omp barrier");
-  return awake_count;
 }
 
 static void
-bfs_top_down_step(int64_t *bfs_tree, int64_t *vlist, int64_t *local, int64_t *k1_p, int64_t *k2_p)
+bfs_top_down_step (int64_t * restrict bfs_tree,
+		   int64_t * restrict vlist,
+		   int64_t * head_in, int64_t * tail_in,
+		   int64_t * restrict local)
 {
-  const int64_t oldk2 = *k2_p;
-  int64_t kbuf = 0;
+  const int64_t tail = *tail_in;
+  const int64_t head = *head_in;
+  int len = 0;
+
   OMP("omp barrier");
-  OMP("omp for")
-	for (int64_t k = *k1_p; k < oldk2; ++k) {
-	  const int64_t v = vlist[k];
-	  const int64_t veo = xoff[1+v];
-	  int64_t vo;
-	  for (vo = xoff[v]; vo < veo; ++vo) {
-	    const int64_t j = xadj[vo];
-	    if (bfs_tree[j] == -1) {
-	      if (int64_cas (&bfs_tree[j], -1, v)) {
-		if (kbuf < THREAD_BUF_LEN) {
-		  local[kbuf++] = j;
-		} else {
-		  int64_t voff = int64_fetch_add (k2_p, THREAD_BUF_LEN), vk;
-		  assert (voff + THREAD_BUF_LEN <= nv);
-		  for (vk = 0; vk < THREAD_BUF_LEN; ++vk)
-		    vlist[voff + vk] = local[vk];
-		  local[0] = j;
-		  kbuf = 1;
-		}
-	      }
-	    }
-	  }
-	}
-  if (kbuf) {
-	int64_t voff = int64_fetch_add (k2_p, kbuf), vk;
-	assert (voff + kbuf <= nv);
-	for (vk = 0; vk < kbuf; ++vk)
-	  vlist[voff + vk] = local[vk];
-  }
+  OMP("omp for nowait")
+    for (int64_t k = head; k < tail; ++k) {
+      const int64_t v = vlist[k];
+      const int64_t veo = xoff[1+v];
+      int64_t vo;
+      for (vo = xoff[v]; vo < veo; ++vo) {
+	const int64_t j = xadj[vo];
+	if (bfs_tree[j] == -1)
+	  if (int64_cas (&bfs_tree[j], -1, v))
+	    push_buf (local, &len, j, vlist, tail_in);
+      }
+    }
+  flush_buf (local, len, vlist, tail_in);
+
   OMP("omp single")
-    *k1_p = oldk2;
-  OMP("omp barrier");
+    *head_in = tail;
+
   return;
 }
 
@@ -405,67 +418,88 @@ int
 make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx)
 {
   int64_t * restrict bfs_tree = bfs_tree_out;
+  const size_t bmlen = (nv + 63) & ~63;
+  uint64_t * restrict past = NULL;
+  uint64_t * restrict next = NULL;
   int err = 0;
 
   int64_t * restrict vlist = NULL;
   int64_t k1, k2;
 
+  const int64_t down_cutoff = nv / BETA;
+  int64_t scout_count = xoff[1+srcvtx] - xoff[srcvtx];
+  int64_t awake_count = 1;
+
+  /* Size sanity checks. */
+#if 8 != CHAR_BIT
+#error "Hard-coded to support eight-bit bytes."
+#endif
+  assert (8 == sizeof (uint64_t));
+
   vlist = xmalloc_large (nv * sizeof (*vlist));
   if (!vlist) return -1;
 
+  past = xmalloc_large (bmlen * sizeof (*past));
+  next = xmalloc_large (bmlen * sizeof (*next));
+  if (!past || !next) { err = -1; goto done; }
+
   vlist[0] = srcvtx;
   k1 = 0; k2 = 1;
-  bfs_tree[srcvtx] = srcvtx;
 
-  bitmap_t past, next;
-  bm_init(&past, nv);
-  bm_init(&next, nv);
-
-  int64_t down_cutoff = nv / BETA;
-  int64_t scout_count = xoff[1+srcvtx] - xoff[srcvtx];
-
-  OMP("omp parallel shared(k1, k2, scout_count)") {
-    int64_t k;
-    int64_t nbuf[THREAD_BUF_LEN];
-    int64_t awake_count = 1;
+  OMP("omp parallel") {
+#if defined(MALLOC_THREAD_BUF)
+    int64_t * restrict local = xmalloc (THREAD_BUF_LEN * sizeof (*local));
+#else
+    int64_t local[THREAD_BUF_LEN];
+#endif
     int64_t edges_to_check = xoff[nv];
 
     OMP("omp for")
-      for (k = 0; k < srcvtx; ++k)
-	bfs_tree[k] = -1;
-    OMP("omp for")
-      for (k = srcvtx+1; k < nv; ++k)
-	bfs_tree[k] = -1;
+      for (int64_t k = 0; k < nv; ++k)
+	bfs_tree[k] = (k == srcvtx? srcvtx : -1);
 
-    while (awake_count != 0) {
-      // Top-down
+    while (k1 != k2) {
+      OMP("omp barrier");
       if (scout_count < ((edges_to_check - scout_count)/ALPHA)) {
-	bfs_top_down_step(bfs_tree, vlist, nbuf, &k1, &k2);
+	// Top-down
+	bfs_top_down_step (bfs_tree, vlist, &k1, &k2, local);
 	edges_to_check -= scout_count;
-	awake_count = k2-k1;
-      // Bottom-up
       } else {
-	fill_bitmap_from_queue(&next, vlist, k1, k2);
+	// Bottom-up
+	fill_bitmap_from_queue (next, bmlen, vlist, k1, k2);
 	do {
-	  awake_count = bfs_bottom_up_step(bfs_tree, &past, &next);
-	} while ((awake_count > down_cutoff));
-	fill_queue_from_bitmap(&next, vlist, &k1, &k2, nbuf);
-	OMP("omp barrier");
+	  OMP("omp barrier");
+	  /* Swap past & next */
+	  OMP("omp single") {
+	    uint64_t * restrict t = past;
+	    past = next;
+	    next = t;
+	    awake_count = 0;
+	  }
+	  bfs_bottom_up_step (bfs_tree, past, next, bmlen, &awake_count);
+	} while (awake_count > down_cutoff);
+	fill_queue_from_bitmap (next, vlist, &k1, &k2, local);
+	assert (awake_count == (k2 - k1));
       }
       // Count the number of edges in the frontier
       OMP("omp single")
 	scout_count = 0;
-      OMP("omp for reduction(+ : scout_count)")
-      for (int64_t i=k1; i<k2; i++) {
-	int64_t v = vlist[i];
-	scout_count += xoff[1+v] - xoff[v];
-      }
+      OMP("omp for reduction(+: scout_count)")
+	for (int64_t i=k1; i<k2; i++) {
+	  int64_t v = vlist[i];
+	  scout_count += xoff[1+v] - xoff[v];
+	}
     }
+
+#if defined(MALLOC_THREAD_BUF)
+    free (local);
+#endif
   }
 
-  bm_free(&past);
-  bm_free(&next);
-  xfree_large (vlist);
+ done:
+  if (past) xfree_large (past);
+  if (next) xfree_large (next);
+  if (vlist) xfree_large (vlist);
 
   return err;
 }
@@ -483,10 +517,10 @@ int64_fetch_add (int64_t* p, int64_t incr)
 {
   return __sync_fetch_and_add (p, incr);
 }
-int64_t
-int64_casval(int64_t* p, int64_t oldval, int64_t newval)
+uint64_t
+uint64_fetch_or (uint64_t* p, uint64_t v)
 {
-  return __sync_val_compare_and_swap (p, oldval, newval);
+  return __sync_fetch_and_or (p, v);
 }
 int
 int64_cas(int64_t* p, int64_t oldval, int64_t newval)
@@ -506,17 +540,16 @@ int64_fetch_add (int64_t* p, int64_t incr)
   OMP("omp flush (p)");
   return t;
 }
-int64_t
-int64_casval(int64_t* p, int64_t oldval, int64_t newval)
+uint64_t
+uint64_fetch_or (uint64_t* p, uint64_t v)
 {
-  int64_t v;
-  OMP("omp critical (CAS)") {
-    v = *p;
-    if (v == oldval)
-      *p = newval;
+  uint64_t t;
+  OMP("omp critical") {
+    t = *p;
+    *p |= v;
   }
   OMP("omp flush (p)");
-  return v;
+  return t;
 }
 int
 int64_cas(int64_t* p, int64_t oldval, int64_t newval)
@@ -542,12 +575,11 @@ int64_fetch_add (int64_t* p, int64_t incr)
   return t;
 }
 int64_t
-int64_casval(int64_t* p, int64_t oldval, int64_t newval)
+int64_fetch_or (int64_t* p, int64_t incr)
 {
-  int64_t v = *p;
-  if (v == oldval)
-    *p = newval;
-  return v;
+  int64_t t = *p;
+  *p |= incr;
+  return t;
 }
 int
 int64_cas(int64_t* p, int64_t oldval, int64_t newval)
