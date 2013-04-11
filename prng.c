@@ -39,6 +39,7 @@ init_prng (void)
 	abort ();				\
       }						\
     }						\
+    key.v[k] = t;				\
   }
   GET_SEED(0);
   GET_SEED(1);
