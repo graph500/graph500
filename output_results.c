@@ -151,9 +151,11 @@ output_results (const char * implementation,
   for (k = 0; k < NROOT; ++k)
     tm[k] = NE / bfs_time[k];
   statistics (stats, tm, NROOT);
+  printf ("K2TEPSMAX: %.8e\n", stats[4]);
   printf ("K2TEPSMEAN: %.8e\n", stats[7]);
   printf ("K2TEPSSTDDEV: %.8e\n", stats[8]);
 
+  printf ("K3TEPSMAX: %.8e\n", (double)0);
   printf ("K3TEPSMEAN: %.8e\n", (double)0);
   printf ("K3TEPSSTDDEV: %.8e\n", (double)0);
 
