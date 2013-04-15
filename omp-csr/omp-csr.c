@@ -353,10 +353,11 @@ fill_queue_from_bitmap (uint64_t * restrict bm,
 }
 
 static void
-bfs_bottom_up_step (int64_t * restrict bfs_tree,
+bfs_bottom_up_step (int64_t * restrict bfs_tree, int64_t * restrict bfs_tree_depth,
 		    const uint64_t * restrict past, uint64_t * restrict next,
 		    const size_t bmlen,
-		    int64_t * awake_count)
+		    int64_t * awake_count,
+		    int64_t level)
 {
   int64_t t_awake_count = 0;
 
@@ -372,6 +373,7 @@ bfs_bottom_up_step (int64_t * restrict bfs_tree,
 	  if (GET_BIT (past, j)) {
 	    ATOMIC_SET_BIT (next, i);
 	    bfs_tree[i] = j;
+	    if (bfs_tree_depth) bfs_tree_depth[i] = level;
 	    t_awake_count++;
 	    break;
 	  }
@@ -385,9 +387,11 @@ bfs_bottom_up_step (int64_t * restrict bfs_tree,
 
 static void
 bfs_top_down_step (int64_t * restrict bfs_tree,
+		   int64_t * restrict bfs_tree_depth,
 		   int64_t * restrict vlist,
 		   int64_t * head_in, int64_t * tail_in,
-		   int64_t * restrict local)
+		   int64_t * restrict local,
+		   int64_t level)
 {
   const int64_t tail = *tail_in;
   const int64_t head = *head_in;
@@ -399,11 +403,14 @@ bfs_top_down_step (int64_t * restrict bfs_tree,
       const int64_t v = vlist[k];
       const int64_t veo = xoff[1+v];
       int64_t vo;
+      assert (!bfs_tree_depth || (level == bfs_tree_depth[v]+1));
       for (vo = xoff[v]; vo < veo; ++vo) {
 	const int64_t j = xadj[vo];
 	if (bfs_tree[j] == -1)
-	  if (int64_cas (&bfs_tree[j], -1, v))
+	  if (int64_cas (&bfs_tree[j], -1, v)) {
 	    push_buf (local, &len, j, vlist, tail_in);
+	    if (bfs_tree_depth) bfs_tree_depth[j] = level;
+	  }
       }
     }
   flush_buf (local, len, vlist, tail_in);
@@ -415,9 +422,10 @@ bfs_top_down_step (int64_t * restrict bfs_tree,
 }
 
 int
-make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx)
+make_bfs_tree (int64_t *bfs_tree_out, int64_t *bfs_tree_depth_out, int64_t srcvtx)
 {
   int64_t * restrict bfs_tree = bfs_tree_out;
+  int64_t * restrict bfs_tree_depth = bfs_tree_depth_out;
   const size_t bmlen = (nv + 63) & ~63;
   uint64_t * restrict past = NULL;
   uint64_t * restrict next = NULL;
@@ -453,16 +461,20 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx)
     int64_t local[THREAD_BUF_LEN];
 #endif
     int64_t edges_to_check = xoff[nv];
+    int64_t level = 0;
 
     OMP("omp for")
-      for (int64_t k = 0; k < nv; ++k)
+      for (int64_t k = 0; k < nv; ++k) {
 	bfs_tree[k] = (k == srcvtx? srcvtx : -1);
+	if (bfs_tree_depth) bfs_tree_depth[k] = (k == srcvtx? 0 : -1);
+      }
 
     while (k1 != k2) {
       OMP("omp barrier");
       if (scout_count < ((edges_to_check - scout_count)/ALPHA)) {
+	++level;
 	// Top-down
-	bfs_top_down_step (bfs_tree, vlist, &k1, &k2, local);
+	bfs_top_down_step (bfs_tree, bfs_tree_depth, vlist, &k1, &k2, local, level);
 	edges_to_check -= scout_count;
       } else {
 	// Bottom-up
@@ -470,13 +482,15 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t srcvtx)
 	do {
 	  OMP("omp barrier");
 	  /* Swap past & next */
+	  ++level;
 	  OMP("omp single") {
 	    uint64_t * restrict t = past;
 	    past = next;
 	    next = t;
 	    awake_count = 0;
 	  }
-	  bfs_bottom_up_step (bfs_tree, past, next, bmlen, &awake_count);
+	  bfs_bottom_up_step (bfs_tree, bfs_tree_depth, past, next, bmlen,
+			      &awake_count, level);
 	} while (awake_count > down_cutoff);
 	fill_queue_from_bitmap (next, vlist, &k1, &k2, local);
 	assert (awake_count == (k2 - k1));

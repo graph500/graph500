@@ -152,29 +152,32 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 }
 
 int
-make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
-	       int64_t srcvtx)
+make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcvtx)
 {
   int64_t * restrict bfs_tree = bfs_tree_out;
+  int64_t * restrict bfs_tree_depth = bfs_tree_depth_out;
+  int64_t level = 0;
   int err = 0;
 
   int64_t * restrict vlist = NULL;
   int64_t k1, k2;
 
-  *max_vtx_out = maxvtx;
-
   vlist = xmalloc_large (nv * sizeof (*vlist));
   if (!vlist) return -1;
 
-  for (k1 = 0; k1 < nv; ++k1)
+  for (k1 = 0; k1 < nv; ++k1) {
     bfs_tree[k1] = -1;
+    if (bfs_tree_depth) bfs_tree_depth_out[k1] = -1;
+  }
 
   vlist[0] = srcvtx;
   bfs_tree[srcvtx] = srcvtx;
+  if (bfs_tree_depth) bfs_tree_depth[srcvtx] = level;
   k1 = 0; k2 = 1;
   while (k1 != k2) {
     const int64_t oldk2 = k2;
     int64_t k;
+    ++level;
     MTA("mta assert nodep") MTA("mta use 100 streams") MTA("mta interleave schedule")
     for (k = k1; k < oldk2; ++k) {
       const int64_t v = vlist[k];
@@ -188,6 +191,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
 	  if (t == -1) {
 	    t = v;
 	    vlist[int_fetch_add (&k2, 1)] = j;
+	    if (bfs_tree_depth) bfs_tree_depth[j] = level;
 	  }
 	  writeef (&bfs_tree[j], t);
 	}

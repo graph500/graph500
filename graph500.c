@@ -106,6 +106,8 @@ void
 run_bfs (void)
 {
   int m, err;
+  int64_t * bfs_tree = NULL;
+  int64_t * bfs_tree_depth = NULL;
 
   if (VERBOSE) fprintf (stderr, "Creating graph...");
   TIME(construction_time, err = create_graph_from_edgelist (IJ, NE, NV));
@@ -137,16 +139,17 @@ run_bfs (void)
     close (fd);
   }
 
-  for (m = 0; m < NROOT; ++m) {
-    int64_t *bfs_tree;
+  bfs_tree = xmalloc_large (NV * sizeof (*bfs_tree));
+#if defined(USE_BFS_TREE_DEPTH)
+  bfs_tree_depth = xmalloc_large (NV * sizeof (*bfs_tree_depth));
+#endif
 
-    /* Re-allocate. Some systems may randomize the addres... */
-    bfs_tree = xmalloc_large (NV * sizeof (*bfs_tree));
+  for (m = 0; m < NROOT; ++m) {
     assert (bfs_root[m] < NV);
 
     if (VERBOSE) fprintf (stderr, "Running bfs %d from %" PRId64 "...", m,
 			  bfs_root[m]);
-    TIME(bfs_time[m], err = make_bfs_tree (bfs_tree, bfs_root[m]));
+    TIME(bfs_time[m], err = make_bfs_tree (bfs_tree, bfs_tree_depth, bfs_root[m]));
     if (VERBOSE) fprintf (stderr, " done\n");
 
     if (err) {
@@ -157,8 +160,9 @@ run_bfs (void)
     if (!SKIP_VERIFY) {
       if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
       TIME(bfs_verify_time[m],
-	   bfs_depth[m] = verify_bfs_tree (bfs_tree, NULL, bfs_root[m], bfs_time[m],
-					   IJ, NE));
+	   bfs_depth[m] = verify_tree (bfs_tree, bfs_tree_depth, 1,
+				       bfs_root[m], bfs_time[m],
+				       IJ, NE));
       if (VERBOSE) fprintf (stderr, "done\n");
       if (bfs_depth[m] < 0) {
 	fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
@@ -166,9 +170,11 @@ run_bfs (void)
 	abort ();
       }
     }
-
-    xfree_large (bfs_tree);
   }
 
+#if defined(USE_BFS_TREE_DEPTH)
+  if (bfs_tree_depth) xfree_large (bfs_tree_depth);
+#endif
+  xfree_large (bfs_tree);
   destroy_graph ();
 }

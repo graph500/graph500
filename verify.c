@@ -18,6 +18,12 @@
 #include "generator.h"
 #include "verify.h"
 
+#if defined(ABORT_ON_VERIFICATION_FAILURE)
+#define ABORT abort()
+#else
+#define ABORT
+#endif
+
 static int64_t int64_casval(int64_t* p, int64_t oldval, int64_t newval);
 
 static int
@@ -47,8 +53,8 @@ compute_levels (int64_t * level,
 	    parent = bfs_tree[parent];
 	    ++nhop;
 	  }
-	  if (nhop >= nv) terr = -1; /* Cycle. */
-	  if (parent < 0) terr = -2; /* Ran off the end. */
+	  if (nhop >= nv) { terr = -1; /* Cycle. */ ABORT; }
+	  if (parent < 0) { terr = -2; /* Ran off the end. */ ABORT; }
 
 	  if (!terr) {
 	    /* Now assign levels until we meet an already-leveled vertex */
@@ -189,26 +195,25 @@ gather_sample (const int64_t * restrict tree,
 }
 
 int64_t
-verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
-		 const int64_t root, const double kerneltime,
-		 const struct packed_edge *IJ_in, int64_t nedge)
+verify_tree (const int64_t *tree_in, const int64_t *tree_depth_in,
+	     const int is_bfs,
+	     const int64_t root, const double kerneltime,
+	     const struct packed_edge *IJ_in, int64_t nedge)
 {
   const size_t NSAMPV = (2*SCALE > NV? NV : 2*SCALE);
-  const int is_bfs = 1;
-  const int64_t * restrict bfs_tree = bfs_tree_in;
-  const int64_t * restrict level = level_in;
+  const int64_t * restrict tree = tree_in;
+  const int64_t * restrict tree_depth = tree_depth_in;
   const struct packed_edge * restrict IJ = IJ_in;
 
   int err = 0;
   int64_t maxdepth = -1;
 
-  int64_t * restrict level_tmp = NULL;
+  int64_t * restrict tree_depth_tmp = NULL;
   int64_t * restrict tree_edge = NULL; /* NV x 2 */
   int64_t * restrict sampled_vertex = NULL; /* NSAMPV */
   int64_t * restrict sampled_edge = NULL; /* NSAMPV x EF x 2*/
 
-
-  if (root >= NV || bfs_tree[root] != root)
+  if (root >= NV || tree[root] != root)
     return -999;
 
   err = 0;
@@ -217,8 +222,8 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
     int terr = 0;
     OMP("omp for")
       for (int64_t v = 0; v < NV; ++v) {
-	if (bfs_tree[v] < 0 || bfs_tree[v] >= NV)
-	  terr = -1000;
+	if (tree[v] < 0 || tree[v] >= NV)
+	  { terr = -1000; ABORT; }
       }
     if (terr && !err)
       OMP("omp critical")
@@ -226,10 +231,10 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
   }
   if (err) return err;
 
-  if (!level_in) {
-    level_tmp = xmalloc_large (NV * sizeof (*level_tmp));
-    err = compute_levels (level_tmp, NV, bfs_tree, root);
-    level = level_tmp; /* Type launder to const. */
+  if (!tree_depth_in) {
+    tree_depth_tmp = xmalloc_large (NV * sizeof (*tree_depth_tmp));
+    err = compute_levels (tree_depth_tmp, NV, tree, root);
+    tree_depth = tree_depth_tmp; /* Type launder to const. */
   }
 
   if (err) goto done;
@@ -239,7 +244,7 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
   sampled_edge = xmalloc (2 * NSAMPV * EF * sizeof (*sampled_edge));
 
   sample_roots (sampled_vertex, NSAMPV, ceil (NE / kerneltime));
-  gather_sample (bfs_tree, level, tree_edge, sampled_vertex, sampled_edge, IJ);
+  gather_sample (tree, tree_depth, tree_edge, sampled_vertex, sampled_edge, IJ);
 
   OMP("omp parallel") {
     int terr = 0;
@@ -250,24 +255,24 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
 	  /* Check that the tree is rooted and without cycles. */
 	  int64_t nhop = 0;
 	  int64_t v = k;
-	  while (nhop < NV && bfs_tree[v] != v) {
-	    v = bfs_tree[v];
+	  while (nhop < NV && tree[v] != v) {
+	    v = tree[v];
 	    ++nhop;
 	  }
-	  if (nhop >= NV) { terr = -1; /* Cycle. */ goto vdone; }
-	  if (v != root) { terr = -16; /* More than one root. */ goto vdone; }
+	  if (nhop >= NV) { terr = -1; /* Cycle. */ ABORT; goto vdone; }
+	  if (v != root) { terr = -16; /* More than one root. */ ABORT; goto vdone; }
 
-	  if (level[k] > tmaxdepth) tmaxdepth = level[k];
+	  if (tree_depth[k] > tmaxdepth) tmaxdepth = tree_depth[k];
 
 	  if (k != root) {
 	    /* Check that the tree edge exists. */
 	    if (tree_edge[k] == 0)
-	      terr = -15;
+	      { terr = -15; ABORT; goto vdone; }
 	    else {
 	      /* Check complimentary slackness on the tree edge. */
 	      int64_t pd_gap = (is_bfs? 1 : tree_edge[k]) +
-		level[bfs_tree[k]] - level[k];
-	      if (pd_gap) { terr = -32; goto vdone; }
+		tree_depth[tree[k]] - tree_depth[k];
+	      if (pd_gap) { terr = -32; ABORT; goto vdone; }
 	    }
 	  }
 	vdone:
@@ -294,17 +299,17 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
 	  int64_t j = sampled_edge[kk + k*EF];
 	  if (j >= 0) {
 	    int64_t w = sampled_edge[kk + k*EF + NSAMPV*EF];
-	    int dir = (1 - 2*(level[i] > level[j]));
-	    int64_t pd_gap = (is_bfs? 1 : w) + dir * (level[i] - level[j]);
+	    int dir = (1 - 2*(tree_depth[i] > tree_depth[j]));
+	    int64_t pd_gap = (is_bfs? 1 : w) + dir * (tree_depth[i] - tree_depth[j]);
 	    if (is_bfs && (pd_gap < -1 || pd_gap > 1))
-	      terr = -33; /* Edges cross more than one level. */
+	      { terr = -33; /* Edges cross more than one level. */ ABORT; }
 	    else if (pd_gap < 0)
-	      terr = -34; /* Constraints violated. */
+	      { terr = -34; /* Constraints violated. */ ABORT; }
 #if 0
 	    /* Left-over code for debugging the verifier. */
 	    if (terr)
-	      fprintf (stderr, "rt %d: (%d, %d; %d) [%d]  level[i] %d  level[j] %d  pd_gap %d     %d\n",
-		       (int)root, (int)i, (int)j, (int)w, dir, (int)level[i], (int)level[j],
+	      fprintf (stderr, "rt %d: (%d, %d; %d) [%d]  tree_depth[i] %d  tree_depth[j] %d  pd_gap %d     %d\n",
+		       (int)root, (int)i, (int)j, (int)w, dir, (int)tree_depth[i], (int)tree_depth[j],
 		       (int)pd_gap, terr);
 	    assert (!terr);
 #endif
@@ -321,7 +326,7 @@ verify_bfs_tree (const int64_t *bfs_tree_in, const int64_t *level_in,
   if (sampled_edge) free (sampled_edge);
   if (sampled_vertex) free (sampled_vertex);
   if (tree_edge) xfree_large (tree_edge);
-  if (level_tmp) xfree_large (level_tmp);
+  if (tree_depth_tmp) xfree_large (tree_depth_tmp);
   if (err) return err;
   return maxdepth;
 }
