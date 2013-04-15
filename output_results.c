@@ -128,7 +128,9 @@ output_results (const char * implementation,
 		const double construction_time,
 		const int64_t *root,
 		const double *bfs_time, const int64_t *bfs_depth,
-		const double *bfs_verify_time)
+		const double *bfs_verify_time,
+		const double *sssp_time, const int64_t *sssp_depth,
+		const double *sssp_verify_time)
 {
   int k;
   int64_t sz;
@@ -167,9 +169,12 @@ output_results (const char * implementation,
   printf ("K2TEPSMEAN: %.8e\n", stats[7]);
   printf ("K2TEPSSTDDEV: %.8e\n", stats[8]);
 
-  printf ("K3TEPSMAX: %.8e\n", (double)0);
-  printf ("K3TEPSMEAN: %.8e\n", (double)0);
-  printf ("K3TEPSSTDDEV: %.8e\n", (double)0);
+  for (k = 0; k < NROOT; ++k)
+    tm[k] = NE / sssp_time[k];
+  statistics (stats, tm, NROOT);
+  printf ("K3TEPSMAX: %.8e\n", stats[4]);
+  printf ("K3TEPSMEAN: %.8e\n", stats[7]);
+  printf ("K3TEPSSTDDEV: %.8e\n", stats[8]);
 
   printf ("\nroot,k2time,k2max,k2vtime,k3time,k3max,k3vtime\n");
   for (k = 0; k < NROOT; ++k)

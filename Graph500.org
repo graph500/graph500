@@ -160,14 +160,15 @@ be described below:
   6. Compute and output performance information.
 
 Only the sections marked as *timed* are included in the performance
-information.  All mentions of "random" refer to the reproducible
-pseudo-random number generator included in the [[http://www.graph500.org/reference.html][reference implementation]].
-This benchmark is an artificial system measurement and not a direct
-representation of actual applications.  Therefore no extra information
-like optimal parameter settings may be passed between kernel
-invocations, although [[#kernel1][Kernel 1]] may pre-compute reasonable data
-statistics and parameters used by *all* later kernels without further
-changes.
+information.  Note that the [[#kernel2][Kernel 2]] and [[#kernel 3][Kernel 3]] are run in separate
+loops and not consecutively off the same initial vertex.  All mentions
+of "random" refer to the reproducible pseudo-random number generator
+included in the [[http://www.graph500.org/reference.html][reference implementation]].  This benchmark is an
+artificial system measurement and not a direct representation of actual
+applications.  Therefore no extra information like optimal parameter
+settings may be passed between kernel invocations, although [[#kernel1][Kernel 1]] may
+pre-compute reasonable data statistics and parameters used by *all*
+later kernels without further changes.
 
 * Parameter Summary
 

@@ -534,6 +534,14 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *bfs_tree_depth_out, int64_t srcvt
   return err;
 }
 
+int
+make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_depth_out,
+		int64_t srcvtx)
+{
+  /* Stub that just errors out. */
+  return 1;
+}
+
 void
 destroy_graph (void)
 {

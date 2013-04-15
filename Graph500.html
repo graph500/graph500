@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-	       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 ("Search")</title>
+<!-- 2013-04-15 Mon 11:21 -->
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-<meta name="title" content="Graph 500 Benchmark 1 ("Search")"/>
 <meta name="generator" content="Org-mode"/>
 <meta name="author" content="Graph 500 Steering Committee"/>
 <style type="text/css">
@@ -20,8 +19,8 @@
   .right  { margin-left: auto; margin-right: 0px;  text-align: right; }
   .left   { margin-left: 0px;  margin-right: auto; text-align: left; }
   .center { margin-left: auto; margin-right: auto; text-align: center; }
-  #content { margin: 3em; }
-  #postamble p, a { font-size: 90%; margin: .2em; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
   p.verse { margin-left: 3%; }
   pre {
     border: 1px solid #ccc;
@@ -56,29 +55,34 @@
 
   table { border-collapse:collapse; }
   td, th { vertical-align:top;  }
-  th.right  { text-align:center;  }
-  th.left   { text-align:center;   }
-  th.center { text-align:center; }
-  td.right  { text-align:right;  }
-  td.left   { text-align:left;   }
-  td.center { text-align:center; }
+  th.right  { text-align: center;  }
+  th.left   { text-align: center;   }
+  th.center { text-align: center; }
+  td.right  { text-align: right;  }
+  td.left   { text-align: left;   }
+  td.center { text-align: center; }
   dt { font-weight: bold; }
-  div.figure { padding:1em; }
-  div.figure p { text-align:center; }
-  div.inlinetask {
-    padding:10px;
-    border:2px solid gray;
-    margin:10px;
+  .footpara:nth-child(2) { display: inline; }
+  .footpara { display: block; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
     background: #ffffcc;
   }
-  textarea { overflow-x:auto; }
-  .linenr { font-size:smaller }
-  .code-highlighted { background-color:#ffff00; }
-  .org-info-js_info-navigation { border-style:none; }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
   #org-info-js_console-label
-    { font-size:10px; font-weight:bold; white-space:nowrap; }
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
   .org-info-js_search-highlight
-    { background-color:#ffff00; color:#000000; font-weight:bold; }
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
   /*]]>*/-->
 </style>
 <style>body {margin: 0 auto; max-width: 40em;} table {margin-left:auto; margin-right:auto;}</style>
@@ -288,7 +292,7 @@ algorithm.  This will permit a handful of vertex degree thresholds.
 
 </div>
 
-<div id="outline-container-1" class="outline-2">
+<div id="outline-container-sec-1" class="outline-2">
 <h2 id="sec-1"><span class="section-number-2">1</span> Introduction</h2>
 <div class="outline-text-2" id="text-1">
 <p>
@@ -334,7 +338,7 @@ how graph searches behave on available platforms.
 </p>
 </div>
 
-<div id="outline-container-1-1" class="outline-3">
+<div id="outline-container-sec-1-1" class="outline-3">
 <h3 id="sec-1-1"><span class="section-number-3">1.1</span> The role of the reference implementation</h3>
 <div class="outline-text-3" id="text-1-1">
 <p>
@@ -359,7 +363,7 @@ reference generator.
 </p>
 </div>
 </div>
-<div id="outline-container-1-2" class="outline-3">
+<div id="outline-container-sec-1-2" class="outline-3">
 <h3 id="sec-1-2"><span class="section-number-3">1.2</span> Significant changes in V2.0</h3>
 <div class="outline-text-3" id="text-1-2">
 <ul class="org-ul">
@@ -422,7 +426,7 @@ not need to compute their own statistics.
 </ul>
 </div>
 </div>
-<div id="outline-container-1-3" class="outline-3">
+<div id="outline-container-sec-1-3" class="outline-3">
 <h3 id="sec-1-3"><span class="section-number-3">1.3</span> References</h3>
 <div class="outline-text-3" id="text-1-3">
 <ul class="org-ul">
@@ -446,7 +450,7 @@ CA, 25-27 October 2006.
 </div>
 </div>
 </div>
-<div id="outline-container-2" class="outline-2">
+<div id="outline-container-sec-2" class="outline-2">
 <h2 id="sec-2"><span class="section-number-2">2</span> Overall Benchmark Structure</h2>
 <div class="outline-text-2" id="text-2">
 <p>
@@ -486,18 +490,19 @@ SSSP search tree for the given search tree.
 
 <p>
 Only the sections marked as <b>timed</b> are included in the performance
-information.  All mentions of "random" refer to the reproducible
-pseudo-random number generator included in the <a href="http://www.graph500.org/reference.html">reference implementation</a>.
-This benchmark is an artificial system measurement and not a direct
-representation of actual applications.  Therefore no extra information
-like optimal parameter settings may be passed between kernel
-invocations, although <a href="#kernel1">Kernel 1</a> may pre-compute reasonable data
-statistics and parameters used by <b>all</b> later kernels without further
-changes.
+information.  Note that the <a href="#kernel2">Kernel 2</a> and <i>Kernel 3</i> are run in separate
+loops and not consecutively off the same initial vertex.  All mentions
+of "random" refer to the reproducible pseudo-random number generator
+included in the <a href="http://www.graph500.org/reference.html">reference implementation</a>.  This benchmark is an
+artificial system measurement and not a direct representation of actual
+applications.  Therefore no extra information like optimal parameter
+settings may be passed between kernel invocations, although <a href="#kernel1">Kernel 1</a> may
+pre-compute reasonable data statistics and parameters used by <b>all</b>
+later kernels without further changes.
 </p>
 </div>
 </div>
-<div id="outline-container-3" class="outline-2">
+<div id="outline-container-sec-3" class="outline-2">
 <h2 id="sec-3"><span class="section-number-2">3</span> Parameter Summary</h2>
 <div class="outline-text-2" id="text-3">
 <p>
@@ -577,7 +582,7 @@ sampling.
 </p>
 </div>
 
-<div id="outline-container-4-1" class="outline-3">
+<div id="outline-container-sec-4-1" class="outline-3">
 <h3 id="sec-4-1"><span class="section-number-3">4.1</span> References</h3>
 <div class="outline-text-3" id="text-4-1">
 <ul class="org-ul">
@@ -594,7 +599,7 @@ NY, USA.  <a href="http://dx.doi.org/10.1145/2063384.2063405">http://dx.doi.org/
 </div>
 </div>
 </div>
-<div id="outline-container-5" class="outline-2">
+<div id="outline-container-sec-5" class="outline-2">
 <h2 id="sec-5"><span class="section-number-2">5</span> Edge List Generation</h2>
 <div class="outline-text-2" id="text-5">
 <p>
@@ -623,7 +628,7 @@ If in doubt, use the reference implementation edge generation routines.
 </p>
 </div>
 
-<div id="outline-container-5-1" class="outline-3">
+<div id="outline-container-sec-5-1" class="outline-3">
 <h3 id="sec-5-1"><span class="section-number-3">5.1</span> Mapping the Edge List onto Distinguished Memory Spaces</h3>
 <div class="outline-text-3" id="text-5-1">
 <p>
@@ -683,7 +688,7 @@ than one fewer edge than any other space of the same size.
 </p>
 </div>
 </div>
-<div id="outline-container-5-2" class="outline-3">
+<div id="outline-container-sec-5-2" class="outline-3">
 <h3 id="sec-5-2"><span class="section-number-3">5.2</span> Permuting Edge List Indices</h3>
 <div class="outline-text-3" id="text-5-2">
 <p>
@@ -730,7 +735,7 @@ endfunction
 </div>
 </div>
 </div>
-<div id="outline-container-5-3" class="outline-3">
+<div id="outline-container-sec-5-3" class="outline-3">
 <h3 id="sec-5-3"><span class="section-number-3">5.3</span> Edge List Entries</h3>
 <div class="outline-text-3" id="text-5-3">
 <p>
@@ -775,7 +780,7 @@ endfunction
 </div>
 </div>
 
-<div id="outline-container-5-3-1" class="outline-4">
+<div id="outline-container-sec-5-3-1" class="outline-4">
 <h4 id="sec-5-3-1"><span class="section-number-4">5.3.1</span> Tree Edges</h4>
 <div class="outline-text-4" id="text-5-3-1">
 <p>
@@ -795,7 +800,7 @@ endfunction
 </div>
 </div>
 </div>
-<div id="outline-container-5-3-2" class="outline-4">
+<div id="outline-container-sec-5-3-2" class="outline-4">
 <h4 id="sec-5-3-2"><span class="section-number-4">5.3.2</span> RMAT Edges</h4>
 <div class="outline-text-4" id="text-5-3-2">
 <p>
@@ -820,7 +825,7 @@ each level as in [Seshadhri, <i>et al</i>., 2011].  Algorithm
 edges and shows the mapping from edge index to PRNG arguments.
 </p>
 
-<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides" id="tbl:initiator">
+<table id="tbl:initiator" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 <caption>Initiator parameters for the RMAT graph generator</caption>
 
 <colgroup>
@@ -903,7 +908,7 @@ endfunction
 </div>
 </div>
 </div>
-<div id="outline-container-5-4" class="outline-3">
+<div id="outline-container-sec-5-4" class="outline-3">
 <h3 id="sec-5-4"><span class="section-number-3">5.4</span> Scrambling Vertex Numbers</h3>
 <div class="outline-text-3" id="text-5-4">
 <p>
@@ -914,7 +919,7 @@ uses two 64-bit seed values derived from PRNG(-1, -1).
 </p>
 </div>
 </div>
-<div id="outline-container-5-5" class="outline-3">
+<div id="outline-container-sec-5-5" class="outline-3">
 <h3 id="sec-5-5"><span class="section-number-3">5.5</span> References</h3>
 <div class="outline-text-3" id="text-5-5">
 <ul class="org-ul">
@@ -936,7 +941,7 @@ Conference on Data Mining (ICDM), pp.587-596, 11-14 Dec. 2011 doi:
 <div class="outline-text-2" id="text-kernel1">
 </div>
 
-<div id="outline-container-6-1" class="outline-3">
+<div id="outline-container-sec-6-1" class="outline-3">
 <h3 id="sec-6-1"><span class="section-number-3">6.1</span> Description</h3>
 <div class="outline-text-3" id="text-6-1">
 <p>
@@ -1043,15 +1048,16 @@ as a pair of double-precision floating point numbers.  Algorithm
       N -= 1;
       quot *= top / N;
     endwhile
-    cur += S;
+    cur += S+1;
     root(m) = cur;
     N -= 1;
   endfor
   rv = dpPRNG (NE, NROOT-1);
   r = rv(1);
   S = floor (N * r);
-  cur += S;
+  cur += S+1;
   root(NROOT) = cur;
+  root -= 1; # Zero-indexed.
   assert (root &gt;= 0 &amp;&amp; root &lt; NV);
 endfunction
 </pre>
@@ -1063,7 +1069,7 @@ endfunction
 <div class="outline-text-2" id="text-kernel2">
 </div>
 
-<div id="outline-container-8-1" class="outline-3">
+<div id="outline-container-sec-8-1" class="outline-3">
 <h3 id="sec-8-1"><span class="section-number-3">8.1</span> Description</h3>
 <div class="outline-text-3" id="text-8-1">
 <p>
@@ -1107,7 +1113,7 @@ considered to be correct.
 </p>
 </div>
 </div>
-<div id="outline-container-8-2" class="outline-3">
+<div id="outline-container-sec-8-2" class="outline-3">
 <h3 id="sec-8-2"><span class="section-number-3">8.2</span> Kernel 2 Output</h3>
 <div class="outline-text-3" id="text-8-2">
 <p>
@@ -1159,7 +1165,7 @@ endfunction
 <div class="outline-text-2" id="text-kernel3">
 </div>
 
-<div id="outline-container-9-1" class="outline-3">
+<div id="outline-container-sec-9-1" class="outline-3">
 <h3 id="sec-9-1"><span class="section-number-3">9.1</span> Description</h3>
 <div class="outline-text-3" id="text-9-1">
 <p>
@@ -1195,7 +1201,7 @@ correct.
 </p>
 </div>
 </div>
-<div id="outline-container-9-2" class="outline-3">
+<div id="outline-container-sec-9-2" class="outline-3">
 <h3 id="sec-9-2"><span class="section-number-3">9.2</span> Kernel 3 Output</h3>
 <div class="outline-text-3" id="text-9-2">
 <p>
@@ -1247,7 +1253,7 @@ endfunction
 </div>
 </div>
 </div>
-<div id="outline-container-9-3" class="outline-3">
+<div id="outline-container-sec-9-3" class="outline-3">
 <h3 id="sec-9-3"><span class="section-number-3">9.3</span> References</h3>
 <div class="outline-text-3" id="text-9-3">
 <p>
@@ -1264,7 +1270,7 @@ Mathematical Society, 2009.
 </div>
 </div>
 </div>
-<div id="outline-container-10" class="outline-2">
+<div id="outline-container-sec-10" class="outline-2">
 <h2 id="sec-10"><span class="section-number-2">10</span> Validation</h2>
 <div class="outline-text-2" id="text-10">
 <p>
@@ -1300,7 +1306,8 @@ the discovered SSSP tree of parents is correct by ensuring that:
 </p>
 
 <ol class="org-ol">
-<li>the SSSP tree is a rooted tree and does not contain cycles,
+<li>the SSSP tree is a tree rooted and the search vertex and without
+cycles,
 </li>
 <li>a node and its parent are joined by an edge of the original graph,
 </li>
@@ -1460,10 +1467,10 @@ endfunction
 </div>
 </div>
 </div>
-<div id="outline-container-11" class="outline-2">
+<div id="outline-container-sec-11" class="outline-2">
 <h2 id="sec-11"><span class="section-number-2">11</span> Computing and Presenting Performance Information</h2>
 <div class="outline-text-2" id="text-11">
-</div><div id="outline-container-11-1" class="outline-3">
+</div><div id="outline-container-sec-11-1" class="outline-3">
 <h3 id="sec-11-1"><span class="section-number-3">11.1</span> Timing</h3>
 <div class="outline-text-3" id="text-11-1">
 <p>
@@ -1706,7 +1713,7 @@ analysis.
 </p>
 </div>
 
-<div id="outline-container-12-1" class="outline-3">
+<div id="outline-container-sec-12-1" class="outline-3">
 <h3 id="sec-12-1"><span class="section-number-3">12.1</span> Performance Metric (TEPS)</h3>
 <div class="outline-text-3" id="text-12-1">
 <p>
@@ -1722,7 +1729,7 @@ second (TEPS). We measure TEPS through the benchmarking of Kernels <a href="#ker
 or <a href="#kernel3">Kernel 3</a>.  We define the normalized performance rate (number of edge
 traversals per second) as:
 </p>
-<div style="text-align: center">
+<div class="center">
 <p>
 TEPS(n) = NE / time<sub>k</sub>(n) .
 </p>
@@ -1738,7 +1745,7 @@ than counting the actual operations performed in optimized kernels.
 </div>
 </div>
 </div>
-<div id="outline-container-13" class="outline-2">
+<div id="outline-container-sec-13" class="outline-2">
 <h2 id="sec-13"><span class="section-number-2">13</span> Sample Driver</h2>
 <div class="outline-text-2" id="text-13">
 <p>

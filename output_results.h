@@ -11,6 +11,9 @@ output_results (const char * implementation,
 		const int64_t *root,
 		const double *bfs_time,
 		const int64_t *bfs_depth,
-		const double *bfs_verify_time);
+		const double *bfs_verify_time,
+		const double *sssp_time,
+		const int64_t *sssp_depth,
+		const double *sssp_verify_time);
 
 #endif /* OUTPUT_RESULTS_HEADER_ */

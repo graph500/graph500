@@ -34,9 +34,14 @@ static int64_t bfs_root[NROOT_MAX];
 
 static double generation_time;
 static double construction_time;
+
 static double bfs_time[NROOT_MAX];
 static int64_t bfs_depth[NROOT_MAX];
 static double bfs_verify_time[NROOT_MAX];
+
+static double sssp_time[NROOT_MAX];
+static int64_t sssp_depth[NROOT_MAX];
+static double sssp_verify_time[NROOT_MAX];
 
 static packed_edge * restrict IJ = NULL;
 
@@ -97,7 +102,8 @@ main (int argc, char **argv)
   output_results (IMPLEMENTATION,
 		  generation_time, construction_time,
 		  bfs_root,
-		  bfs_time, bfs_depth, bfs_verify_time);
+		  bfs_time, bfs_depth, bfs_verify_time,
+		  sssp_time, sssp_depth, sssp_verify_time);
 
   return EXIT_SUCCESS;
 }
@@ -106,8 +112,8 @@ void
 run_bfs (void)
 {
   int m, err;
-  int64_t * bfs_tree = NULL;
-  int64_t * bfs_tree_depth = NULL;
+  int64_t * tree = NULL;
+  int64_t * tree_depth = NULL;
 
   if (VERBOSE) fprintf (stderr, "Creating graph...");
   TIME(construction_time, err = create_graph_from_edgelist (IJ, NE, NV));
@@ -139,17 +145,19 @@ run_bfs (void)
     close (fd);
   }
 
-  bfs_tree = xmalloc_large (NV * sizeof (*bfs_tree));
-#if defined(USE_BFS_TREE_DEPTH)
-  bfs_tree_depth = xmalloc_large (NV * sizeof (*bfs_tree_depth));
-#endif
+  tree = xmalloc_large (NV * sizeof (*tree));
+  tree_depth = xmalloc_large (NV * sizeof (*tree_depth));
 
   for (m = 0; m < NROOT; ++m) {
+    int64_t * depth = NULL;
     assert (bfs_root[m] < NV);
 
     if (VERBOSE) fprintf (stderr, "Running bfs %d from %" PRId64 "...", m,
 			  bfs_root[m]);
-    TIME(bfs_time[m], err = make_bfs_tree (bfs_tree, bfs_tree_depth, bfs_root[m]));
+#if defined(USE_BFS_TREE_DEPTH)
+    depth = tree_depth;
+#endif
+    TIME(bfs_time[m], err = make_bfs_tree (tree, depth, bfs_root[m]));
     if (VERBOSE) fprintf (stderr, " done\n");
 
     if (err) {
@@ -159,7 +167,7 @@ run_bfs (void)
     } else if (!SKIP_VERIFY) {
       if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
       TIME(bfs_verify_time[m],
-	   bfs_depth[m] = verify_tree (bfs_tree, bfs_tree_depth, 1,
+	   bfs_depth[m] = verify_tree (tree, depth, 1,
 				       bfs_root[m], bfs_time[m],
 				       IJ, NE));
       if (VERBOSE) fprintf (stderr, "done\n");
@@ -171,9 +179,35 @@ run_bfs (void)
     }
   }
 
-#if defined(USE_BFS_TREE_DEPTH)
-  if (bfs_tree_depth) xfree_large (bfs_tree_depth);
-#endif
-  xfree_large (bfs_tree);
+  for (m = 0; m < NROOT; ++m) {
+    assert (bfs_root[m] < NV);
+
+    if (VERBOSE) fprintf (stderr, "Running sssp %d from %" PRId64 "...", m,
+			  bfs_root[m]);
+    TIME(sssp_time[m], err = make_sssp_tree (tree, tree_depth,
+					     bfs_root[m]));
+    if (VERBOSE) fprintf (stderr, " done\n");
+
+    if (err) {
+      perror ("make_sssp_tree failed");
+      sssp_time[m] = -1;
+      sssp_depth[m] = -1;
+    } else if (!SKIP_VERIFY) {
+      if (VERBOSE) fprintf (stderr, "Verifying sssp %d...", m);
+      TIME(sssp_verify_time[m],
+	   sssp_depth[m] = verify_tree (tree, tree_depth, 0,
+					bfs_root[m], sssp_time[m],
+					IJ, NE));
+      if (VERBOSE) fprintf (stderr, "done\n");
+      if (sssp_depth[m] < 0) {
+	fprintf (stderr, "sssp %d from %" PRId64 " failed verification (%" PRId64 ")\n",
+		 m, bfs_root[m], sssp_depth[m]);
+	abort ();
+      }
+    }
+  }
+
+  xfree_large (tree_depth);
+  xfree_large (tree);
   destroy_graph ();
 }

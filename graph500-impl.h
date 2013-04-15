@@ -11,6 +11,10 @@ int create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge,
 int make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out,
 		   int64_t srcvtx);
 
+/** Create the SSSP tree from a given source vertex. */
+int make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_depth_out,
+		    int64_t srcvtx);
+
 /** Clean up. */
 void destroy_graph (void);
 
