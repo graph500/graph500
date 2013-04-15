@@ -53,6 +53,18 @@ statistics (double *out, double *data, int64_t n)
   double t;
   int k;
 
+  /* Check if in range. */
+  {
+    int err = 0;
+    for (int i = 0; i < n; ++i)
+      if (data[i] < 0) err = 1;
+    if (err) {
+      for (int i = 0; i < NSTAT; ++i)
+	out[i] = NAN;
+      return;
+    }
+  }
+
   /* Quartiles */
   qsort (data, n, sizeof (*data), dcmp);
   out[0] = data[0];

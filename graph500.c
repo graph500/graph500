@@ -154,10 +154,9 @@ run_bfs (void)
 
     if (err) {
       perror ("make_bfs_tree failed");
-      abort ();
-    }
-
-    if (!SKIP_VERIFY) {
+      bfs_time[m] = -1;
+      bfs_depth[m] = -1;
+    } else if (!SKIP_VERIFY) {
       if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
       TIME(bfs_verify_time[m],
 	   bfs_depth[m] = verify_tree (bfs_tree, bfs_tree_depth, 1,
