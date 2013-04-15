@@ -161,9 +161,10 @@ run_bfs (void)
     if (VERBOSE) fprintf (stderr, " done\n");
 
     if (err) {
-      perror ("make_bfs_tree failed");
+      if (VERBOSE) perror ("make_bfs_tree failed");
       bfs_time[m] = -1;
       bfs_depth[m] = -1;
+      bfs_verify_time[m] = -1;
     } else if (!SKIP_VERIFY) {
       if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
       TIME(bfs_verify_time[m],
@@ -189,9 +190,10 @@ run_bfs (void)
     if (VERBOSE) fprintf (stderr, " done\n");
 
     if (err) {
-      perror ("make_sssp_tree failed");
+      if (VERBOSE) perror ("make_sssp_tree failed");
       sssp_time[m] = -1;
       sssp_depth[m] = -1;
+      sssp_verify_time[m] = -1;
     } else if (!SKIP_VERIFY) {
       if (VERBOSE) fprintf (stderr, "Verifying sssp %d...", m);
       TIME(sssp_verify_time[m],
