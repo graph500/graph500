@@ -115,7 +115,7 @@ make_graph (packed_edge * result)
       int64_t i, j;
       uint8_t w;
       make_edge (k, &i, &j, &w);
-      write_edge (&IJ[kp], i, j);
+      write_edge (&IJ[kp], i, j, w);
     }
 
 #if !defined(NDEBUG)
@@ -145,6 +145,6 @@ packed_edge_list (packed_edge * result,
       int64_t i, j;
       uint8_t w;
       make_edge (k, &i, &j, &w);
-      write_edge (&IJ[kp], i, j);
+      write_edge (&IJ[kp], i, j, w);
     }
 }

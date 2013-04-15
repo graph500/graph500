@@ -28,10 +28,12 @@ char IMPLEMENTATION[] = "Reference sequential";
 static int64_t nv;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
 static int64_t * restrict xadj;
+static int16_t * restrict xval;
 
 static void
 free_graph (void)
 {
+  if (xval) xfree_large (xval);
   if (xadj) xfree_large (xadj);
   if (xoff) xfree_large (xoff);
 }
@@ -61,12 +63,14 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 {
   int64_t * restrict xoff_half = NULL;
   int64_t * restrict xadj_half = NULL;
+  int16_t * restrict xval_half = NULL;
   size_t sz;
   int64_t accum;
 
   nv = nv_in;
   xoff = NULL;
   xadj = NULL;
+  xval = NULL;
 
   /* Allocate offset arrays.  */
   sz = (nv+1) * sizeof (*xoff);
@@ -111,17 +115,19 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
   /* Allocate endpoint storage.  Do not yet know final number of edges. */
   xadj_half = xmalloc_large_ext (accum * sizeof (*xadj_half));
-  if (!xadj_half) goto err;
+  xval_half = xmalloc_large_ext (accum * sizeof (*xval_half));
+  if (!xadj_half || !xval_half) goto err;
 
   /* Copy endpoints. */
   for (int64_t k = 0; k < nedge; ++k) {
     int64_t i, j;
-#if !defined(STORED_EDGELIST)
     uint8_t w;
+#if !defined(STORED_EDGELIST)
     make_edge (k, &i, &j, &w);
 #else
     i = get_v0_from_edge(&IJ[k]);
     j = get_v1_from_edge(&IJ[k]);
+    w = get_w_from_edge(&IJ[k]);
 #endif
     assert (i >= 0);
     assert (j >= 0);
@@ -130,6 +136,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
       canonical_order_edge (&i, &j);
       where = xoff_half[i+1]++;
       xadj_half[where] = j;
+      xval_half[where] = w;
     }
   }
 
@@ -145,12 +152,15 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
     if (kcur == kend) continue; /* Empty. */
 
-    introsort_i64 (&xadj_half[kcur], kend-kcur);
+    introsort_both_i64 (&xadj_half[kcur], &xval_half[kcur], kend-kcur);
 
-    for (int64_t k = kcur+1; k < kend; ++k)
+    for (int64_t k = kcur+1; k < kend; ++k) {
       if (xadj_half[k] != xadj_half[kcur]) {
 	xadj_half[++kcur] = xadj_half[k];
-      }
+	xval_half[kcur] = xval_half[k];
+      } else
+	xval_half[kcur] += xval_half[k];
+  }
     ++kcur;
     if (kcur != kend)
       xadj_half[kcur] = -1;
@@ -183,7 +193,8 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
   /* Allocate final endpoint storage. */
   xadj = xmalloc_large_ext (accum * sizeof (*xadj));
-  if (!xadj) goto err;
+  xval = xmalloc_large_ext (accum * sizeof (*xval));
+  if (!xadj || !xval) goto err;
 
   /* Copy to final locations. */
   for (int64_t i = 0; i < nv; ++i) {
@@ -200,6 +211,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
       const int64_t j = xadj_half[khalfstart + k];
       if (j < 0) break;
       xadj[kstart + k] = j;
+      xval[kstart + k] = xval_half[khalfstart + k];
     }
     xoff[i+1] += k;
 
@@ -208,20 +220,27 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
       const int64_t j = xadj_half[khalfstart + k2];
       const int64_t where = xoff[j+1]++;
       xadj[where] = i;
+      xval[where] = xval_half[khalfstart + k2];
     }
   }
 
   assert (accum == xoff[nv]);
 
-  xfree_large (xoff_half);
+  xfree_large (xval_half);
   xfree_large (xadj_half);
+  xfree_large (xoff_half);
   return 0;
 
  err:
   if (xoff_half) xfree_large (xoff_half);
   if (xadj_half) xfree_large (xadj_half);
+  if (xval_half) xfree_large (xval_half);
   if (xoff) xfree_large (xoff);
   if (xadj) xfree_large (xadj);
+  if (xval) xfree_large (xval);
+  xoff = NULL;
+  xadj = NULL;
+  xval = NULL;
   return -1;
 }
 

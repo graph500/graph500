@@ -15,13 +15,14 @@ static int64_t int64_fetch_add (int64_t* p, int64_t incr);
 static uint64_t uint64_fetch_or (uint64_t* p, uint64_t v);
 static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 
+#include "../compat.h"
 #include "../graph500.h"
 #include "../xalloc.h"
 #include "../packed_edge.h"
-#include "../timer.h"
 #include "../generator.h"
 #include "../sorts.h"
 
+char IMPLEMENTATION[] = "Reference OpenMP";
 #define THREAD_BUF_LEN 256
 #define ALPHA 14
 #define BETA  24
@@ -29,15 +30,15 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 #define WORD_OFFSET(n) (n/64)
 #define BIT_OFFSET(n) (n & 0x3f)
 
-char IMPLEMENTATION[] = "Reference OpenMP";
-
 static int64_t nv;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
 static int64_t * restrict xadj;
+static int16_t * restrict xval;
 
 static void
 free_graph (void)
 {
+  if (xval) xfree_large (xval);
   if (xadj) xfree_large (xadj);
   if (xoff) xfree_large (xoff);
 }
@@ -102,6 +103,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 {
   int64_t * restrict xoff_half = NULL;
   int64_t * restrict xadj_half = NULL;
+  int16_t * restrict xval_half = NULL;
   int64_t *buf = NULL;
   size_t sz;
   int64_t accum;
@@ -157,20 +159,23 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
     /* All either counted or ignored. */
 
     /* Allocate endpoint storage.  Do not yet know final number of edges. */
-    OMP("omp single")
+    OMP("omp single") {
       xadj_half = xmalloc_large_ext (accum * sizeof (*xadj_half));
-    if (!xadj_half) { errflag = 1; goto inner_err; }
+      xval_half = xmalloc_large_ext (accum * sizeof (*xval_half));
+    }
+    if (!xadj_half || !xval_half) { errflag = 1; goto inner_err; }
 
     /* Copy endpoints. */
     OMP("omp for")
       for (int64_t k = 0; k < nedge; ++k) {
 	int64_t i, j;
-#if !defined(STORED_EDGELIST)
 	uint8_t w;
+#if !defined(STORED_EDGELIST)
 	make_edge (k, &i, &j, &w);
 #else
 	i = get_v0_from_edge(&IJ[k]);
 	j = get_v1_from_edge(&IJ[k]);
+	w = get_w_from_edge(&IJ[k]);
 #endif
 	assert (i >= 0);
 	assert (j >= 0);
@@ -179,6 +184,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 	  canonical_order_edge (&i, &j);
 	  where = int64_fetch_add (&xoff_half[i+1], 1);
 	  xadj_half[where] = j;
+	  xval_half[where] = w;
 	}
       }
 
@@ -194,12 +200,15 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
 	if (kcur == kend) continue; /* Empty. */
 
-	introsort_i64 (&xadj_half[kcur], kend-kcur);
+	introsort_both_i64 (&xadj_half[kcur], &xval_half[kcur], kend-kcur);
 
-	for (int64_t k = kcur+1; k < kend; ++k)
+	for (int64_t k = kcur+1; k < kend; ++k) {
 	  if (xadj_half[k] != xadj_half[kcur]) {
 	    xadj_half[++kcur] = xadj_half[k];
-	  }
+	    xval_half[kcur] = xval_half[k];
+	  } else
+	    xval_half[kcur] += xval_half[k];
+	}
 	++kcur;
 	if (kcur != kend)
 	  xadj_half[kcur] = -1;
@@ -227,9 +236,11 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
     assert (accum/2 + ndup + nself_edges == nedge);
 
     /* Allocate final endpoint storage. */
-    OMP("omp single")
+    OMP("omp single") {
       xadj = xmalloc_large_ext (accum * sizeof (*xadj));
-    if (!xadj) { errflag = 1; goto inner_err; }
+      xval = xmalloc_large_ext (accum * sizeof (*xval));
+    }
+    if (!xadj || !xval) { errflag = 1; goto inner_err; }
 
     /* Copy to final locations. */
     OMP("omp for")
@@ -247,6 +258,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 	  const int64_t j = xadj_half[khalfstart + k];
 	  if (j < 0) break;
 	  xadj[kstart + k] = j;
+	  xval[kstart + k] = xval_half[khalfstart + k];
 	}
 	xoff[i+1] += k;
       }
@@ -261,6 +273,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 	  if (j < 0) break;
 	  const int64_t where = int64_fetch_add (&xoff[j+1], 1);
 	  xadj[where] = i;
+	  xval[where] = xval_half[k];
 	}
       }
 
@@ -272,13 +285,16 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 
  end:
   if (buf) free (buf);
-  if (xoff_half) xfree_large (xoff_half);
+  if (xval_half) xfree_large (xval_half);
   if (xadj_half) xfree_large (xadj_half);
+  if (xoff_half) xfree_large (xoff_half);
   if (errflag) {
     if (xoff) xfree_large (xoff);
     if (xadj) xfree_large (xadj);
+    if (xval) xfree_large (xval);
     xoff = NULL;
     xadj = NULL;
+    xval = NULL;
   }
   return errflag;
 }
