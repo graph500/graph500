@@ -606,7 +606,7 @@ an edge /{u, v}/, and let /d(u)/ be the distance of vertex /u/ from the
 source.  After each search, run a function that ensures that
 the discovered SSSP tree of parents is correct by ensuring that:
 
-  1) the SSSP tree is a tree rooted and the search vertex and without
+  1) the SSSP tree is a tree rooted at the search vertex and without
      cycles,
   2) a node and its parent are joined by an edge of the original graph,
   3) /w(u, v) + d(u) - d(v) \le 0/ for all unordered input edges /{u, v}/
