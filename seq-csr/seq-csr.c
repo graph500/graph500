@@ -282,8 +282,9 @@ bfs_bottom_up_step (int64_t * restrict bfs_tree,
 		    int64_t level)
 {
   int64_t awake_count = 0;
+  const int64_t NV = nv;
 
-  for (int64_t i = 0; i < nv; i++) {
+  for (int64_t i = 0; i < NV; i++) {
     if (bfs_tree[i] == -1) {
       for (int64_t vo = xoff[i]; vo < xoff[1+i]; vo++) {
 	const int64_t j = xadj[vo];
@@ -338,7 +339,8 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
   int64_t * restrict bfs_tree = bfs_tree_out;
   int64_t * restrict bfs_tree_depth = bfs_tree_depth_out;
   uint64_t * bm_storage = NULL;
-  const size_t bmlen = (nv + 63) & ~63;
+  const int64_t NV = nv;
+  const size_t bmlen = (NV + 63) & ~63;
   uint64_t * restrict past = NULL;
   uint64_t * restrict next = NULL;
   int64_t level = 0;
@@ -347,10 +349,10 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
   int64_t * restrict vlist = NULL;
   int64_t k1, k2;
 
-  int64_t down_cutoff = nv / BETA;
+  int64_t down_cutoff = NV / BETA;
   int64_t scout_count = xoff[1+srcvtx] - xoff[srcvtx];
   int64_t awake_count = 1;
-  int64_t edges_to_check = xoff[nv];
+  int64_t edges_to_check = xoff[NV];
 
   /* Size sanity checks. */
 #if 8 != CHAR_BIT
@@ -358,7 +360,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
 #endif
   assert (8 == sizeof (uint64_t));
 
-  vlist = xmalloc_large (nv * sizeof (*vlist));
+  vlist = xmalloc_large (NV * sizeof (*vlist));
   if (!vlist) return -1;
 
   bm_storage = xmalloc_large (2 * bmlen * sizeof (*bm_storage));
@@ -372,7 +374,7 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
   vlist[0] = srcvtx;
   k1 = 0; k2 = 1;
 
-  for (int64_t k = 0; k < nv; ++k) {
+  for (int64_t k = 0; k < NV; ++k) {
     bfs_tree[k] = -1;
     if (bfs_tree_depth) bfs_tree_depth[k] = -1;
   }
@@ -419,11 +421,69 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
 }
 
 int
-make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_depth_out,
+make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
 		int64_t srcvtx)
 {
+  int64_t * restrict tree = sssp_tree_out;
+  int64_t * restrict dist = sssp_tree_dist_out;
+  const int64_t NV = nv;
+
+  int64_t nqueue, old_nqueue;
+  int64_t * restrict queue = 0;
+
+  queue = xmalloc (NV * sizeof (*queue));
+
+  for (int64_t k = 0; k < NV; ++k) {
+    tree[k] = -1;
+    dist[k] = INT64_MAX;
+    queue[k] = k;
+  }
+  nqueue = NV;
+  old_nqueue = NV+1;
+
+  tree[srcvtx] = srcvtx;
+  dist[srcvtx] = 0;
+
+  while (nqueue < old_nqueue) {
+    int64_t mink = 0;
+    int64_t mindist = INT64_MAX;
+    int64_t minvtx = -1;
+
+    for (int64_t k = 0; k < nqueue; ++k)
+      if (dist[queue[k]] < mindist) {
+	mindist = dist[queue[k]];
+	mink = k;
+	minvtx = queue[k];
+      }
+
+    if (minvtx < 0) break;
+
+    /* delete */
+    for (int64_t k = mink; k < nqueue-1; ++k)
+      queue[k] = queue[k+1];
+    old_nqueue = nqueue;
+    --nqueue;
+
+    for (int64_t vo = xoff[minvtx]; vo < xoff[1+minvtx]; vo++) {
+      const int64_t j = xadj[vo];
+      const int64_t w = xval[vo];
+      const int64_t new_d = mindist + w;
+      if (new_d < dist[j]) {
+	dist[j] = new_d;
+	tree[j] = minvtx;
+      }
+    }
+  }
+
+#if !defined(NDEBUG)
+  for (int64_t k = 0; k < NV; ++k)
+    assert (dist[k] < INT64_MAX);
+#endif
+
+  free (queue);
+
   /* Stub that just errors out. */
-  return 1;
+  return 0;
 }
 
 void

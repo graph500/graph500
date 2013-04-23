@@ -210,7 +210,7 @@ verify_tree (const int64_t *tree_in, const int64_t *tree_depth_in,
   int64_t maxdepth = -1;
 
   int64_t * restrict tree_depth_tmp = NULL;
-  int64_t * restrict tree_edge = NULL; /* NV x 2 */
+  int64_t * restrict tree_edge = NULL; /* NV */
   int64_t * restrict sampled_vertex = NULL; /* NSAMPV */
   int64_t * restrict sampled_edge = NULL; /* NSAMPV x EF x 2*/
 
@@ -240,7 +240,7 @@ verify_tree (const int64_t *tree_in, const int64_t *tree_depth_in,
 
   if (err) goto done;
 
-  tree_edge = xmalloc_large (2 * NV * sizeof (*tree_edge));
+  tree_edge = xmalloc_large (NV * sizeof (*tree_edge));
   sampled_vertex = xmalloc (NSAMPV * sizeof (*sampled_vertex));
   sampled_edge = xmalloc (2 * NSAMPV * EF * sizeof (*sampled_edge));
 

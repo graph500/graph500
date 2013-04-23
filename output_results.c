@@ -184,5 +184,5 @@ output_results (const char * implementation,
 
 	    root[k],
 	    bfs_time[k], bfs_depth[k], bfs_verify_time[k],
-	    -1.0, (int64_t)-1, -1.0);
+	    sssp_time[k], sssp_depth[k], sssp_verify_time[k]);
 }
