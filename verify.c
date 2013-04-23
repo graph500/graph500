@@ -139,6 +139,7 @@ gather_sample (const int64_t * restrict tree,
 #else
 	i = get_v0_from_edge(&IJ[k]);
 	j = get_v1_from_edge(&IJ[k]);
+	w = get_w_from_edge(&IJ[k]);
 #endif
 
 	if (i == j) continue; /* Ignore self edges. */
