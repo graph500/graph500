@@ -14,9 +14,11 @@ function [parent, d] = kernel_3 (G, root)
 
   ## Very inefficient version of Dijkstra's algorithm.
   Q = 1:N;
-  while length (Q) > 0,
+  old_len_q = inf;
+  while length (Q) < old_len_q,
     [du, qk] = min (d(Q));
     u = Q(qk);
+    old_len_q = length (Q);
     Q = setdiff (Q, u);
     [V, J, W] = find (G (:, u));
     for vk = 1:length (V),
