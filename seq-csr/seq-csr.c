@@ -428,7 +428,7 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   int64_t * restrict dist = sssp_tree_dist_out;
   const int64_t NV = nv;
 
-  int64_t nqueue, old_nqueue;
+  int64_t nqueue;
   int64_t * restrict queue = 0;
 
   queue = xmalloc (NV * sizeof (*queue));
@@ -436,15 +436,15 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   for (int64_t k = 0; k < NV; ++k) {
     tree[k] = -1;
     dist[k] = INT64_MAX;
-    queue[k] = k;
   }
-  nqueue = NV;
-  old_nqueue = NV+1;
+
+  queue[0] = srcvtx;
+  nqueue = 1;
 
   tree[srcvtx] = srcvtx;
   dist[srcvtx] = 0;
 
-  while (nqueue < old_nqueue) {
+  while (nqueue) {
     int64_t mink = 0;
     int64_t mindist = INT64_MAX;
     int64_t minvtx = -1;
@@ -461,7 +461,6 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
     /* delete */
     for (int64_t k = mink; k < nqueue-1; ++k)
       queue[k] = queue[k+1];
-    old_nqueue = nqueue;
     --nqueue;
 
     for (int64_t vo = xoff[minvtx]; vo < xoff[1+minvtx]; vo++) {
@@ -469,6 +468,10 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
       const int64_t w = xval[vo];
       const int64_t new_d = mindist + w;
       if (new_d < dist[j]) {
+	if (dist[j] == INT64_MAX) {
+	  /* enqueue */
+	  queue[nqueue++] = j;
+	}
 	dist[j] = new_d;
 	tree[j] = minvtx;
       }
