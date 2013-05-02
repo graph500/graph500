@@ -420,6 +420,55 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
   return err;
 }
 
+static inline void
+sssp_scan_vtx (const int64_t v, const int16_t * restrict caliber,
+	       int64_t * restrict tree, int64_t * restrict dist,
+	       int64_t * restrict nqueue_in, int64_t * restrict queue,
+	       int64_t * restrict nfixed_in, int64_t * restrict fixed,
+	       char * restrict is_fixed,
+	       const int64_t mu)
+{
+  const int64_t vend = xoff[v+1];
+  int64_t nqueue = *nqueue_in;
+  int64_t nfixed = *nfixed_in;
+
+  assert (tree[v] >= 0);
+  assert (dist[v] < INT64_MAX);
+
+  for (int64_t vo = xoff[v]; vo < vend; vo++) {
+    const int64_t j = xadj[vo];
+    if (is_fixed[j]) {
+      assert (dist[j] <= xval[vo] + dist[v]);
+      continue;
+    }
+
+    const int64_t w = xval[vo];
+
+    if (mu + caliber[j] >= dist[j]) {
+      assert (dist[j] < INT64_MAX);
+      assert (dist[j] <= w + dist[v]);
+      /* Then j is fixed. */
+      assert (!is_fixed[j]);
+      fixed[nfixed++] = j;
+      is_fixed[j] = 1;
+    } else {
+      /* decrease key... */
+      const int64_t new_d = dist[v] + w;
+      assert (!is_fixed[j]);
+      if (new_d < dist[j]) {
+	if (dist[j] == INT64_MAX) {
+	  /* enqueue */
+	  queue[nqueue++] = j;
+	}
+	dist[j] = new_d;
+	tree[j] = v;
+      }
+    }
+  }
+  *nqueue_in = nqueue;
+  *nfixed_in = nfixed;
+}
+
 int
 make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
 		int64_t srcvtx)
@@ -428,59 +477,101 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   int64_t * restrict dist = sssp_tree_dist_out;
   const int64_t NV = nv;
 
-  int64_t nqueue;
+  int64_t nqueue, nfixed, mu;
   int64_t * restrict queue = 0;
+  int64_t * restrict fixed;
+  int16_t * restrict caliber;
+  char * restrict is_fixed;
 
-  queue = xmalloc (NV * sizeof (*queue));
+  queue = xmalloc (2 * NV * sizeof (*queue) +
+		   NV * (sizeof (*caliber) + sizeof (*is_fixed)));
+  fixed = &queue [NV];
+  caliber = (int16_t*)&fixed[NV];
+  is_fixed = (char*)&caliber[NV];
 
   for (int64_t k = 0; k < NV; ++k) {
     tree[k] = -1;
     dist[k] = INT64_MAX;
+    is_fixed[k] = 0;
+    caliber[k] = INT16_MAX;
   }
 
-  queue[0] = srcvtx;
-  nqueue = 1;
+  for (int64_t k = 0; k < NV; ++k) {
+    const int64_t kkend = xoff[k+1];
+    int16_t c = caliber[k];
+    for (int64_t kk = xoff[k]; kk < kkend; ++kk)
+      if (xval[kk] < c) c = xval[kk];
+    caliber[k] = c;
+  }
+
+  //fixed[0] = srcvtx;
+  is_fixed[srcvtx] = 1;
+  nfixed = 0;
+  nqueue = 0;
 
   tree[srcvtx] = srcvtx;
   dist[srcvtx] = 0;
+  mu = 0;
 
-  while (nqueue) {
-    int64_t mink = 0;
-    int64_t mindist = INT64_MAX;
-    int64_t minvtx = -1;
+  sssp_scan_vtx (srcvtx, caliber, tree, dist, &nqueue, queue,
+		 &nfixed, fixed, is_fixed, mu);
 
-    for (int64_t k = 0; k < nqueue; ++k)
-      if (dist[queue[k]] < mindist) {
-	mindist = dist[queue[k]];
-	mink = k;
-	minvtx = queue[k];
-      }
+  while (nfixed || nqueue) {
 
-    if (minvtx < 0) break;
-
-    /* delete */
-    for (int64_t k = mink; k < nqueue-1; ++k)
-      queue[k] = queue[k+1];
-    --nqueue;
-
-    for (int64_t vo = xoff[minvtx]; vo < xoff[1+minvtx]; vo++) {
-      const int64_t j = xadj[vo];
-      const int64_t w = xval[vo];
-      const int64_t new_d = mindist + w;
-      if (new_d < dist[j]) {
-	if (dist[j] == INT64_MAX) {
-	  /* enqueue */
-	  queue[nqueue++] = j;
+    if (nfixed) {
+      int64_t nfixed_new, nfixed_start = 0;
+      do {
+	nfixed_new = nfixed;
+	for (int64_t k = nfixed_start; k < nfixed; ++k) {
+	  int64_t v = fixed[k];
+	  sssp_scan_vtx (v, caliber, tree, dist, &nqueue, queue,
+			 &nfixed_new, fixed, is_fixed, mu);
 	}
-	dist[j] = new_d;
-	tree[j] = minvtx;
+	nfixed_start = nfixed;
+	nfixed = nfixed_new;
+
+      } while (nfixed_new != nfixed_start); /* Exhaust the fixed vertices. */
+      nfixed = 0;
+    }
+
+    assert (!nfixed);
+
+    /* No fixed vertices, so dequeue someone. */
+    if (nqueue) {
+      int64_t mink = 0;
+      int64_t mindist = INT64_MAX;
+      int64_t minvtx = -1;
+
+      for (int64_t k = 0; k < nqueue; ++k)
+	if (!is_fixed[queue[k]] && dist[queue[k]] < mindist) {
+	  mindist = dist[queue[k]];
+	  mink = k;
+	  minvtx = queue[k];
+	}
+
+      if (minvtx == -1) break;
+
+      /* delete */
+      int64_t new_nqueue = 0;
+      for (int64_t k = 0; k < nqueue; ++k) {
+	if (k != mink && !is_fixed[queue[k]]) {
+	  queue[new_nqueue++] = queue[k];
+	}
       }
+      nqueue = new_nqueue;
+      mu = mindist;
+
+      sssp_scan_vtx (minvtx, caliber, tree, dist, &nqueue, queue,
+		     &nfixed, fixed, is_fixed, mu);
     }
   }
 
 #if !defined(NDEBUG)
-  for (int64_t k = 0; k < NV; ++k)
-    assert (dist[k] < INT64_MAX);
+  int64_t nbad = 0;
+  for (int64_t k = 0; k < NV; ++k) {
+    nbad += dist[k] >= INT64_MAX;
+  }
+  assert (!nbad);
 #endif
 
   free (queue);
