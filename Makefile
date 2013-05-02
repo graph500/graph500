@@ -54,4 +54,4 @@ mpi/graph500_mpi_simple mpi/graph500_mpi_one_sided mpi/graph500_mpi_replicated:
 .PHONY:	clean
 clean:
 	rm -f $(BIN)
-	-$(MAKE) -C mpi clean
+	#-$(MAKE) -C mpi clean
