@@ -193,7 +193,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 	xoff[i] = 0;
 
     /* Collapse duplicates and count final numbers. */
-    OMP("omp for reduction(+:ndup)")
+    OMP("omp for reduction(+:ndup) schedule(guided)")
       for (int64_t i = 0; i < nv; ++i) {
 	int64_t kcur = xoff_half[i];
 	const int64_t kend = xoff_half[i+1];
@@ -243,7 +243,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
     if (!xadj || !xval) { errflag = 1; goto inner_err; }
 
     /* Copy to final locations. */
-    OMP("omp for")
+    OMP("omp for schedule(guided)")
       for (int64_t i = 0; i < nv; ++i) {
 	const int64_t khalfstart = xoff_half[i];
 	const int64_t khalfend = xoff_half[i+1];
@@ -263,7 +263,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
 	xoff[i+1] += k;
       }
 
-    OMP("omp for")
+    OMP("omp for schedule(guided)")
       for (int64_t i = 0; i < nv; ++i) {
 	/* Scatter the other side. */
 	const int64_t khalfstart = xoff_half[i];
@@ -381,7 +381,7 @@ bfs_bottom_up_step (int64_t * restrict bfs_tree, int64_t * restrict bfs_tree_dep
     for (int64_t k = 0; k < bmlen; ++k)
       next[k] = 0;
 
-  OMP("omp for nowait")
+  OMP("omp for schedule(guided) nowait")
     for (int64_t i = 0; i < nv; i++) {
       if (bfs_tree[i] == -1) {
 	for (int64_t vo = xoff[i]; vo < xoff[1+i]; vo++) {
@@ -414,7 +414,7 @@ bfs_top_down_step (int64_t * restrict bfs_tree,
   int len = 0;
 
   OMP("omp barrier");
-  OMP("omp for nowait")
+  OMP("omp for schedule(guided) nowait")
     for (int64_t k = head; k < tail; ++k) {
       const int64_t v = vlist[k];
       const int64_t veo = xoff[1+v];
