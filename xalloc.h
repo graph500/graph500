@@ -5,6 +5,7 @@
 #define XALLOC_HEADER_
 
 void * xmalloc (size_t);
+void * xrealloc (void*, size_t);
 void * xmalloc_large (size_t);
 void xfree_large (void *);
 void * xmalloc_large_ext (size_t);

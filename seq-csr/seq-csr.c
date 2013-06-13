@@ -420,16 +420,205 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t * bfs_tree_depth_out, int64_t srcv
   return err;
 }
 
+
+struct four_heap {
+  size_t n, nstore;
+  int64_t keymax;
+  int64_t * restrict key;
+  int64_t * restrict loc;
+  int16_t * restrict priority;
+};
+
+static inline size_t
+parent (size_t k)
+{
+  return (k-1)/4;
+}
+
+static inline size_t
+child (size_t k, size_t off)
+{
+  return 4*k+off+1;
+}
+
+#define CONCAT(a__,b__) a__ ## b__ ## __
+
+#if defined(__GNUC__)
+#define MAYBEUNUSED __attribute__ ((unused))
+#else
+#define MAYBEUNUSED
+#endif
+
+#define DEF_HP(hp__)							\
+  const size_t N MAYBEUNUSED = (hp__).n;				\
+  int64_t * restrict CONCAT(hp__, k) MAYBEUNUSED = (hp__).key;		\
+  int64_t * restrict CONCAT(hp__, l) MAYBEUNUSED = (hp__).loc;		\
+  int16_t * restrict CONCAT(hp__, p) MAYBEUNUSED = (hp__).priority;
+#define KEY(hp__, k__) ((CONCAT(hp__, k))[(k__)])
+#define LOC(hp__, k__) ((CONCAT(hp__, l))[(k__)])
+#define PRIO(hp__, k__) ((CONCAT(hp__, p))[(k__)])
+
+#define SWAPK(hp__, k1__, k2__)					\
+  do {								\
+  const int64_t newk2 = KEY(hp__, k1__);			\
+  const int16_t tprio = PRIO(hp__, k1__);			\
+  const int64_t newk1 = KEY(hp__, k1__) = KEY(hp__, k2__);	\
+  PRIO(hp__, k1__) = PRIO(hp__, k2__);				\
+  KEY(hp__, k2__) = newk2;					\
+  PRIO(hp__, k2__) = tprio;					\
+  LOC(hp__, newk1) = k1__;					\
+  LOC(hp__, newk2) = k2__;					\
+} while (0)
+
+#if !defined(NDEBUG)
+static inline int
+check_heap (const struct four_heap hp)
+{
+  int out = 1;
+  DEF_HP(hp);
+  const int64_t KM = hp.keymax;
+  for (int64_t k = 0; k < N; ++k)
+    for (int ko = 0; ko < 4; ++ko) {
+      int64_t kk = child (k, ko);
+      if (kk < N)
+	assert (PRIO(hp, k) <= PRIO(hp, kk));
+    }
+  for (int64_t k = 0; k < KM; ++k) {
+    assert (LOC(hp, k) < N);
+    assert (LOC(hp, k) < 0 || KEY(hp, LOC(hp, k)) == k);
+  }
+  return out;
+}
+#endif
+
+static inline void
+sift_up (struct four_heap hp, size_t k)
+{
+  DEF_HP(hp);
+
+  while (k > 0) {
+    size_t prnt = parent (k);
+    if (PRIO(hp, prnt) < PRIO(hp, k)) break;
+    SWAPK(hp, prnt, k);
+    k = prnt;
+  }
+  assert (check_heap (hp));
+}
+
+static inline void
+sift_down (struct four_heap hp, size_t k)
+{
+  DEF_HP(hp);
+  int64_t childk = child (k, 0);
+
+  while (childk < N) {
+    int64_t leastk = k;
+    int16_t leastprio = PRIO(hp, k);
+
+    for (int kk = 0; kk < 4 && childk+kk < N; ++kk)
+      if (PRIO(hp, childk+kk) < leastprio) {
+	leastk = childk+kk;
+	leastprio = PRIO(hp, leastk);
+      }
+
+    if (k == leastk) break;
+
+    assert (leastk < N);
+    SWAPK(hp, k, leastk);
+    k = leastk;
+    childk = child (k, 0);
+  }
+  assert (check_heap (hp));
+}
+
+static inline void
+alloc_four_heap (struct four_heap *hp, size_t new_nstore, int64_t keymax)
+{
+  int64_t * new_k = xrealloc (hp->key, new_nstore * sizeof (*new_k));
+  int64_t * new_loc = hp->loc;
+  int16_t * new_p = xrealloc (hp->priority, new_nstore * sizeof (*new_p));
+  hp->key = new_k;
+  if (hp->keymax != keymax) {
+    new_loc = xrealloc (hp->loc, keymax * sizeof (*new_k));
+    for (int64_t k = hp->keymax; k < keymax; ++k)
+      new_loc[k] = -1;
+  }
+  hp->loc = new_loc;
+  hp->priority = new_p;
+  hp->nstore = new_nstore;
+  hp->keymax = keymax;
+}
+
+static inline void
+init_four_heap (struct four_heap *hp, size_t nstore, int64_t keymax)
+{
+  memset (hp, 0, sizeof (*hp));
+  alloc_four_heap (hp, nstore, keymax);
+}
+
+static inline void
+fini_four_heap (struct four_heap *hp)
+{
+  if (!hp) return;
+  if (hp->key) free (hp->key);
+  if (hp->loc) free (hp->loc);
+  if (hp->priority) free (hp->priority);
+  memset (hp, 0, sizeof (*hp));
+}
+
+static inline void
+insert (struct four_heap *hp, int64_t key, int16_t prio)
+{
+  if (hp->n == hp->nstore) alloc_four_heap (hp, 2*hp->nstore, hp->keymax);
+  size_t where = hp->n++;
+  hp->key[where] = key;
+  hp->priority[where] = prio;
+  hp->loc[key] = where;
+  sift_up (*hp, where);
+}
+
+static inline void
+find_and_decrease_prio (struct four_heap hp, int64_t key, int16_t new_prio)
+{
+  DEF_HP(hp);
+  int64_t k = LOC(hp, key);
+
+  if (k < 0) return;
+
+  PRIO(hp, k) = new_prio;
+  sift_up (hp, k);
+}
+
+static inline int64_t
+pop_head (struct four_heap *hp)
+{
+  size_t n = hp->n;
+  int64_t out;
+  if (n == 0) return -1;
+  out = hp->key[0];
+  hp->loc[out] = -1;
+  if (n == 1) { hp->n = 0; return out; }
+#if !defined(NDEBUG)
+  for (int k = 0; k < 4; ++k)
+    assert (1+k >= hp->n || hp->priority[0] <= hp->priority[1+k]);
+#endif
+  hp->key[0] = hp->key[n-1];
+  hp->priority[0] = hp->priority[n-1];
+  hp->loc[hp->key[0]] = 0;
+  --hp->n;
+  sift_down (*hp, 0);
+  return out;
+}
+
 static inline void
 sssp_scan_vtx (const int64_t v, const int16_t * restrict caliber,
 	       int64_t * restrict tree, int64_t * restrict dist,
-	       int64_t * restrict nqueue_in, int64_t * restrict queue,
+	       struct four_heap * restrict queue,
 	       int64_t * restrict nfixed_in, int64_t * restrict fixed,
 	       char * restrict is_fixed,
 	       const int64_t mu)
 {
   const int64_t vend = xoff[v+1];
-  int64_t nqueue = *nqueue_in;
   int64_t nfixed = *nfixed_in;
 
   assert (tree[v] >= 0);
@@ -458,16 +647,22 @@ sssp_scan_vtx (const int64_t v, const int16_t * restrict caliber,
       if (new_d < dist[j]) {
 	if (dist[j] == INT64_MAX) {
 	  /* enqueue */
-	  queue[nqueue++] = j;
+	  insert (queue, j, new_d);
+	  assert (check_heap (*queue));
+	} else {
+	  /* adjust */
+	  find_and_decrease_prio (*queue, j, new_d);
+	  assert (check_heap (*queue));
 	}
 	dist[j] = new_d;
 	tree[j] = v;
       }
     }
   }
-  *nqueue_in = nqueue;
   *nfixed_in = nfixed;
 }
+
+int64_t max_qlen;
 
 int
 make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
@@ -477,15 +672,17 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   int64_t * restrict dist = sssp_tree_dist_out;
   const int64_t NV = nv;
 
-  int64_t nqueue, nfixed, mu;
-  int64_t * restrict queue = 0;
-  int64_t * restrict fixed;
+  int64_t nfixed, mu;
+  struct four_heap queue;
+  int64_t * restrict fixed = 0;
   int16_t * restrict caliber;
   char * restrict is_fixed;
 
-  queue = xmalloc (2 * NV * sizeof (*queue) +
+  max_qlen = 0;
+
+  init_four_heap (&queue, NV, NV);
+  fixed = xmalloc (NV * sizeof (*fixed) +
 		   NV * (sizeof (*caliber) + sizeof (*is_fixed)));
-  fixed = &queue [NV];
   caliber = (int16_t*)&fixed[NV];
   is_fixed = (char*)&caliber[NV];
 
@@ -507,24 +704,23 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   //fixed[0] = srcvtx;
   is_fixed[srcvtx] = 1;
   nfixed = 0;
-  nqueue = 0;
 
   tree[srcvtx] = srcvtx;
   dist[srcvtx] = 0;
   mu = 0;
 
-  sssp_scan_vtx (srcvtx, caliber, tree, dist, &nqueue, queue,
+  sssp_scan_vtx (srcvtx, caliber, tree, dist, &queue,
 		 &nfixed, fixed, is_fixed, mu);
 
-  while (nfixed || nqueue) {
-
+  while (nfixed || queue.n) {
+    if (queue.n > max_qlen) max_qlen = queue.n;
     if (nfixed) {
       int64_t nfixed_new, nfixed_start = 0;
       do {
 	nfixed_new = nfixed;
 	for (int64_t k = nfixed_start; k < nfixed; ++k) {
 	  int64_t v = fixed[k];
-	  sssp_scan_vtx (v, caliber, tree, dist, &nqueue, queue,
+	  sssp_scan_vtx (v, caliber, tree, dist, &queue,
 			 &nfixed_new, fixed, is_fixed, mu);
 	}
 	nfixed_start = nfixed;
@@ -537,31 +733,18 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
     assert (!nfixed);
 
     /* No fixed vertices, so dequeue someone. */
-    if (nqueue) {
-      int64_t mink = 0;
-      int64_t mindist = INT64_MAX;
+    if (queue.n) {
       int64_t minvtx = -1;
 
-      for (int64_t k = 0; k < nqueue; ++k)
-	if (!is_fixed[queue[k]] && dist[queue[k]] < mindist) {
-	  mindist = dist[queue[k]];
-	  mink = k;
-	  minvtx = queue[k];
-	}
+      do
+	minvtx = pop_head (&queue);
+      while (minvtx >= 0 && is_fixed[minvtx]);
 
       if (minvtx == -1) break;
 
-      /* delete */
-      int64_t new_nqueue = 0;
-      for (int64_t k = 0; k < nqueue; ++k) {
-	if (k != mink && !is_fixed[queue[k]]) {
-	  queue[new_nqueue++] = queue[k];
-	}
-      }
-      nqueue = new_nqueue;
-      mu = mindist;
+      mu = dist[minvtx];
 
-      sssp_scan_vtx (minvtx, caliber, tree, dist, &nqueue, queue,
+      sssp_scan_vtx (minvtx, caliber, tree, dist, &queue,
 		     &nfixed, fixed, is_fixed, mu);
     }
   }
@@ -574,9 +757,10 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   assert (!nbad);
 #endif
 
-  free (queue);
+  free (fixed);
+  fini_four_heap (&queue);
 
-  /* Stub that just errors out. */
+  fprintf (stderr, "max queue len %ld\n", (long)max_qlen);
   return 0;
 }
 

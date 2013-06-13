@@ -41,6 +41,17 @@ xmalloc (size_t n)
 }
 
 void*
+xrealloc (void* pin, size_t n)
+{
+  void* p = realloc(pin, n);
+  if (!p) {
+    fprintf(stderr, "Out of memory trying to allocate %zu byte(s)\n", n);
+    abort();
+  }
+  return p;
+}
+
+void*
 xcalloc (size_t n, size_t k)
 {
   void* p = calloc(n, k);
