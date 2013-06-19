@@ -105,6 +105,33 @@ make_edge (int64_t k, int64_t * restrict i, int64_t * restrict j,
   *w = wgt;
 }
 
+MTA("mta inline") void
+make_edge_endpoints (int64_t k, int64_t * restrict i, int64_t * restrict j)
+{
+  struct i64_pair v;
+
+  if (k < NV) {
+    /* Tree edge. */
+    v.v1 = k/2;
+    v.v2 = k+1;
+  } else {
+    /* RMAT edge */
+    float rnd[2*SCALE_MAX]; /* Small, on stack. */
+    random_edgevals (rnd, k);
+    v = toss_darts (rnd);
+  }
+
+  v.v1 = scramble (v.v1);
+  v.v2 = scramble (v.v2);
+  assert (v.v1 >= 0);
+  assert (v.v1 < NV);
+  assert (v.v2 >= 0);
+  assert (v.v2 < NV);
+
+  *i = v.v1;
+  *j = v.v2;
+}
+
 void
 make_graph (packed_edge * result)
 {

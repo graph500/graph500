@@ -3,6 +3,7 @@
 
 void make_edge (int64_t, int64_t * restrict, int64_t * restrict,
 		uint8_t * restrict);
+void make_edge_endpoints (int64_t, int64_t * restrict, int64_t * restrict);
 void edge_list (int64_t * restrict, int64_t * restrict, uint8_t * restrict,
 		const int64_t, const int64_t);
 

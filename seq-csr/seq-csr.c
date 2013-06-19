@@ -87,8 +87,7 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge, int64_t nv_in
   for (int64_t k = 0; k < nedge; ++k) {
     int64_t i, j;
 #if !defined(STORED_EDGELIST)
-    uint8_t w;
-    make_edge (k, &i, &j, &w);
+    make_edge_endpoints (k, &i, &j);
 #else
     i = get_v0_from_edge(&IJ[k]);
     j = get_v1_from_edge(&IJ[k]);
@@ -760,7 +759,6 @@ make_sssp_tree (int64_t *sssp_tree_out, int64_t * sssp_tree_dist_out,
   free (fixed);
   fini_four_heap (&queue);
 
-  fprintf (stderr, "max queue len %ld\n", (long)max_qlen);
   return 0;
 }
 
