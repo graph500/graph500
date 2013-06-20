@@ -24,16 +24,42 @@
 #define MTA(x)
 #endif
 
+/* SCALE can be up to 40.
+   Edge factor 16 takes 44 bits for indexing the list, leaving 20.
+   Top 32 bits of an index will have at most 12 bits active.
+*/
+
+static inline int64_t
+mult_big_mod (const int64_t k, const uint64_t hi, const uint64_t low)
+{
+  const uint64_t k_hi = ((uint64_t)k)>>32; /* At most 12 bits. */
+  const uint64_t k_low = ((uint64_t)k)&0xFFFFFFFFul;
+  uint64_t out = (k_low * low) % NE;
+  if (k_hi) {
+    uint64_t t = ((((k_hi * low)<<16)%NE)<<16)%NE;
+    out = (out + t) % NE;
+  }
+  if (hi) {
+    uint64_t t = ((((hi * k_low)<<16)%NE)<<16)%NE;
+    out = (out + t) % NE;
+    if (k_hi) {
+      uint64_t t = ((((((k_hi * hi)<<32)%NE)<<16)%NE)<<16)%NE;
+      out = (out + t) % NE;
+    }
+  }
+  return out;
+}
+
 static inline int64_t
 idx_to_loc (const int64_t k)
 {
-  return (k * Z) % NE;
+  return mult_big_mod (k, Z_hi, Z_low);
 }
 
 static inline int64_t
 loc_to_idx (const int64_t kp)
 {
-  return (kp * Zinv) % NE;
+  return mult_big_mod (kp, Zinv_hi, Zinv_low);
 }
 
 struct i64_pair {

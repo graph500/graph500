@@ -6,6 +6,7 @@
 
 int SCALE = 0, EF, NROOT, MAXWEIGHT;
 int64_t NV, NE, Z, Zinv;
+uint64_t Z_hi, Z_low, Zinv_hi, Zinv_low;
 float A, B, NOISEFACT;
 
 static int64_t
@@ -61,6 +62,25 @@ init_globals (int scale, int ef, int maxweight, int nroot,
   }
   assert (Z > 0);
   assert (Zinv > 0);
-  assert (1 == (Z*Zinv) % NE);
+
+  Z_hi = ((uint64_t)Z) >> 32;
+  Z_low = ((uint64_t)Z) & 0xFFFFFFFFul;
+  Zinv_hi = ((uint64_t)Zinv) >> 32;
+  Zinv_low = ((uint64_t)Zinv) & 0xFFFFFFFFul;
+
+  /* assert (1 == (Z*Zinv) % NE); */
+#if !defined(NDEBUG)
+  {
+    int64_t accum, t;
+    accum = (Z_low * Zinv_low)%NE;
+    t = ((((Z_hi * Zinv_low)<<16)%NE)<<16)%NE;
+    accum = (accum + t)%NE;
+    t = ((((Z_low * Zinv_hi)<<16)%NE)<<16)%NE;
+    accum = (accum + t)%NE;
+    t = ((((((Z_hi * Zinv_hi)<<32)%NE)<<16)%NE)<<16)%NE;
+    accum = (accum + t)%NE;
+    assert (1 == accum);
+  }
+#endif
 }
 
