@@ -159,7 +159,7 @@ make_graph (packed_edge * result)
 }
 
 void
-packed_edge_list (packed_edge * result,
+packed_edge_list (packed_edge * result, const int64_t loc_begin,
 		  const int64_t ne_begin, const int64_t ne_len)
 {
   assert (SCALE);
@@ -172,6 +172,6 @@ packed_edge_list (packed_edge * result,
       int64_t i, j;
       uint8_t w;
       make_edge (k, &i, &j, &w);
-      write_edge (&IJ[kp], i, j, w);
+      write_edge (&IJ[loc_begin+t], i, j, w);
     }
 }

@@ -9,6 +9,6 @@ void edge_list (int64_t * restrict, int64_t * restrict, uint8_t * restrict,
 
 /* To go away... */
 void make_graph (packed_edge *);
-void packed_edge_list (packed_edge *, const int64_t, const int64_t);
+void packed_edge_list (packed_edge *, const int64_t, const int64_t, const int64_t);
 
 #endif /* GENERATOR_HEADER_ */

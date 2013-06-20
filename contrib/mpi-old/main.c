@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
         if (!tg.data_in_file && block_idx % ranks_per_row == my_col) {
           assert (FILE_CHUNKSIZE * (block_idx / ranks_per_row) + edge_count <= tg.edgememory_size);
         }
-	packed_edge_list (actual_buf, start_edge_index, edge_count);
+	packed_edge_list (actual_buf, 0, start_edge_index, edge_count);
         if (tg.data_in_file && my_col == (block_idx % ranks_per_row)) { /* Try to spread writes among ranks */
           MPI_File_write_at(tg.edgefile, start_edge_index, actual_buf, edge_count, packed_edge_mpi_type, MPI_STATUS_IGNORE);
         }
