@@ -221,25 +221,25 @@ hextod(const char *cp)
     return d;
 }
 
-#define CHECKNOTEQUAL(x, y)  if ((x) != (y)) ; else { \
+#define CHECKNOTEQUAL(x, y)  do { if ((x) != (y)) ; else { \
     fprintf(stderr, "%s: %s line %d error %s == %s (%s)\n", progname, __FILE__, __LINE__, #x, #y, strerror(errno)); \
     exit(1); \
-}
-#define CHECKEQUAL(x, y)  if ((x) == (y)) ; else { \
+} } while (0)
+#define CHECKEQUAL(x, y)  do { if ((x) == (y)) ; else { \
     fprintf(stderr, "%s: %s line %d error %s != %s (%s)\n", progname, __FILE__, __LINE__, #x, #y, strerror(errno)); \
     exit(1); \
-}
+} } while (0)
 #define CHECKZERO(x)  CHECKEQUAL((x), 0)
 #define CHECKNOTZERO(x)  CHECKNOTEQUAL((x), 0)
 
-#define dprintf(x) if (debug < 1) ; else { printf x; fflush(stdout); }
+#define dprintf(x) do { if (debug < 1) ; else { printf x; fflush(stdout); } } while (0)
 
 #define ALLZEROS(x, K, N) \
 do { \
     int allzeros = 1; \
-    int xi, xj; \
-    for (xi = 0; xi < (K); xi++) \
-	for (xj = 0; xj < (N); xj++) \
+    unsigned xi, xj; \
+    for (xi = 0; xi < (unsigned)(K); xi++)      \
+	for (xj = 0; xj < (unsigned)(N); xj++)          \
 	    allzeros = allzeros & ((x)[xi].v[xj] == 0); \
     if (allzeros) fprintf(stderr, "%s: Unexpected, all %lu elements of %ux%u had all zeros!\n", progname, (unsigned long)K, (unsigned)N, (unsigned)sizeof(x[0].v[0])); \
 } while(0)

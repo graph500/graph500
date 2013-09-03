@@ -35,13 +35,13 @@ set BUILDVC=%NEWBUILDVC%
 
 :Continue
 :: /Zi for debug.  /favor:INTEL64 is ignored for 32bit compiles.
-if NOT DEFINED CFLAGS set CFLAGS=/I..\include /W3 /Ox /EHs /nologo /favor:INTEL64
+if NOT DEFINED CFLAGS set CFLAGS=/DR123_NO_SINCOS=1 /I..\include /W3 /Ox /EHs /nologo /favor:INTEL64
 set CC=cl
 echo Using %VCBAT%
 echo Building for %BUILDVC% with %CC% %CFLAGS%
 
 :Loop
-set BUILDFILES= ( kat_c.c kat_cpp.cpp kat_u01_c.c kat_u01_cpp.cpp pi_aes.cpp pi_capi.c pi_cppapi.cpp pi_microurng.cpp simple.c simplepp.cpp time_serial.c timers.cpp ut_Engine.cpp ut_M128.cpp ut_ReinterpretCtr.cpp ut_aes.cpp ut_ars.c ut_carray.cpp ut_features.cpp )
+set BUILDFILES= ( kat_c.c kat_cpp.cpp pi_aes.cpp pi_capi.c pi_cppapi.cpp pi_microurng.cpp simple.c simplepp.cpp time_serial.c time_boxmuller.cpp timers.cpp ut_Engine.cpp ut_M128.cpp ut_ReinterpretCtr.cpp ut_aes.cpp ut_ars.c ut_carray.cpp ut_features.cpp ut_uniform.cpp )
 FOR %%A IN %BUILDFILES% DO (
 	%CC% %CFLAGS% %%A
 	if errorlevel 1 exit /b 1

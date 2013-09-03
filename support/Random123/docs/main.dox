@@ -88,7 +88,7 @@ them to the 128bit SSE type needed by the AES-NI instructions, or on a single m1
 which holds the SSE type.
 See @ref r123::AESNI4x32, @ref r123::AESNI1xm128i.
 <li> @ref AESNI "ARS" (Advanced Randomization System) is a \b non-cryptographic simplification of @ref AESNI "AESNI".
-See @ref r123::ARS4x32, @ref r123::ARS1xm128i.
+See @ref r123::ARS4x32_R, @ref r123::ARS1xm128i_R.
 </ul>
 
 \section install Installation and Testing
@@ -121,8 +121,9 @@ A typical C++ use case might look like:
 typedef r123::Philox4x32 RNG;
 RNG rng;
 RNG::ctr_type c={{}};
-RNG::key_type k={{}};
-k[0] = ???; // some user_supplied_seed
+RNG::ukey_type uk={{}};
+uk[0] = ???; // some user_supplied_seed
+RNG::key_type k=uk;
 
 for(...){
    c[0] = ???; // some loop-dependent application variable 
@@ -137,8 +138,12 @@ On each iteration,\c r contains an array of 4 32-bit random values that
 will not be repeated by any other call to \c rng as long as \c c and \c k
 are not reused.
 
-In the example above, we use the @ref r123::Philox4x32, but any
-of the other @ref CBRNG "CBRNGs" would serve equally well.
+In the example above, we use the @ref r123::Philox4x32, but any of the
+other @ref CBRNG "CBRNGs" would serve equally well.  Also note that
+for most CBRNGs, the ukey_type and the key_type are identical; the code
+could just as well ignore the ukey_type and directly construct the
+key_type.  However, for the @ref AESNI "AESNI" CBRNGs, the key_type is opaque, and
+must be constructed from a ukey_type, as shown.
 
 \subsection Capi The C API
 
@@ -147,9 +152,11 @@ In C, the example above could be written as:
 #include <Random123/philox.h>
 
 philox4x32_ctr_t c={{}};
-philox4x32_key_t k={{}};
+philox4x32_ukey_t uk={{}};
 
-k.v[0] = user_supplied_seed;
+uk.v[0] = user_supplied_seed;
+philox4x32_key_t k = philox4x32keyinit(uk);
+
 for(...){
     c.v[0] = ???; /* some loop-dependent application variable */
     c.v[1] = ???; /* another loop-dependent application variable */
@@ -169,6 +176,8 @@ as described/documented for regular C or C++ programs.  Note that
 CUDA device functions and host functions share the same namespace, so
 it is not currently possible to use Random123 functions in 
 both the host portion and the device portion of the same .cu source file.
+To work around this, you must compile Random123-using host code in
+a separate .c source file from your .cu device-resident code.
 The Nx32 forms are faster than the Nx64 variants on current (2011)
 32-bit GPU architectures.
 
@@ -232,46 +241,44 @@ RNG with a completely conventional interface, sacrificing
 application control over the internal RNG state.
 </ul>
 
-\section u01 Generating uniformly distributed float and double values
+\section u01 Generating uniformly distributed and Gaussian distributed floats and doubles
 
-The CBRNGs in the library all generate uniformly distributed \b
-integers.  Sometimes one needs a uniformly distributed floating point
-value.  For such a simple transformation, the machinery of GSL or a
-C++1x MicroURNG may be overkill.  On the other hand, the
-idiosyncracies of compilers, floating point constants, multiplication
-and division, and mismatches between the number of bits in the input
-and the number of mantissa bits in the ouptut can be tricky to get
-right.  The library provides a header file, @ref u01_closed_open_W_M "<Random123/u01.h>" with a
-variety of static inline functions that map uniform integers of
-various sizes (32 and 64 bits) into floats of various sizes (floats
-with 24-bit mantissas and and doubles with 53-bit mantissas).  The
-output range may be open or closed at either end.
+The Random123 library provides generators for uniformly distributed
+random \b integers.  Often, applications want random \b real values or
+samples from other distributions.  The general problem of generating
+samples from arbitrary distributions is beyond the scope of the Random123
+library.  One can, of course, use GSL or MicroURNG and the
+distributions in the C++11 \<random\> library, but a few simple cases
+are common enough that all that extra machinery seems like overkill.
+We have included code in the examples/ directory which developers may
+find useful.
 
-@code
+<ul>
+<li>    examples/uniform.hpp - C++ functions that convert random integers to
+         random, uniformly distributed floating point values.
+<li>    examples/u01fixedpt.h - C functions that convert random integers to
+         random, uniformly distributed, equi-spaced, i.e., fixed point,
+         values.
+<li> examples/ua.hpp - C++11 functions that convert r123arrays of
+     uniformly distributed integers into std::arrays of uniformly
+     distributed floating point types.  The return type is std::array
+     because it is far easier, with template logic, to return a
+     std::array of the correct size than an r123array of the correct
+     size.
+<li>    examples/boxmuller.hpp - C++ functions that take two
+         uniformly distributed integers (32 or 64 bit) and
+         return a pair of Gaussian distributed floats or doubles.
+</ul>
 
-#include <Random123/threefry.h>
-#include <Random123/u01.h>
-
-threefry4x32_ctr_t c={{}};
-threefry4x32_key_t k={{}};
-threefry4x32_ctr_t r;
-float x, y;
-double vx, vy;
-
-k.v[0] = user_supplied_seed;
-for(...){
-    c.v[0] = ???; /* some loop-dependent application variable */
-    c.v[1] = ???; /* another loop-dependent application variable */
-    r = threefry4x32(c, k);
-    /* get two single precision values in the interval (0,1) */
-    x = u01_open_open_32_24(r.v[0]);
-    y = u01_open_open_32_24(r.v[1]);
-    /* get two double precision values in the interval [0,1] */
-    vx = u01_closed_closed_32_53(r.v[2]);
-    vy = u01_closed_closed_32_53(r.v[3]);
-    ...
-}
-@endcode
+The Box-Muller method of generating Gaussian random variables is
+particularly well suited to Random123 because it deterministically
+consumes exactly two uniform randoms to generate exactly two gaussian
+randoms.  It uses math library functions: sincos, log and sqrt which
+may be slow on some platforms, but which are surprisingly fast on
+others.  Notably, on GPUs, the lack of branching in the Box-Muller
+method and hardware support for math functions overcomes the
+transcendental function overhead, making it the fastest generator of
+Gaussians that we are aware of.
 
 \subsection Examples Tests and Benchmarks
 
@@ -280,10 +287,12 @@ The @ref ExamplesREADME "examples/" directory, contains tests, examples and benc
 <ul>
 <li> Unit tests for individual components and "known-answer-tests", which
 should be run to ensure that these RNGs build correctly on desired platforms.
-help to provide assurance that the code is being compiled correctly.
+These help to provide assurance that the code is being compiled correctly.
 <li> Complete, short programs estimate pi by counting the number of random
 points that fall inside a circle inscribed in a square, demonstrating
 the C, C++, AES, GSL, OpenCL, CUDA and C++0x APIs.
+<li> Header files, including uniform.hpp, ufixed01.h, ua.hpp, and boxmuller.hpp containing code that
+users may find useful but that are outside the scope of the Random123 library itself.
 <li> Some highly abstracted timing harnesses are provided
 which measure performance of a variety of generators in different
 programming environments.
@@ -297,15 +306,15 @@ code that has been ported.
 We have tested the Random123 library with the following infrastructure
 
 <ul>
-<li>Linux, gcc (multiple versions from 3.4.3 through 4.6.1), on x86_64.
-<li>Linux, clang-2.9 on x86_64.
-<li>Linux, clang-3.0 with lib++ (2012-04-19 svn checkout) on x86_64.
+<li>Linux, gcc (multiple versions from 3.4.3 through 4.8.1), on x86_64.
+<li>Linux, clang-2.9, 3.0, 3.1 and 3.3 on x86_64.
+<li>Linux, clang-3.0 and 3.1 with lib++ (2012-04-19 svn checkout) on x86_64.
 <li>Linux, open64-4.2.4 on x86_64.
 <li>Linux, Intel icc and icpc 12.0.2 on x86_64.
-<li>Linux, OpenCL (NVIDIA SDK 4.0.17) on GTX480, M2090 and GTX580 GPUs.
+<li>Linux, OpenCL (NVIDIA SDK 4.0.17) on GTX480, M2090, GTX580 and GTX680 GPUs.
 <li>Linux, OpenCL (AMD APP SDK 2.4 or 2.5), on x86_64 CPUs and Radeon HD6970 GPUs.
 <li>Linux, OpenCL (Intel OpenCL 1.5), on x86_64 CPUs.
-<li>Linux, NVIDIA CUDA 3.2.16 and 4.0.17.
+<li>Linux, NVIDIA CUDA 4.1.15, 4.2.6 and 5.5.22.  (NOTE: We recommend against the use of CUDA before 4.1)
 <li>Linux, gcc-4.1.2 and 4.4.1 on x86.
 <li>Solaris, both gcc-3.4.3 and Sun C/C++ 5.8, on x86_64.
 <li>FreeBSD 8.2, gcc-4.2.1, on x86_64.
@@ -317,9 +326,18 @@ We have tested the Random123 library with the following infrastructure
 Others have reported success on
 <ul>
 <li>MacOS, OpenCL on x86_64 CPUs
+<li>Linux, gcc-4.7.2 on Powerpc64 (BlueGene/Q)
+<li>Linux, Portland Group Compiler on Powerpc64 (BlueGene/Q)
+<li>Linux, IBM xlc on Powerpc64 (BlueGene/Q)
 </ul>
 
 We welcome feedback to random123@deshawresearch.com about ports to other environments.
+
+We are grateful for contributions from the following users:
+<ul>
+<li> Geoffrey Irving and Gabriel Rockefeller - BlueGene/Q and powerpc ports
+<li> Yan Zhou - MacOS and clang ports
+</ul>
 */
 
 

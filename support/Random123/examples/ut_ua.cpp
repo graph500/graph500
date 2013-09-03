@@ -1,5 +1,5 @@
 /*
-Copyright 2010-2011, D. E. Shaw Research.
+Copyright 2013, D. E. Shaw Research.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -29,16 +29,35 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-/* This is compiled by both C and C++ (included by kat_u01_cpp.cpp */
-#include "kat_u01_main.h"
 
-#include "kat_u01_dev_execute.h"
-
-void host_execute_tests(uint64_t *tests, size_t ntests, KatU01Result *results)
-{
-    unsigned i;
-
-    for (i = 0; i < ntests; i++) {
-	dev_execute_tests(&tests[i], &results[i]);
-    }
+#if __cplusplus<201103L
+#include <iostream>
+int main(int, char**){
+    std::cout << "ua.hpp requires C++11.  No tests performed\n";
+    return 0;
 }
+#else
+
+#include <Random123/array.h>
+#include <Random123/threefry.h>
+#include "ua.hpp"
+
+using namespace r123;
+int main(int, char **){
+    Threefry4x64 rng;
+    Threefry4x64::ctr_type c = {{1, 2, 3, 4}};
+    Threefry4x64::ukey_type uk = {{5, 6, 7, 8}};
+    Threefry4x64::key_type k = uk;
+    auto a = ua01<float>(rng(c, k)); // returns std::array<float,4>
+    for(auto e : a){
+        std::cout << e << "\n";
+    }
+    c.incr();
+    auto b = ua01<double>(rng(c, k));
+    for(auto e : b){
+        std::cout << e << "\n";
+    }
+
+    return 0;
+}
+#endif

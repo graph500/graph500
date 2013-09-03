@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __icpcfeatures_dot_hpp
 
 // icc relies on gcc libraries and other toolchain components.
-#define GNUC_VERSION (__GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__)
+#define R123_GNUC_VERSION (__GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__)
 
 #if !defined(__x86_64__) && !defined(__i386__)
 #  error "This code has only been tested on x86 platforms."
@@ -151,6 +151,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define R123_USE_IA32INTRIN_H 1
 #endif
 
+#ifndef R123_USE_XMMINTRIN_H
+#define R123_USE_XMMINTRIN_H 0
+#endif
+
 #ifndef R123_USE_EMMINTRIN_H
 #define R123_USE_EMMINTRIN_H 1
 #endif
@@ -165,10 +169,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef R123_USE_INTRIN_H
 #define R123_USE_INTRIN_H 0
-#endif
-
-#ifndef R123_USE_ALTIVEC_H
-#define R123_USE_ALTIVEC_H 0
 #endif
 
 #ifndef R123_USE_MULHILO16_ASM

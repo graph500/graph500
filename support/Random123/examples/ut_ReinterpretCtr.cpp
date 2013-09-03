@@ -42,6 +42,6 @@ int main(int, char **){
     ReinterpretCtr<r123array4x32, Threefry2x64> p;
     Threefry2x64::key_type kp = {{}};
     r = p(c, kp);
-    std::cout << ::demangle(p) << ": " << r << "\n";
+    std::cout << demangle(p) << ": " << r << "\n";
     return 0;
 }

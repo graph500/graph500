@@ -1,10 +1,38 @@
 /**
 @page "Release Notes"
 <dl>
+<dt>1.08 - Aug 20, 2013 </dt>
+<dd><ul>
+<li> Fix a bug in threefry2xW whereby rotation constants were
+chosen incorrectly after the 20th round.  There is no reason to
+suspect that the incorrectly chosen rotation constants were "bad"
+or "deficient" so there is no reason to suspect the quality of the
+random numbers produced.  Using threefry with R>20 would have been
+rare in any case.  The fix simply makes the implementation correspond 
+correctly to the description in the paper.
+<li> Add examples/uniform.hpp, examples/boxmuller.hpp and
+     examples/ua.hpp, containing example code to generate uniformly
+     and gaussian distributed floats and doubles.  Also add unit tests
+     (ut_uniform.cpp, ut_uniform_IEEEkat.cpp) and timing harnesses
+     (time_boxmuller.cpp and time_boxmuller_cuda.cpp).
+<li> Demote u01.h from the include/Random123/ to examples/ufixed01.h, but
+     examples/uniform.hpp is preferred.
+<li> Add kat_vectors for threefry2xW_32 and threefry4xW_72, i.e., the
+largest number of supported rounds in each case.
+<li> Mention ukey on the first page of docs.
+<li> Fix typos in documentation and comments and in gccfeatures.h.
+<li> Don't #include <x86intrin.h> unless (defined(__x86_64__)||defined(__i386__)).
+<li> Use __clang__ rather than __llvm__ in the predicate that decides whether to
+     include clangfeatures.h.
+<li> Add support for Portland Group compilers.
+<li> Add support for gcc and IBM XL compilers on powerpc64, e.g. BlueGene/Q.
+<li> Refuse to build with CUDA before 4.1 to avoid namespace bug.
+</ul></dd>
+
 <dt>1.07 - Nov 7, 2012 </dt>
 <dd><ul>
 <li> Provide const static data members:  _Min and _Max in Engine and MicroURNG, which
-work around a non-standard requirement imposed by the MacOS Xcode 4.5.2 <random> library.
+work around a non-standard requirement imposed by the MacOS Xcode 4.5.2 &lt;random&gt; library.
 <li> Fine-grained test macros for specific features of C++11 rather than
 an all-or-none USE_CXX0X macro.  Features tested:
 constexpr, unrestricted unions, explicit conversions, &lt;random&gt; and &lt;type_traits&gt;.

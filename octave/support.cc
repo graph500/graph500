@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "Random123/threefry.h"
 #include "Random123/ReinterpretCtr.hpp"
-#include "Random123/u01.h"
+#include "Random123/u01fixedpt.h"
 #include <oct.h>
 
 #define UINT32_MAX std::numeric_limits<uint32_t>::max()
@@ -55,10 +55,10 @@ DEFUN_DLD(PRNG, args, ,
 
   iprng (v1, v2, ov);
 
-  out(0) = u01_open_open_32_24 (ov[0]);
-  out(1) = u01_open_open_32_24 (ov[1]);
-  out(2) = u01_open_open_32_24 (ov[2]);
-  out(3) = u01_open_open_32_24 (ov[3]);
+  out(0) = u01fixedpt_open_open_32_24 (ov[0]);
+  out(1) = u01fixedpt_open_open_32_24 (ov[1]);
+  out(2) = u01fixedpt_open_open_32_24 (ov[2]);
+  out(3) = u01fixedpt_open_open_32_24 (ov[3]);
 
   return octave_value (out);
 }
@@ -74,8 +74,8 @@ DEFUN_DLD(dpPRNG, args, ,
 
   iprng (v1, v2, ov);
 
-  out(0) = u01_open_open_64_53 ( uint64_t (ov[1]) << 32 | uint64_t (ov[0]));
-  out(1) = u01_open_open_64_53 ( uint64_t (ov[3]) << 32 | uint64_t (ov[2]));
+  out(0) = u01fixedpt_open_open_64_53 ( uint64_t (ov[1]) << 32 | uint64_t (ov[0]));
+  out(1) = u01fixedpt_open_open_64_53 ( uint64_t (ov[3]) << 32 | uint64_t (ov[2]));
 
   return octave_value (out);
 }

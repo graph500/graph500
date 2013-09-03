@@ -86,10 +86,8 @@ int main(int, char **){
     // use ReinterpretCtr to wrap a union around the counter types.
 #if R123_USE_AES_OPENSSL
 #if R123_USE_AES_NI
-    typedef AESNI1xm128i::ukey_type niuktype;
     typedef AESNI1xm128i::ctr_type nictype;
 #else
-    typedef r123array1xm128i niuktype;
     typedef r123array1xm128i nictype;
 #endif
     AESOpenSSL16x8::ukey_type ouk;

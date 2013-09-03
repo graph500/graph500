@@ -45,10 +45,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 enum r123_enum_ars1xm128i {ars1xm128i_rounds = ARS1xm128i_DEFAULT_ROUNDS};
 
 /* ARS1xm128i with Weyl keys.  Fast, and Crush-resistant, but NOT CRYPTO. */
+/** @ingroup AESNI */
 typedef struct r123array1xm128i ars1xm128i_ctr_t;
+/** @ingroup AESNI */
 typedef struct r123array1xm128i ars1xm128i_key_t;
+/** @ingroup AESNI */
 typedef struct r123array1xm128i ars1xm128i_ukey_t;
+/** @ingroup AESNI */
 R123_STATIC_INLINE ars1xm128i_key_t ars1xm128ikeyinit(ars1xm128i_ukey_t uk) { return uk; }
+/** @ingroup AESNI */
 R123_STATIC_INLINE ars1xm128i_ctr_t ars1xm128i_R(unsigned int Nrounds, ars1xm128i_ctr_t in, ars1xm128i_key_t k){
     __m128i kweyl = _mm_set_epi64x(R123_64BIT(0xBB67AE8584CAA73B), /* sqrt(3) - 1.0 */
                                    R123_64BIT(0x9E3779B97F4A7C15)); /* golden ratio */

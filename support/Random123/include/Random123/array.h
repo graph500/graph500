@@ -52,15 +52,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     It is functionally equivalent to the C++0x std::array<N, uintW_t>,
     but does not require C++0x features or libraries.
 
-    In addition, to meeting most of the requirements of a Container,
+    In addition to meeting most of the requirements of a Container,
     it also has a member function, incr(), which increments the zero-th
     element and carrys overflows into higher indexed elements.  Thus,
     by using incr(), sequences of up to 2^(N*W) distinct values
     can be produced. 
 
-    If SSE is supported by the compiler, then the r123array1xm128i is
-    class is also defined, in which the data member is an array of
-    one r123128i object.
+    If SSE is supported by the compiler, then the class
+    r123array1xm128i is also defined, in which the data member is an
+    array of one r123128i object.
 
     @cond HIDDEN_FROM_DOXYGEN
 */
@@ -86,6 +86,8 @@ inline R123_CUDA_DEVICE value_type assemble_from_u32(uint32_t *p32){
     typedef const T* const_pointer;                                     \
     typedef std::reverse_iterator<iterator> reverse_iterator;           \
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator; \
+    /* Boost.array has static_size.  C++11 specializes tuple_size */    \
+    enum {static_size = _N};                                            \
     R123_CUDA_DEVICE reference operator[](size_type i){return v[i];}                     \
     R123_CUDA_DEVICE const_reference operator[](size_type i) const {return v[i];}        \
     R123_CUDA_DEVICE reference at(size_type i){ if(i >=  _N) R123_THROW(std::out_of_range("array index out of range")); return (*this)[i]; } \

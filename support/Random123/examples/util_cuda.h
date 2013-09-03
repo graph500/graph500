@@ -71,7 +71,7 @@ static CUDAInfo *cuda_init(const char *devstr)
 	} else if (cu.major == 2 && cu.minor == 1) {
 	    // 2.1 (GF104, GF114, GF116 aka GTX [45][56]0)
 	    cores *= 48;
-	} else if (cu.major == 3 && cu.minor == 0) {
+	} else if (cu.major == 3 && (cu.minor == 0||cu.minor==5)) {
 	    // 3.0 (Kepler GK104 aka GTX 680)
 	    cores *= 192;
 	} else {
@@ -83,7 +83,7 @@ static CUDAInfo *cuda_init(const char *devstr)
 	   i, cu.major, cu.minor, nameclean(cu.name), cu.integrated ? " integrated" : "",
 	   cu.multiProcessorCount, cu.clockRate*1e-3, cu.ECCEnabled, cores, cycles*1e-9);
 	if (devstr && strstr(cu.name, devstr) == NULL) {
-	    dprintf(("skipping device %s", cu.name));
+	    dprintf(("skipping device %s\n", cu.name));
 	    continue;
 	}
 	if (cores > devcores) {

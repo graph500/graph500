@@ -49,7 +49,7 @@ int main(int, char **){
 
     if (!haveAESNI()) {
 	std::cerr << "AES-NI instructions not available on this hardware, skipping the pi_aes test." << std::endl;
-	exit(0);
+        return 0;
     }
     typedef AESNI4x32 G;
     G generator;

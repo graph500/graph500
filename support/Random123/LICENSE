@@ -1,5 +1,5 @@
-/*
-Copyright 2010-2011, D. E. Shaw Research.
+/** @page LICENSE
+Copyright 2010-2012, D. E. Shaw Research.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -29,23 +29,3 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef KAT_U01_H__
-#define KAT_U01_H__
-
-#include <Random123/u01.h>
-
-#define NUM_FLOAT_CONVERTERS 4
-#define NUM_DOUBLE_CONVERTERS 8
-#define NUM_CONVERTERS (NUM_FLOAT_CONVERTERS + NUM_DOUBLE_CONVERTERS)
-
-typedef struct {
-    uint64_t input;
-    const char *expected[NUM_CONVERTERS];
-} KatU01Test;
-
-typedef struct {
-    float valuef[NUM_FLOAT_CONVERTERS];
-    double valued[NUM_DOUBLE_CONVERTERS];
-} KatU01Result;
-
-#endif

@@ -8,7 +8,8 @@
 #include <assert.h>
 
 #include <Random123/threefry.h>
-#include <Random123/u01.h>
+#define R123_USE_U01_DOUBLE 1
+#include <Random123/u01fixedpt.h>
 
 #include "globals.h"
 #include "prng.h"
@@ -88,11 +89,11 @@ random_edgevals (float * v, int64_t idx)
   for (int scl = 0; scl < SCALE; scl += 2) {
     threefry4x32_ctr_t outc;
     outc = threefry4x32 (ctr2 (idx, 1+scl/2), key);
-    v[scl] = u01_open_open_32_24 (outc.v[0]);
-    v[SCALE + scl] = u01_open_open_32_24 (outc.v[1]);
+    v[scl] = u01fixedpt_open_open_32_24 (outc.v[0]);
+    v[SCALE + scl] = u01fixedpt_open_open_32_24 (outc.v[1]);
     if (scl < SCALE-1) {
-      v[scl+1] = u01_open_open_32_24 (outc.v[2]);
-      v[SCALE + scl+1] = u01_open_open_32_24 (outc.v[3]);
+      v[scl+1] = u01fixedpt_open_open_32_24 (outc.v[2]);
+      v[SCALE + scl+1] = u01fixedpt_open_open_32_24 (outc.v[3]);
     }
   }
 }
@@ -177,7 +178,7 @@ fprng (int64_t v1, int64_t v2)
   threefry4x32_ctr_t outc;
   float out;
   outc = threefry4x32 (ctr2 (v1, v2), key);
-  out = u01_open_open_32_24 (outc.v[0]);
+  out = u01fixedpt_open_open_32_24 (outc.v[0]);
   assert (out > 0);
   return out;
 }
@@ -190,7 +191,7 @@ dprng (int64_t v1, int64_t v2)
     int64_t v[2];
   } u;
   u.outc = threefry4x32 (ctr2 (v1, v2), key);
-  return u01_closed_open_64_53 (u.v[0]);
+  return u01fixedpt_closed_open_64_53 (u.v[0]);
 }
 
 /* Reverse bits in a number; this should be optimized for performance

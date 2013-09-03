@@ -3,11 +3,6 @@ g++ -O -I../include   kat_cpp.cpp   -o kat_cpp
 nvcc -O -I../include   kat_cuda.cu   -o kat_cuda
 CC="cc" CPPFLAGS="-I../include" ./gencl.sh kat_opencl_kernel.ocl kat_opencl_kernel.i
 cc -O -I. -I../include   kat_opencl.c  -lOpenCL -o kat_opencl
-cc -O -I../include   kat_u01_c.c   -o kat_u01_c
-g++ -O -I../include   kat_u01_cpp.cpp   -o kat_u01_cpp
-nvcc -O -I../include   kat_u01_cuda.cu   -o kat_u01_cuda
-CC="cc" CPPFLAGS="-I../include" ./gencl.sh kat_u01_opencl_kernel.ocl kat_u01_opencl_kernel.i
-cc -O -I. -I../include   kat_u01_opencl.c  -lOpenCL -o kat_u01_opencl
 g++ -O -I../include   pi_aes.cpp   -o pi_aes
 cc -O -I../include   pi_capi.c   -o pi_capi
 g++ -O -I../include   pi_cppapi.cpp   -o pi_cppapi
@@ -17,9 +12,11 @@ cc -O `gsl-config --cflags` -I../include   pi_gsl.c  `gsl-config --libs` -o pi_g
 g++ -O -I../include   pi_microurng.cpp   -o pi_microurng
 CC="cc" CPPFLAGS="-I../include" ./gencl.sh pi_opencl_kernel.ocl pi_opencl_kernel.i
 cc -O -I. -I../include   pi_opencl.c  -lOpenCL -o pi_opencl
-cc -O -I../include   pi_u01.c   -o pi_u01
+g++ -O -I../include   pi_uniform.cpp   -o pi_uniform
 cc -O -I../include   simple.c   -o simple
 g++ -O -I../include   simplepp.cpp   -o simplepp
+g++ -O -I../include   time_boxmuller.cpp   -o time_boxmuller
+nvcc -O -I../include   time_boxmuller_cuda.cu   -o time_boxmuller_cuda
 nvcc -O -I../include   time_cuda.cu   -o time_cuda
 CC="cc" CPPFLAGS="-I../include" ./gencl.sh time_opencl_kernel.ocl time_opencl_kernel.i
 cc -O -I. -I../include   time_opencl.c  -lOpenCL -o time_opencl
@@ -34,3 +31,5 @@ cc -O -I../include   ut_ars.c   -o ut_ars
 g++ -O -I../include   ut_carray.cpp   -o ut_carray
 g++ -O -I../include   ut_features.cpp   -o ut_features
 cc -O `gsl-config --cflags` -I../include   ut_gsl.c  `gsl-config --libs` -o ut_gsl
+g++ -O -I../include   ut_ua.cpp   -o ut_ua
+g++ -O -I../include   ut_uniform.cpp   -o ut_uniform

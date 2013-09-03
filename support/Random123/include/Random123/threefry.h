@@ -251,34 +251,34 @@ threefry2x##W##_ctr_t threefry2x##W##_R(unsigned int Nrounds, threefry2x##W##_ct
     if(Nrounds>18){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_2_0); X.v[1] ^= X.v[0]; } \
     if(Nrounds>19){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_3_0); X.v[1] ^= X.v[0]; } \
     if(Nrounds>19){                                                     \
-        /* InjectKey(r=4) */                                            \
+        /* InjectKey(r=5) */                                            \
         X.v[0] += ks[2]; X.v[1] += ks[0];                               \
         X.v[1] += 5;                                                    \
     }                                                                   \
-    if(Nrounds>20){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_0_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>21){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_1_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>22){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_2_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>23){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_3_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>20){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_4_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>21){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_5_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>22){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_6_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>23){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_7_0); X.v[1] ^= X.v[0]; } \
     if(Nrounds>23){                                                     \
-        /* InjectKey(r=3) */                                            \
+        /* InjectKey(r=6) */                                            \
         X.v[0] += ks[0]; X.v[1] += ks[1];                               \
         X.v[1] += 6;                                                    \
     }                                                                   \
-    if(Nrounds>24){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_4_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>25){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_5_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>26){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_6_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>27){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_7_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>24){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_0_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>25){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_1_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>26){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_2_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>27){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_3_0); X.v[1] ^= X.v[0]; } \
     if(Nrounds>27){                                                     \
-        /* InjectKey(r=4) */                                            \
+        /* InjectKey(r=7) */                                            \
         X.v[0] += ks[1]; X.v[1] += ks[2];                               \
         X.v[1] += 7;                                                    \
     }                                                                   \
-    if(Nrounds>28){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_0_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>29){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_1_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>30){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_2_0); X.v[1] ^= X.v[0]; } \
-    if(Nrounds>31){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_3_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>28){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_4_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>29){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_5_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>30){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_6_0); X.v[1] ^= X.v[0]; } \
+    if(Nrounds>31){  X.v[0] += X.v[1]; X.v[1] = RotL_##W(X.v[1],R_##W##x2_7_0); X.v[1] ^= X.v[0]; } \
     if(Nrounds>31){                                                     \
-        /* InjectKey(r=4) */                                            \
+        /* InjectKey(r=8) */                                            \
         X.v[0] += ks[2]; X.v[1] += ks[0];                               \
         X.v[1] += 8;                                                    \
     }                                                                   \

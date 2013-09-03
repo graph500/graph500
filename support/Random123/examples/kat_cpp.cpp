@@ -174,13 +174,17 @@ void host_execute_tests(kat_instance *tests, size_t ntests){
     // In C++1x, this could be staticly declared with an initializer list.
     genmap[make_pair(threefry2x32_e, 13u)] = do_test<r123::Threefry2x32_R<13> >;
     genmap[make_pair(threefry2x32_e, 20u)] = do_test<r123::Threefry2x32_R<20> >;
+    genmap[make_pair(threefry2x32_e, 32u)] = do_test<r123::Threefry2x32_R<32> >;
     genmap[make_pair(threefry2x64_e, 13u)] = do_test<r123::Threefry2x64_R<13> >;
     genmap[make_pair(threefry2x64_e, 20u)] = do_test<r123::Threefry2x64_R<20> >;
+    genmap[make_pair(threefry2x64_e, 32u)] = do_test<r123::Threefry2x64_R<32> >;
 
     genmap[make_pair(threefry4x32_e, 13u)] = do_test<r123::Threefry4x32_R<13> >;
     genmap[make_pair(threefry4x32_e, 20u)] = do_test<r123::Threefry4x32_R<20> >;
+    genmap[make_pair(threefry4x32_e, 72u)] = do_test<r123::Threefry4x32_R<72> >;
     genmap[make_pair(threefry4x64_e, 13u)] = do_test<r123::Threefry4x64_R<13> >;
     genmap[make_pair(threefry4x64_e, 20u)] = do_test<r123::Threefry4x64_R<20> >;
+    genmap[make_pair(threefry4x64_e, 72u)] = do_test<r123::Threefry4x64_R<72> >;
 
     genmap[make_pair(philox2x32_e, 7u)] = do_test<r123::Philox2x32_R<7> >;
     genmap[make_pair(philox2x32_e, 10u)] = do_test<r123::Philox2x32_R<10> >;

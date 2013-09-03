@@ -266,7 +266,7 @@ struct AESNI4x32{
 /** @ingroup AESNI
     @class AESNI1xm128i_R
 
-AESNI1xm128i_R is provided for conmpleteness, but is only instantiable with ROUNDS=10, in
+AESNI1xm128i_R is provided for completeness, but is only instantiable with ROUNDS=10, in
 which case it is identical to AESNI1xm128i */
 template <unsigned ROUNDS=10> 
 struct AESNI1xm128i_R : public AESNI1xm128i{

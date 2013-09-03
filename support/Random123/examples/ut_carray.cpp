@@ -98,7 +98,7 @@ void doit(size_t N, size_t W){
 
     assert( R123_W(AType) == W );
 
-    cout << "doit<" << ::demangle(uninitialized) << ">";
+    cout << "doit<" << demangle(uninitialized) << ">";
     // size
     assert(uninitialized.size() == N);
 
@@ -113,8 +113,60 @@ void doit(size_t N, size_t W){
     // back
     assert(&uninitialized.back() == uninitialized.data()+(N-1));
 
+    // The ut_carray Random123 unit test uses an empty initializer list to
+    // construct instances of different r123 arrays, in a test that's
+    // templated on array type.  This works fine for all of the r123 array
+    // types except r123array1xm128i---i.e., an "array" consisting of a single
+    // __m128i value.  GCC defines __m128i as a single long long,
+    //
+    // typedef long long __m128i __attribute__ ((__vector_size__ (16),
+    //                                           __may_alias__));
+    //
+    // while Intel defines it as a union,
+    //
+    // typedef union  _MMINTRIN_TYPE(16) __m128i {
+    // #if !defined(_MSC_VER)
+    //      /*
+    //       * To support GNU compatible intialization with initializers list,
+    //       * make first union member to be of int64 type.
+    //       */
+    //      __int64             m128i_gcc_compatibility[2];
+    // #endif
+    //     /*
+    //      * Although we do not recommend using these directly, they are here
+    //      * for better MS compatibility.
+    //      */
+    //     __int8              m128i_i8[16];
+    //     __int16             m128i_i16[8];
+    //     __int32             m128i_i32[4];
+    //     __int64             m128i_i64[2];
+    //     unsigned __int8     m128i_u8[16];
+    //     unsigned __int16    m128i_u16[8];
+    //     unsigned __int32    m128i_u32[4];
+    //     unsigned __int64    m128i_u64[2];
+    //
+    //     /*
+    //      * This is what we used to have here alone.
+    //      * Leave for backward compatibility.
+    //      */
+    //     char c[16];
+    // } __m128i;
+    //
+    // but PGI defines __m128i as a struct,
+    //
+    // typedef struct {
+    //   private: long long m128i_i64[2];
+    // } __attribute__((aligned(16))) __m128i;
+    //
+    // which can't be initialized with initializer lists before C++11.
+
     // constructor with initializer.  [], at
+#ifndef __PGI
     AType z = {{}};
+#else
+    AType z;
+    z.fill(zero<vtype>());
+#endif
     for(unsigned i=0; i<N; ++i){
         assert(!z[i]);
         assert(!z.at(i));
@@ -205,7 +257,12 @@ void doit(size_t N, size_t W){
 
     // incr 
 
+#ifndef __PGI
     atype a = {{}};
+#else
+    atype a;
+    a.fill(zero<vtype>());
+#endif
     a.incr();
     a.incr();
     a.incr();

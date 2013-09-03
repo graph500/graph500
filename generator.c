@@ -4,9 +4,6 @@
 
 #include <assert.h>
 
-#include "Random123/threefry.h"
-#include "Random123/u01.h"
-
 #include "globals.h"
 #include "prng.h"
 #include "packed_edge.h"

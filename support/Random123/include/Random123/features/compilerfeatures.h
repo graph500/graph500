@@ -87,6 +87,7 @@ All boolean-valued pre-processor symbols in Random123/features/compilerfeatures.
    
          X86INTRIN_H
          IA32INTRIN_H
+         XMMINTRIN_H
          EMMINTRIN_H
          SMMINTRIN_H
          WMMINTRIN_H
@@ -198,18 +199,20 @@ added to each of the *features.h files, AND to examples/ut_features.cpp.
 #include "nvccfeatures.h"
 #elif defined(__ICC)
 #include "iccfeatures.h"
+#elif defined(__xlC__)
+#include "xlcfeatures.h"
 #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
 #include "sunprofeatures.h"
 #elif defined(__OPEN64__)
 #include "open64features.h"
-#elif defined(__llvm__)
+#elif defined(__clang__)
 #include "clangfeatures.h"
 #elif defined(__GNUC__)
 #include "gccfeatures.h"
+#elif defined(__PGI)
+#include "pgccfeatures.h"
 #elif defined(_MSC_FULL_VER)
 #include "msvcfeatures.h"
-#elif defined(__xlc__) || defined(__xlC__)
-#include "xlcfeatures.h"
 #elif defined(__MTA__)
 #include "xmtfeatures.h"
 #else
@@ -253,6 +256,14 @@ added to each of the *features.h files, AND to examples/ut_features.cpp.
 #define R123_USE_MULHILO64_C99 0
 #endif
 
+#ifndef R123_USE_MULHILO64_MULHI_INTRIN
+#define R123_USE_MULHILO64_MULHI_INTRIN 0
+#endif
+
+#ifndef R123_USE_MULHILO32_MULHI_INTRIN
+#define R123_USE_MULHILO32_MULHI_INTRIN 0
+#endif
+
 #ifndef R123_STATIC_ASSERT
 #if R123_USE_CXX11_STATIC_ASSERT
 #define R123_STATIC_ASSERT(expr, msg) static_assert(expr, msg)
@@ -271,7 +282,7 @@ added to each of the *features.h files, AND to examples/ut_features.cpp.
 #endif
 
 #ifndef R123_USE_PHILOX_64BIT
-#define R123_USE_PHILOX_64BIT (R123_USE_MULHILO64_ASM || R123_USE_MULHILO64_MSVC_INTRIN || R123_USE_MULHILO64_CUDA_INTRIN || R123_USE_GNU_UINT128 || R123_USE_MULHILO64_C99 || R123_USE_MULHILO64_OPENCL_INTRIN)
+#define R123_USE_PHILOX_64BIT (R123_USE_MULHILO64_ASM || R123_USE_MULHILO64_MSVC_INTRIN || R123_USE_MULHILO64_CUDA_INTRIN || R123_USE_GNU_UINT128 || R123_USE_MULHILO64_C99 || R123_USE_MULHILO64_OPENCL_INTRIN || R123_USE_MULHILO64_MULHI_INTRIN)
 #endif
 
 #ifndef R123_ULONG_LONG
@@ -294,10 +305,6 @@ added to each of the *features.h files, AND to examples/ut_features.cpp.
 
 #ifndef R123_THROW
 #define R123_THROW(x)    throw (x)
-#endif
-
-#ifndef R123_USE_U01_DOUBLE
-#define R123_USE_U01_DOUBLE 1
 #endif
 
 /*

@@ -127,15 +127,17 @@ static double clockspeedHz(int *ncores, char **modelnamep){
 	    nameclean(*modelnamep);
 	    dprintf(("cleaned modelname is %s\n", *modelnamep));
 	}
-	if ((s = strstr(buf, "cpu MHz")) != NULL) {
-	    CHECKNOTZERO(sscanf(s, "cpu MHz : %lf %n", &xMhz, &i));
+	if ((s = strstr(buf, "cpu MHz")) || (s = strstr(buf, "clock"))) {
+	    if (s[1] == 'p') // cpu MHz
+		CHECKNOTZERO(sscanf(s, "cpu MHz : %lf %n", &xMhz, &i));
+	    else // clock
+		CHECKNOTZERO(sscanf(s, "clock : %lfMHz %n", &xMhz, &i));
 	    dprintf(("parsed %f %d\n", xMhz, i));
 	    if (xMhz > Mhz) Mhz = xMhz;
 	    s += i;
 	    if (ncores) *ncores += 1;
 	}
     }
-    CHECKNOTZERO(Mhz);
     d = Mhz*1e6;
     dprintf(("clockspeed is %f\n", d));
     return d;
@@ -156,13 +158,6 @@ static double clockspeedHz(int *nnodes, char **modelnamep){
 	    *modelnamep = ntcsdup(buf);
     }
     return 1.e6*clockrate;
-}
-#elif defined(__MTA__)
-#include <sys/mta_task.h>
-static double clockspeedHz(int *nnodes, char **modelnamep){
-    if(nnodes) *nnodes = mta_get_max_teams ();
-    if(modelnamep) *modelnamep = ntcsdup("some XMT model");
-    return mta_clock_freq ();
 }
 #else
 static double clockspeedHz(int *nnodes, char **modelnamep){

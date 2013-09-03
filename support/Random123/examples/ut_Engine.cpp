@@ -84,12 +84,11 @@ struct DummySeedSeq{
 template <typename EType>
 void doit(){
     EType e;
-    cout << "doit<" << ::demangle(e) << ">";
+    cout << "doit<" << demangle(e) << ">";
     typedef typename EType::cbrng_type BType;
     typedef typename EType::result_type rtype;
     typedef typename BType::ctr_type ctype;
     typedef typename BType::key_type ktype;
-    typedef typename BType::ukey_type uktype;
 
     DummySeedSeq dummyss;
     EType ess(dummyss);
@@ -206,7 +205,7 @@ void doit(){
     typename EType::result_type r = ekat();
     typename EType::result_type knownanswer = kat1000<EType>();
     if( knownanswer != 0 && r != knownanswer )
-        cerr << "KAT mismatch.  The 1000th random from " << ::demangle(ekat) << " is " << r << " it should be " << knownanswer << "\n";
+        cerr << "KAT mismatch.  The 1000th random from " << demangle(ekat) << " is " << r << " it should be " << knownanswer << "\n";
     assert( knownanswer==0 || r == knownanswer );
     cout << " OK" << endl;
 }

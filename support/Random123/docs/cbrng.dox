@@ -58,7 +58,7 @@ If the compiler environment supports it,
 \c Random123/array.h also declares \c r123array1xm128i, which contains an array of one
 \c r123m128i, which in turn is a class wrapping a single element
 of \c __m128i SSE type, which can be accessed as \c r.v[0].m.
-The @ref r123::ARS1xm128i RNGs
+The @ref r123::ARS1xm128i_R RNGs
 use \c r123array1xm128i for both \c ctr_type and \c key_type.
 For the @ref AESNI "AESNI" RNG, \c ctr_type is an \c r123array1xm128i, but 
 \c key_type is an opaque type, which must be initialized
@@ -96,7 +96,7 @@ There are four families of CBRNGs in the library:
 <li> @ref ThreefryNxW "Threefry": @ref r123::Threefry2x32, @ref r123::Threefry4x32, @ref r123::Threefry2x64, @ref r123::Threefry4x64
 <li> @ref PhiloxNxW "Philox": @ref r123::Philox2x32, @ref r123::Philox4x32, @ref r123::Philox2x64, @ref r123::Philox4x64
 <li> @ref r123::AESNI4x32, r123::AESNI1xm128i
-<li> @ref r123::ARS4x32
+<li> @ref r123::ARS4x32_R
 </ul>
 
 A <i> counter based RNG </i> (CBRNG) with a name of the form
@@ -191,7 +191,7 @@ The supported names for the C API are
 <ul>
 <li> @ref ThreefryNxW "threefry": @ref threefry2x32, @ref threefry4x32, @ref threefry2x64, @ref threefry4x64.
 <li> @ref PhiloxNxW "philox": @ref philox2x32, @ref philox4x32, @ref philox2x64, @ref philox4x64.
-<li> @ref ars4x32, @ref ars1xm128i
+<li> @ref ars4x32_R, @ref ars1xm128i_R
 <li> @ref aesni4x32, @ref aesni1xm128i
 </ul>
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2012, Georgia Institute of Technology.
+Copyright 2010-2011, D. E. Shaw Research.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -13,9 +13,9 @@ met:
   notice, this list of conditions, and the following disclaimer in the
   documentation and/or other materials provided with the distribution.
 
-* Neither the name of Georgia Institute of Technology nor the names of
-  its contributors may be used to endorse or promote products derived
-  from this software without specific prior written permission.
+* Neither the name of D. E. Shaw Research nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -28,17 +28,47 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Copyright (c) 2013, Los Alamos National Security, LLC
+All rights reserved.
+
+Copyright 2013. Los Alamos National Security, LLC. This software was produced
+under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National
+Laboratory (LANL), which is operated by Los Alamos National Security, LLC for
+the U.S. Department of Energy. The U.S. Government has rights to use,
+reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
+ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
+to produce derivative works, such modified software should be clearly marked,
+so as not to confuse it with the version available from LANL.
 */
 #ifndef __xlcfeatures_dot_hpp
 #define __xlcfeatures_dot_hpp
 
-#ifndef R123_STATIC_INLINE
-#define R123_STATIC_INLINE static __inline
+#if !defined(__x86_64__) && !defined(__i386__) && !defined(__powerpc__)
+#  error "This code has only been tested on x86 and PowerPC platforms."
+#include <including_a_nonexistent_file_will_stop_some_compilers_from_continuing_with_a_hopeless_task>
+{ /* maybe an unbalanced brace will terminate the compilation */
+ /* Feel free to try the Random123 library on other architectures by changing
+ the conditions that reach this error, but you should consider it a
+ porting exercise and expect to encounter bugs and deficiencies.
+ Please let the authors know of any successes (or failures). */
 #endif
 
-/* Needs xlc version check, etc. */
+#ifdef __cplusplus
+/* builtins are automatically available to xlc.  To use them with xlc++,
+   one must include builtins.h.   c.f
+   http://publib.boulder.ibm.com/infocenter/cellcomp/v101v121/index.jsp?topic=/com.ibm.xlcpp101.cell.doc/compiler_ref/compiler_builtins.html
+*/
+#include <builtins.h>
+#endif
+
+#ifndef R123_STATIC_INLINE
+#define R123_STATIC_INLINE static inline
+#endif
+
 #ifndef R123_FORCE_INLINE
-#define R123_FORCE_INLINE(decl) decl __attribute__((always_inline))
+#define R123_FORCE_INLINE(decl) decl __attribute__((__always_inline__))
 #endif
 
 #ifndef R123_CUDA_DEVICE
@@ -52,10 +82,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef R123_BUILTIN_EXPECT
 #define R123_BUILTIN_EXPECT(expr,likely) __builtin_expect(expr,likely)
-#endif
-
-#ifndef R123_USE_CXX0X
-#define R123_USE_CXX0X 0
 #endif
 
 #ifndef R123_USE_AES_NI
@@ -74,11 +100,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define R123_USE_SSE 0
 #endif
 
-#ifndef R123_USE_STD_RANDOM
-#define R123_USE_STD_RANDOM 1
-#endif
-
 #ifndef R123_USE_AES_OPENSSL
+/* There isn't really a good way to tell at compile time whether
+   openssl is available.  Without a pre-compilation configure-like
+   tool, it's less error-prone to guess that it isn't available.  Add
+   -DR123_USE_AES_OPENSSL=1 and any necessary LDFLAGS or LDLIBS to
+   play with openssl */
 #define R123_USE_AES_OPENSSL 0
 #endif
 
@@ -87,7 +114,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifndef R123_USE_ASM_GNU
-#define R123_USE_ASM_GNU 0
+#define R123_USE_ASM_GNU 1
 #endif
 
 #ifndef R123_USE_CPUID_MSVC
@@ -102,6 +129,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define R123_USE_IA32INTRIN_H 0
 #endif
 
+#ifndef R123_USE_XMMINTRIN_H
+#define R123_USE_XMMINTRIN_H 0
+#endif
+
 #ifndef R123_USE_EMMINTRIN_H
 #define R123_USE_EMMINTRIN_H 0
 #endif
@@ -114,24 +145,36 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define R123_USE_WMMINTRIN_H 0
 #endif
 
-#ifndef R123_USE_ALTIVEC_H
-#define R123_USE_ALTIVEC_H 0
-#endif
-
 #ifndef R123_USE_INTRIN_H
+#ifdef __ABM__
+#define R123_USE_INTRIN_H 1
+#else
 #define R123_USE_INTRIN_H 0
 #endif
-
-#ifndef R123_USE_MULHILO16_ASM
-#define R123_USE_MULHILO16_ASM 0
 #endif
 
 #ifndef R123_USE_MULHILO32_ASM
 #define R123_USE_MULHILO32_ASM 0
 #endif
 
+#ifndef R123_USE_MULHILO64_MULHI_INTRIN
+#define R123_USE_MULHILO64_MULHI_INTRIN (defined(__powerpc64__))
+#endif
+
+#ifndef R123_MULHILO64_MULHI_INTRIN
+#define R123_MULHILO64_MULHI_INTRIN __mulhdu
+#endif
+
+#ifndef R123_USE_MULHILO32_MULHI_INTRIN
+#define R123_USE_MULHILO32_MULHI_INTRIN 0
+#endif
+
+#ifndef R123_MULHILO32_MULHI_INTRIN
+#define R123_MULHILO32_MULHI_INTRIN __mulhwu
+#endif
+
 #ifndef R123_USE_MULHILO64_ASM
-#define R123_USE_MULHILO64_ASM 0
+#define R123_USE_MULHILO64_ASM (defined(__powerpc64__) && !(R123_USE_MULHILO64_MULHI_INTRIN))
 #endif
 
 #ifndef R123_USE_MULHILO64_MSVC_INTRIN
@@ -154,6 +197,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #error UINT64_C not defined.  You must define __STDC_CONSTANT_MACROS before you #include <stdint.h>
 #endif
 
-// If you add something, it must go in all the other XXfeatures.hpp
-// and in ../ut_features.cpp
+/* If you add something, it must go in all the other XXfeatures.hpp
+   and in ../ut_features.cpp */
 #endif

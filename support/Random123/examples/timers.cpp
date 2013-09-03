@@ -178,12 +178,11 @@ r123array1xm128i& operator+=(r123array1xm128i& lhs, r123array1xm128i rhs){
 template <typename B>
 void timer(){
     typedef typename B::ctr_type ctr_type;
-    typedef typename ctr_type::value_type value_type;
     ctr_type sum = {{}};
     uint_fast64_t N = 1000000;    // First try only a few thousand...
     B b;
     int bytes_per_call = sizeof(ctr_type);
-    cout << ::demangle(b) << ": gran: " << bytes_per_call;
+    cout << demangle(b) << ": gran: " << bytes_per_call;
 
     ctr_type c0 = {{}};
     const char *envp;

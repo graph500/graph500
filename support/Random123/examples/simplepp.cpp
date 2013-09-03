@@ -37,11 +37,11 @@ int main(int, char **){
     CBRNG g;
     CBRNG::ctr_type  ctr = {{0,0}};
     CBRNG::key_type key = {{0xdeadbeef}};
-    std::cout << std::hex << "The first few 2x64 randoms from Philox2x64 with key " << key << "\n";
+    std::cout << std::hex << "The first few 2x64 randoms from Threefry2x64 with key " << key << "\n";
     for(int i=0; i<10; ++i){
         ctr[0] = i;
         CBRNG::ctr_type rand = g(ctr, key);
-        std::cout << "ctr: " << ctr << " Philox2x64<>(ctr, key): " << rand << "\n";
+        std::cout << "ctr: " << ctr << " Threefry2x64<>(ctr, key): " << rand << "\n";
     }
     return 0;
 }

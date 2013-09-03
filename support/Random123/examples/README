@@ -31,7 +31,7 @@ the same way when testing the library as they will be set when the
 library is actually compiled into your application.
 Something like:
 @code
-gmake CFLAGS="-std=c99" CXXFLAGS="-std=c++0x" CPPFLAGS="/alternate/location/include -O3 -Wall -Wstrict-aliasing=2" TARGET_ARCH=-march=native"
+gmake CFLAGS="-std=c99" CXXFLAGS="-std=c++0x" CPPFLAGS="/alternate/location/include -O3 -Wall -Wstrict-aliasing=2" TARGET_ARCH="-march=native"
 @endcode
 would confirm that all is well with optimization on, and output targeted at
 an architecture with the same capabilities as the machine running the compilation.
@@ -111,6 +111,27 @@ obtain and print a few random numbers in C and C++:
 <li> simplepp.cpp
 </ul>
 
+@subsection generation Generation of uniformly distributed real values.
+
+The uniformly distributed integers that the CBRNGs produce are rarely
+what is required by applications.  Sampling other distributions
+is beyond the scope of Random123.  Many
+distributions can be sampled with GSL (using \<Random123/conventional/gsl_cbrng.h\>
+or with C++11's \<random\> (using \<Random123/MicroURNG.hpp\> or \<Random123/conventional/Engine.hpp\>.
+Nevertheless, some distributions are so simple that the
+machinery of \<random\> or GSL seems like overkill.  We provide
+code to generate uniformly distributed real numbers in
+the range (0, 1) and (-1, 1) in two header files:
+<ul>
+<li> uniform.hpp
+<li> u01fixedpt.h
+</ul>
+We encourage you to copy these header files and use them (or modify them)
+to suit your needs.  They are not as thoroughly tested or as portable
+as the headers in the library itself, but they should be safe to use
+on any platform with IEEE-754 floating point support.  They are
+documented in comments in the files themselves.
+
 @subsection pi Estimating pi using different APIs
 
 Using random numbers to estimate pi is a classic example.  The idea
@@ -126,6 +147,7 @@ which illustrates a slightly different API
 <ul>
 <li> pi_capi - using only the basic C API
 <li> pi_cppapi - using only the basic C++ API
+<li> pi_u01 - using the C++ API and uniform.hpp
 <li> pi_gsl - using a Random123 generator, but a gsl distribution to obtain real-valued random numbers.  <b>Requires the GNU Scientific Library</b>
 <li> pi_microurng - using a Random123 generator, but a C++0x \<random\> distribution to obtain real-valued random numbers
 <li> pi_cuda - using the Random123  library with CUDA, runnable on an NVIDIA GPU

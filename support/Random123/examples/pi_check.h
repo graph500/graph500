@@ -52,7 +52,7 @@ int pi_check(unsigned long hits, unsigned long tries)
     chisq = delta*delta/var;
     /*  Sigh.  Jump through hoops so we don't want to link with -lm for sqrt */
     if( chisq < 1. )
-        printf("OK, # of hits less than one 'sigma' away from expectation\n(chisquared = %.2g)\n", chisq);
+        printf("OK, # of hits is less than one 'sigma' away from expectation\n(chisquared = %.2g)\n", chisq);
     else if(chisq < 4.)
         printf("OK, # of hits is between one and two 'sigma' away from expectation\n(chisquared = %.2g)\n", chisq);
     else if(chisq < 9.)

@@ -62,7 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // understand it and produce correct code.  For 64-bit multiplies,
 // it's only usable if the compiler recognizes that it can do
 // arithmetic on a 128-bit type.  That happens to be true for gcc on
-// x86-64, but not much else.
+// x86-64, and powerpc64 but not much else.
 */
 #define _mulhilo_dword_tpl(W, Word, Dword)                              \
 R123_CUDA_DEVICE R123_STATIC_INLINE Word mulhilo##W(Word a, Word b, Word* hip){ \
@@ -75,8 +75,21 @@ R123_CUDA_DEVICE R123_STATIC_INLINE Word mulhilo##W(Word a, Word b, Word* hip){ 
 // A template for mulhilo using gnu-style asm syntax.
 // INSN can be "mulw", "mull" or "mulq".  
 // FIXME - porting to other architectures, we'll need still-more conditional
-// branching here
+// branching here.  Note that intrinsics are usually preferable.
 */
+#ifdef __powerpc__
+#define _mulhilo_asm_tpl(W, Word, INSN)                         \
+R123_STATIC_INLINE Word mulhilo##W(Word ax, Word b, Word *hip){ \
+    Word dx = 0;                                                \
+    __asm__("\n\t"                                              \
+        INSN " %0,%1,%2\n\t"                                    \
+        : "=r"(dx)                                              \
+        : "r"(b), "r"(ax)                                       \
+        );                                                      \
+    *hip = dx;                                                  \
+    return ax*b;                                                \
+}
+#else
 #define _mulhilo_asm_tpl(W, Word, INSN)                         \
 R123_STATIC_INLINE Word mulhilo##W(Word ax, Word b, Word *hip){      \
     Word dx;                                                    \
@@ -88,6 +101,7 @@ R123_STATIC_INLINE Word mulhilo##W(Word ax, Word b, Word *hip){      \
     *hip = dx;                                                  \
     return ax;                                                  \
 }
+#endif /* __powerpc__ */
 
 /*
 // A template for mulhilo using MSVC-style intrinsics
@@ -99,6 +113,8 @@ R123_STATIC_INLINE Word mulhilo##W(Word a, Word b, Word* hip){       \
     return INTRIN(a, b, hip);                                   \
 }
 
+/* N.B.  This really should be called _mulhilo_mulhi_intrin.  It just
+   happens that CUDA was the first time we used the idiom. */
 #define _mulhilo_cuda_intrin_tpl(W, Word, INTRIN)                       \
 R123_CUDA_DEVICE R123_STATIC_INLINE Word mulhilo##W(Word a, Word b, Word* hip){ \
     *hip = INTRIN(a, b);                                                \
@@ -156,20 +172,30 @@ R123_STATIC_INLINE Word mulhilo##W(Word a, Word b, Word *hip){               \
 // _mulhilo_dword_tpl 
 */
 #if R123_USE_MULHILO32_ASM
+#ifdef __powerpc__
+_mulhilo_asm_tpl(32, uint32_t, "mulhwu")
+#else
 _mulhilo_asm_tpl(32, uint32_t, "mull")
+#endif /* __powerpc__ */
 #else
 _mulhilo_dword_tpl(32, uint32_t, uint64_t)
 #endif
 
 #if R123_USE_PHILOX_64BIT
 #if R123_USE_MULHILO64_ASM
+#ifdef __powerpc64__
+_mulhilo_asm_tpl(64, uint64_t, "mulhdu")
+#else
 _mulhilo_asm_tpl(64, uint64_t, "mulq")
+#endif /* __powerpc64__ */
 #elif R123_USE_MULHILO64_MSVC_INTRIN
 _mulhilo_msvc_intrin_tpl(64, uint64_t, _umul128)
 #elif R123_USE_MULHILO64_CUDA_INTRIN
 _mulhilo_cuda_intrin_tpl(64, uint64_t, __umul64hi)
 #elif R123_USE_MULHILO64_OPENCL_INTRIN
 _mulhilo_cuda_intrin_tpl(64, uint64_t, mul_hi)
+#elif R123_USE_MULHILO64_MULHI_INTRIN
+_mulhilo_cuda_intrin_tpl(64, uint64_t, R123_MULHILO64_MULHI_INTRIN)
 #elif R123_USE_GNU_UINT128
 _mulhilo_dword_tpl(64, uint64_t, __uint128_t)
 #elif R123_USE_MULHILO64_C99

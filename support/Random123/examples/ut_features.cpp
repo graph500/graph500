@@ -78,6 +78,16 @@ Otrue(R123_USE_IA32INTRIN_H);
 Ofalse(R123_USE_IA32INTRIN_H);
 #endif
 
+#ifndef R123_USE_XMMINTRIN_H
+#error "No  R123_USE_XMMINTRIN_H"
+#endif
+#if R123_USE_XMMINTRIN_H
+#include <xmmintrin.h>
+Otrue(R123_USE_XMMINTRIN_H);
+#else
+Ofalse(R123_USE_XMMINTRIN_H);
+#endif
+
 #ifndef R123_USE_EMMINTRIN_H
 #error "No  R123_USE_EMMINTRIN_H"
 #endif
@@ -363,6 +373,40 @@ Otrue(R123_USE_MULHILO64_OPENCL_INTRIN);
 Ofalse(R123_USE_MULHILO64_OPENCL_INTRIN);
 #endif
 
+#ifndef R123_USE_MULHILO64_MULHI_INTRIN
+#error "No  R123_USE_MULHILO64_MULHI_INTRIN"
+#endif
+#if R123_USE_MULHILO64_MULHI_INTRIN
+Otrue(R123_USE_MULHILO64_MULHI_INTRIN);
+static int test_mulhilo64_intrin(){
+    uint64_t a = R123_64BIT(0x1234567887654321);
+    uint64_t b = R123_64BIT(0x8765432112345678);
+    uint64_t c = R123_MULHILO64_MULHI_INTRIN(a, b);
+    assert( c == R123_64BIT(0x09A0CD05B99FE92E) );
+    return c == R123_64BIT(0x09A0CD05B99FE92E);
+}
+int mulhilo64_intrin_ok = test_mulhilo64_intrin();
+#else
+Ofalse(R123_USE_MULHILO64_MULHI_INTRIN);
+#endif
+
+#ifndef R123_USE_MULHILO32_MULHI_INTRIN
+#error "No  R123_USE_MULHILO32_MULHI_INTRIN"
+#endif
+#if R123_USE_MULHILO32_MULHI_INTRIN
+Otrue(R123_USE_MULHILO32_MULHI_INTRIN);
+static int test_mulhilo32_intrin(){
+    uint64_t a32 = 0x12345678;
+    uint64_t b32 = 0x87654321;
+    uint64_t c32 = R123_MULHILO32_MULHI_INTRIN(a32, b32);
+    assert( c32 == 0x09A0CD05 );
+    return c32 == 0x09A0CD05;
+}
+int mulhilo32_intrin_ok = test_mulhilo32_intrin();
+#else
+Ofalse(R123_USE_MULHILO32_MULHI_INTRIN);
+#endif
+
 #ifndef R123_USE_MULHILO64_C99
 #error "No  R123_USE_MULHILO64_C99"
 #endif
@@ -405,16 +449,6 @@ R123_STATIC_ASSERT(1, "looks true to me");
 void chkstaticassert(){
     R123_STATIC_ASSERT(1, "it's ok inside a function too");
 }
-#endif
-
-#ifndef R123_USE_U01_DOUBLE
-#error "No R123_USE_U01_DOUBLE"
-#endif
-#if R123_USE_U01_DOUBLE
-Otrue(R123_USE_U01_DOUBLE);
-double foodbl = (1./(4294967296.*4294967296.));
-#else
-Ofalse(R123_USE_U01_DOUBLE);
 #endif
 
 int main(int , char **){return 0;}
