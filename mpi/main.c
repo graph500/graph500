@@ -83,6 +83,7 @@ int main(int argc, char** argv) {
   uint64_t seed1 = 2, seed2 = 3;
 
   const char* filename = getenv("TMPFILE");
+  const int reuse_file = getenv("REUSEFILE")? 1 : 0;
   /* If filename is NULL, store data in memory */
 
   tuple_graph tg;
@@ -90,11 +91,33 @@ int main(int argc, char** argv) {
   int64_t nglobalverts = (int64_t)(1) << SCALE;
 
   tg.data_in_file = (filename != NULL);
+  tg.write_file = 1;
 
   if (tg.data_in_file) {
+    int is_opened = 0;
+    int mode = MPI_MODE_RDWR | MPI_MODE_EXCL | MPI_MODE_UNIQUE_OPEN;
+    if (!reuse_file) {
+      mode |= MPI_MODE_CREATE | MPI_MODE_DELETE_ON_CLOSE;
+    } else {
+      MPI_File_set_errhandler(MPI_FILE_NULL, MPI_ERRORS_RETURN);
+      if (MPI_File_open(MPI_COMM_WORLD, (char*)filename, mode,
+			MPI_INFO_NULL, &tg.edgefile)) {
+	mode |= MPI_MODE_RDWR | MPI_MODE_CREATE | MPI_MODE_DELETE_ON_CLOSE;
+      } else {
+	MPI_Offset size;
+	MPI_File_get_size(tg.edgefile, &size);
+	if (size == tg.nglobaledges * sizeof(packed_edge)) {
+	  is_opened = 1;
+	  tg.write_file = 0;
+	} else /* Size doesn't match, assume different parameters. */
+	  MPI_File_close (&tg.edgefile);
+      }
+    }
     MPI_File_set_errhandler(MPI_FILE_NULL, MPI_ERRORS_ARE_FATAL);
-    MPI_File_open(MPI_COMM_WORLD, (char*)filename, MPI_MODE_RDWR | MPI_MODE_CREATE | MPI_MODE_EXCL | MPI_MODE_DELETE_ON_CLOSE | MPI_MODE_UNIQUE_OPEN, MPI_INFO_NULL, &tg.edgefile);
-    MPI_File_set_size(tg.edgefile, tg.nglobaledges * sizeof(packed_edge));
+    if (!is_opened) {
+      MPI_File_open(MPI_COMM_WORLD, (char*)filename, mode, MPI_INFO_NULL, &tg.edgefile);
+      MPI_File_set_size(tg.edgefile, tg.nglobaledges * sizeof(packed_edge));
+    }
     MPI_File_set_view(tg.edgefile, 0, packed_edge_mpi_type, packed_edge_mpi_type, "native", MPI_INFO_NULL);
     MPI_File_set_atomicity(tg.edgefile, 0);
   }
@@ -181,10 +204,15 @@ int main(int argc, char** argv) {
         if (!tg.data_in_file && block_idx % ranks_per_row == my_col) {
           assert (FILE_CHUNKSIZE * (block_idx / ranks_per_row) + edge_count <= tg.edgememory_size);
         }
-        generate_kronecker_range(seed, SCALE, start_edge_index, start_edge_index + edge_count, actual_buf);
-        if (tg.data_in_file && my_col == (block_idx % ranks_per_row)) { /* Try to spread writes among ranks */
-          MPI_File_write_at(tg.edgefile, start_edge_index, actual_buf, edge_count, packed_edge_mpi_type, MPI_STATUS_IGNORE);
-        }
+	if (tg.write_file) {
+	  generate_kronecker_range(seed, SCALE, start_edge_index, start_edge_index + edge_count, actual_buf);
+	  if (tg.data_in_file && my_col == (block_idx % ranks_per_row)) { /* Try to spread writes among ranks */
+	    MPI_File_write_at(tg.edgefile, start_edge_index, actual_buf, edge_count, packed_edge_mpi_type, MPI_STATUS_IGNORE);
+	  }
+	} else {
+	  /* All read rather than syncing up for a row broadcast. */
+	  MPI_File_read_at(tg.edgefile, start_edge_index, actual_buf, edge_count, packed_edge_mpi_type, MPI_STATUS_IGNORE);
+	}
         ptrdiff_t i;
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -269,7 +297,7 @@ int main(int argc, char** argv) {
     if (in_generating_rectangle) {
       MPI_Free_mem(has_edge);
     }
-    if (tg.data_in_file) {
+    if (tg.data_in_file && tg.write_file) {
       MPI_File_sync(tg.edgefile);
     }
   }
@@ -316,21 +344,23 @@ int main(int argc, char** argv) {
     if (rank == 0) fprintf(stderr, "Time for BFS %d is %f\n", bfs_root_idx, bfs_times[bfs_root_idx]);
 
     /* Validate result. */
-    if (rank == 0) fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);
+    if (!getenv("SKIP_VALIDATION")) {
+      if (rank == 0) fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);
 
-    double validate_start = MPI_Wtime();
-    int64_t edge_visit_count;
-    int validation_passed_one = validate_bfs_result(&tg, max_used_vertex + 1, nlocalverts, root, pred, &edge_visit_count);
-    double validate_stop = MPI_Wtime();
-    validate_times[bfs_root_idx] = validate_stop - validate_start;
-    if (rank == 0) fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);
-    edge_counts[bfs_root_idx] = (double)edge_visit_count;
-    if (rank == 0) fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);
+      double validate_start = MPI_Wtime();
+      int64_t edge_visit_count;
+      int validation_passed_one = validate_bfs_result(&tg, max_used_vertex + 1, nlocalverts, root, pred, &edge_visit_count);
+      double validate_stop = MPI_Wtime();
+      validate_times[bfs_root_idx] = validate_stop - validate_start;
+      if (rank == 0) fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);
+      edge_counts[bfs_root_idx] = (double)edge_visit_count;
+      if (rank == 0) fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);
 
-    if (!validation_passed_one) {
-      validation_passed = 0;
-      if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
-      break;
+      if (!validation_passed_one) {
+	validation_passed = 0;
+	if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
+	break;
+      }
     }
   }
 
