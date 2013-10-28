@@ -43,7 +43,7 @@ static inline int64_t get_v1_from_edge(const packed_edge* p) {
 static inline void write_edge(packed_edge* p, int64_t v0, int64_t v1) {
   p->v0_low = (uint32_t)v0;
   p->v1_low = (uint32_t)v1;
-  p->high = ((v0 >> 32) & 0xFFFF) | (((v1 >> 32) & 0xFFFF) << 16);
+  p->high = (uint32_t)(((v0 >> 32) & 0xFFFF) | (((v1 >> 32) & 0xFFFF) << 16));
 }
 
 #else

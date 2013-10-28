@@ -39,9 +39,14 @@
 /* #define SPK_NOISE_LEVEL 1000 -- in INITIATOR_DENOMINATOR units */
 
 static int generate_4way_bernoulli(mrg_state* st, int level, int nlevels) {
-  /* Generator a pseudorandom number in the range [0, INITIATOR_DENOMINATOR)
+#if SPK_NOISE_LEVEL == 0
+  /* Avoid warnings */
+  (void)level;
+  (void)nlevels;
+#endif
+  /* Generate a pseudorandom number in the range [0, INITIATOR_DENOMINATOR)
    * without modulo bias. */
-  static const uint32_t limit = (UINT32_C(0xFFFFFFFF) % INITIATOR_DENOMINATOR);
+  static const uint32_t limit = (UINT32_C(0x7FFFFFFF) % INITIATOR_DENOMINATOR);
   uint32_t val = mrg_get_uint_orig(st);
   if (/* Unlikely */ val < limit) {
     do {
@@ -53,16 +58,21 @@ static int generate_4way_bernoulli(mrg_state* st, int level, int nlevels) {
 #else
   int spk_noise_factor = 2 * SPK_NOISE_LEVEL * level / nlevels - SPK_NOISE_LEVEL;
 #endif
-  int adjusted_bc_numerator = INITIATOR_BC_NUMERATOR + spk_noise_factor;
+  unsigned int adjusted_bc_numerator = (unsigned int)(INITIATOR_BC_NUMERATOR + spk_noise_factor);
   val %= INITIATOR_DENOMINATOR;
   if (val < adjusted_bc_numerator) return 1;
-  val -= adjusted_bc_numerator;
+  val = (uint32_t)(val - adjusted_bc_numerator);
   if (val < adjusted_bc_numerator) return 2;
-  val -= adjusted_bc_numerator;
+  val = (uint32_t)(val - adjusted_bc_numerator);
 #if SPK_NOISE_LEVEL == 0
   if (val < INITIATOR_A_NUMERATOR) return 0;
 #else
   if (val < INITIATOR_A_NUMERATOR * (INITIATOR_DENOMINATOR - 2 * INITIATOR_BC_NUMERATOR) / (INITIATOR_DENOMINATOR - 2 * adjusted_bc_numerator)) return 0;
+#endif
+#if SPK_NOISE_LEVEL == 0
+  /* Avoid warnings */
+  (void)level;
+  (void)nlevels;
 #endif
   return 3;
 }
@@ -192,7 +202,7 @@ void generate_kronecker_range(
 #endif
   for (ei = start_edge; ei < end_edge; ++ei) {
     mrg_state new_state = state;
-    mrg_skip(&new_state, 0, ei, 0);
+    mrg_skip(&new_state, 0, (uint64_t)ei, 0);
     make_one_edge(nverts, 0, logN, &new_state, edges + (ei - start_edge), val0, val1);
   }
 }

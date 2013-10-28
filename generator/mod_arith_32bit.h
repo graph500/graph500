@@ -107,7 +107,7 @@ static inline uint_fast32_t mod_mac4(uint_fast32_t sum, uint_fast32_t a, uint_fa
  * http://doi.acm.org/10.1145/84537.84555
  */
 
-inline uint_fast32_t mod_mul_x(uint_fast32_t a) {
+static inline uint_fast32_t mod_mul_x(uint_fast32_t a) {
   static const int32_t q = 20 /* UINT32_C(0x7FFFFFFF) / 107374182 */;
   static const int32_t r = 7  /* UINT32_C(0x7FFFFFFF) % 107374182 */;
   int_fast32_t result = (int_fast32_t)(a) / q;
@@ -117,7 +117,7 @@ inline uint_fast32_t mod_mul_x(uint_fast32_t a) {
   return (uint_fast32_t)result;
 }
 
-inline uint_fast32_t mod_mul_y(uint_fast32_t a) {
+static inline uint_fast32_t mod_mul_y(uint_fast32_t a) {
   static const int32_t q = 20554 /* UINT32_C(0x7FFFFFFF) / 104480 */;
   static const int32_t r = 1727  /* UINT32_C(0x7FFFFFFF) % 104480 */;
   int_fast32_t result = (int_fast32_t)(a) / q;
@@ -127,7 +127,7 @@ inline uint_fast32_t mod_mul_y(uint_fast32_t a) {
   return (uint_fast32_t)result;
 }
 
-inline uint_fast32_t mod_mac_y(uint_fast32_t sum, uint_fast32_t a) {
+static inline uint_fast32_t mod_mac_y(uint_fast32_t sum, uint_fast32_t a) {
   uint_fast32_t result = mod_add(sum, mod_mul_y(a));
   assert (result == mod_mac(sum, a, 104480));
   return result;

@@ -75,7 +75,7 @@ void make_graph(int log_numverts, int64_t M, uint64_t userseed1, uint64_t userse
   compute_edge_range(rank, size, M, &start_idx, &end_idx);
   int64_t nedges = end_idx - start_idx;
 
-  packed_edge* local_edges = (packed_edge*)xmalloc(nedges * sizeof(packed_edge));
+  packed_edge* local_edges = (packed_edge*)xmalloc((size_t)nedges * sizeof(packed_edge));
 
   double start = MPI_Wtime();
   generate_kronecker_range(seed, log_numverts, start_idx, end_idx, local_edges);
@@ -107,7 +107,7 @@ void make_random_numbers(
   mrg_state st;
   mrg_seed(&st, seed);
 
-  mrg_skip(&st, 2, 0, 2 * position); /* Each double takes two PRNG outputs */
+  mrg_skip(&st, 2, 0, 2 * (uint64_t)position); /* Each double takes two PRNG outputs */
 
   for (i = 0; i < nvalues; ++i) {
     result[i] = mrg_get_double_orig(&st);

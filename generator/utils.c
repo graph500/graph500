@@ -142,9 +142,9 @@ xfree (void * p, size_t sz)
 /* Spread the two 64-bit numbers into five nonzero values in the correct
  * range. */
 void make_mrg_seed(uint64_t userseed1, uint64_t userseed2, uint_fast32_t* seed) {
-  seed[0] = (userseed1 & 0x3FFFFFFF) + 1;
-  seed[1] = ((userseed1 >> 30) & 0x3FFFFFFF) + 1;
-  seed[2] = (userseed2 & 0x3FFFFFFF) + 1;
-  seed[3] = ((userseed2 >> 30) & 0x3FFFFFFF) + 1;
-  seed[4] = ((userseed2 >> 60) << 4) + (userseed1 >> 60) + 1;
+  seed[0] = (uint32_t)(userseed1 & UINT32_C(0x3FFFFFFF)) + 1;
+  seed[1] = (uint32_t)((userseed1 >> 30) & UINT32_C(0x3FFFFFFF)) + 1;
+  seed[2] = (uint32_t)(userseed2 & UINT32_C(0x3FFFFFFF)) + 1;
+  seed[3] = (uint32_t)((userseed2 >> 30) & UINT32_C(0x3FFFFFFF)) + 1;
+  seed[4] = (uint32_t)((userseed2 >> 60) << 4) + (uint32_t)(userseed1 >> 60) + 1;
 }

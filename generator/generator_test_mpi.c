@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     assert ((get_v1_from_edge(&result[i]) >> log_numverts) == 0);
   }
   
-  free(result);
+  xfree(result);
 
   MPI_Reduce(&my_edges, &global_edges, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
   if (rank == 0) {
