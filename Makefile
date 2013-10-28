@@ -43,8 +43,12 @@ seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) \
 seq-csr/seq-csr: seq-csr/seq-csr.c $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(GENERATOR_SRCS))
 
+omp-csr/omp-csr-old: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+omp-csr/omp-csr-old: omp-csr/omp-csr-old.c $(GRAPH500_SOURCES) \
+	$(addprefix generator/,$(GENERATOR_SRCS))
+
 omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
-omp-csr/omp-csr: omp-csr/omp-csr.c $(GRAPH500_SOURCES) \
+omp-csr/omp-csr: omp-csr/omp-csr.c omp-csr/bitmap.h $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(GENERATOR_SRCS))
 
 xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl

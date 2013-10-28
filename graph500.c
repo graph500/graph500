@@ -206,13 +206,15 @@ run_bfs (void)
       abort ();
     }
 
-    if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
-    bfs_nedge[m] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[m], IJ, nedge);
-    if (VERBOSE) fprintf (stderr, "done\n");
-    if (bfs_nedge[m] < 0) {
-      fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
-	       m, bfs_root[m], bfs_nedge[m]);
-      abort ();
+    if (!getenv("SKIP_VALIDATION")) {
+      if (VERBOSE) fprintf (stderr, "Verifying bfs %d...", m);
+      bfs_nedge[m] = verify_bfs_tree (bfs_tree, max_bfsvtx, bfs_root[m], IJ, nedge);
+      if (VERBOSE) fprintf (stderr, "done\n");
+      if (bfs_nedge[m] < 0) {
+	fprintf (stderr, "bfs %d from %" PRId64 " failed verification (%" PRId64 ")\n",
+		 m, bfs_root[m], bfs_nedge[m]);
+	abort ();
+      }
     }
 
     xfree_large (bfs_tree);

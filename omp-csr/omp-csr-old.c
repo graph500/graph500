@@ -1,6 +1,5 @@
 /* -*- mode: C; mode: folding; fill-column: 70; -*- */
 /* Copyright 2010-2011,  Georgia Institute of Technology, USA. */
-/* Copyright 2013,  Regents of the University of California, USA. */
 /* See COPYING for license. */
 #include "../compat.h"
 #include <stdlib.h>
@@ -19,14 +18,8 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
 #include "../graph500.h"
 #include "../xalloc.h"
 #include "../generator/graph_generator.h"
-#include "../timer.h"
-
-#include "bitmap.h"
 
 #define MINVECT_SIZE 2
-#define THREAD_BUF_LEN 16384
-#define ALPHA 14
-#define BETA  24
 
 static int64_t maxvtx, nv, sz;
 static int64_t * restrict xoff; /* Length 2*nv+2 */
@@ -121,8 +114,8 @@ setup_deg_off (const struct packed_edge * restrict IJ, int64_t nedge)
 	xoff[k] = 0;
     OMP("omp for")
       for (k = 0; k < nedge; ++k) {
-	int64_t i = get_v0_from_edge(&IJ[k]);
-	int64_t j = get_v1_from_edge(&IJ[k]);
+        int64_t i = get_v0_from_edge(&IJ[k]);
+        int64_t j = get_v1_from_edge(&IJ[k]);
 	if (i != j) { /* Skip self-edges. */
 	  if (i >= 0)
 	    OMP("omp atomic")
@@ -214,8 +207,8 @@ gather_edges (const struct packed_edge * restrict IJ, int64_t nedge)
 
     OMP("omp for")
       for (k = 0; k < nedge; ++k) {
-	int64_t i = get_v0_from_edge(&IJ[k]);
-	int64_t j = get_v1_from_edge(&IJ[k]);
+        int64_t i = get_v0_from_edge(&IJ[k]);
+        int64_t j = get_v1_from_edge(&IJ[k]);
 	if (i >= 0 && j >= 0 && i != j) {
 	  scatter_edge (i, j);
 	  scatter_edge (j, i);
@@ -226,7 +219,7 @@ gather_edges (const struct packed_edge * restrict IJ, int64_t nedge)
   }
 }
 
-int
+int 
 create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge)
 {
   find_nv (IJ, nedge);
@@ -237,124 +230,6 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge)
   }
   gather_edges (IJ, nedge);
   return 0;
-}
-
-static void
-fill_bitmap_from_queue(bitmap_t *bm, int64_t *vlist, int64_t out, int64_t in)
-{
-  OMP("omp for")
-    for (long q_index=out; q_index<in; q_index++)
-      bm_set_bit_atomic(bm, vlist[q_index]);
-}
-
-static void
-fill_queue_from_bitmap(bitmap_t *bm, int64_t *vlist, int64_t *out, int64_t *in,
-		       int64_t *local)
-{
-  OMP("omp single") {
-    *out = 0;
-    *in = 0;
-  }
-  OMP("omp barrier");
-  int64_t nodes_per_thread = (nv + omp_get_num_threads() - 1) /
-			     omp_get_num_threads();
-  int64_t i = nodes_per_thread * omp_get_thread_num();
-  int local_index = 0;
-  if (i < nv) {
-    int64_t i_end = i + nodes_per_thread;
-    if (i_end >= nv)
-      i_end = nv;
-    if (bm_get_bit(bm, i))
-      local[local_index++] = i;
-    i = bm_get_next_bit(bm,i);
-    while ((i != -1) && (i < i_end)) {
-      local[local_index++] = i;
-      i = bm_get_next_bit(bm,i);
-      if (local_index == THREAD_BUF_LEN) {
-	int my_in = int64_fetch_add(in, THREAD_BUF_LEN);
-	for (local_index=0; local_index<THREAD_BUF_LEN; local_index++) {
-	  vlist[my_in + local_index] = local[local_index];
-	}
-	local_index = 0;
-      }
-    }
-  }
-  int my_in = int64_fetch_add(in, local_index);
-  for (int i=0; i<local_index; i++) {
-    vlist[my_in + i] = local[i];
-  }
-}
-
-static int64_t
-bfs_bottom_up_step(int64_t *bfs_tree, bitmap_t *past, bitmap_t *next)
-{
-  OMP("omp single") {
-    bm_swap(past, next);
-  }
-  OMP("omp barrier");
-  bm_reset(next);
-  static int64_t awake_count;
-  OMP("omp single")
-    awake_count = 0;
-  OMP("omp barrier");
-  OMP("omp for reduction(+ : awake_count)")
-    for (int64_t i=0; i<nv; i++) {
-      if (bfs_tree[i] == -1) {
-	  for (int64_t vo = XOFF(i); vo < XENDOFF(i); vo++) {
-	    const int64_t j = xadj[vo];
-	  if (bm_get_bit(past, j)) {
-	    // printf("%lu\n",i);
-	    bfs_tree[i] = j;
-	    bm_set_bit_atomic(next, i);
-	    awake_count++;
-	    break;
-	  }
-	}
-      }
-    }
-  OMP("omp barrier");
-  return awake_count;
-}
-
-static void
-bfs_top_down_step(int64_t *bfs_tree, int64_t *vlist, int64_t *local, int64_t *k1_p, int64_t *k2_p)
-{
-  const int64_t oldk2 = *k2_p;
-  int64_t kbuf = 0;
-  OMP("omp barrier");
-  OMP("omp for")
-	for (int64_t k = *k1_p; k < oldk2; ++k) {
-	  const int64_t v = vlist[k];
-	  const int64_t veo = XENDOFF(v);
-	  int64_t vo;
-	  for (vo = XOFF(v); vo < veo; ++vo) {
-	    const int64_t j = xadj[vo];
-	    if (bfs_tree[j] == -1) {
-	      if (int64_cas (&bfs_tree[j], -1, v)) {
-		if (kbuf < THREAD_BUF_LEN) {
-		  local[kbuf++] = j;
-		} else {
-		  int64_t voff = int64_fetch_add (k2_p, THREAD_BUF_LEN), vk;
-		  assert (voff + THREAD_BUF_LEN <= nv);
-		  for (vk = 0; vk < THREAD_BUF_LEN; ++vk)
-		    vlist[voff + vk] = local[vk];
-		  local[0] = j;
-		  kbuf = 1;
-		}
-	      }
-	    }
-	  }
-	}
-  if (kbuf) {
-	int64_t voff = int64_fetch_add (k2_p, kbuf), vk;
-	assert (voff + kbuf <= nv);
-	for (vk = 0; vk < kbuf; ++vk)
-	  vlist[voff + vk] = local[vk];
-  }
-  OMP("omp single")
-    *k1_p = oldk2;
-  OMP("omp barrier");
-  return;
 }
 
 int
@@ -376,19 +251,11 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
   k1 = 0; k2 = 1;
   bfs_tree[srcvtx] = srcvtx;
 
-  bitmap_t past, next;
-  bm_init(&past, nv);
-  bm_init(&next, nv);
+#define THREAD_BUF_LEN 16384
 
-  int64_t down_cutoff = nv / BETA;
-  int64_t scout_count = XENDOFF(srcvtx) - XOFF(srcvtx);
-
-  OMP("omp parallel shared(k1, k2, scout_count)") {
+  OMP("omp parallel shared(k1, k2)") {
     int64_t k;
     int64_t nbuf[THREAD_BUF_LEN];
-    int64_t awake_count = 1;
-    int64_t edges_to_check = XOFF(nv);
-
     OMP("omp for")
       for (k = 0; k < srcvtx; ++k)
 	bfs_tree[k] = -1;
@@ -396,34 +263,45 @@ make_bfs_tree (int64_t *bfs_tree_out, int64_t *max_vtx_out,
       for (k = srcvtx+1; k < nv; ++k)
 	bfs_tree[k] = -1;
 
-    while (awake_count != 0) {
-      // Top-down
-      if (scout_count < ((edges_to_check - scout_count)/ALPHA)) {
-	bfs_top_down_step(bfs_tree, vlist, nbuf, &k1, &k2);
-	edges_to_check -= scout_count;
-	awake_count = k2-k1;
-      // Bottom-up
-      } else {
-	fill_bitmap_from_queue(&next, vlist, k1, k2);
-	do {
-	  awake_count = bfs_bottom_up_step(bfs_tree, &past, &next);
-	} while ((awake_count > down_cutoff));
-	fill_queue_from_bitmap(&next, vlist, &k1, &k2, nbuf);
-	OMP("omp barrier");
+    while (k1 != k2) {
+      const int64_t oldk2 = k2;
+      int64_t kbuf = 0;
+      OMP("omp barrier");
+      OMP("omp for")
+	for (k = k1; k < oldk2; ++k) {
+	  const int64_t v = vlist[k];
+	  const int64_t veo = XENDOFF(v);
+	  int64_t vo;
+	  for (vo = XOFF(v); vo < veo; ++vo) {
+	    const int64_t j = xadj[vo];
+	    if (bfs_tree[j] == -1) {
+	      if (int64_cas (&bfs_tree[j], -1, v)) {
+		if (kbuf < THREAD_BUF_LEN) {
+		  nbuf[kbuf++] = j;
+		} else {
+		  int64_t voff = int64_fetch_add (&k2, THREAD_BUF_LEN), vk;
+		  assert (voff + THREAD_BUF_LEN <= nv);
+		  for (vk = 0; vk < THREAD_BUF_LEN; ++vk)
+		    vlist[voff + vk] = nbuf[vk];
+		  nbuf[0] = j;
+		  kbuf = 1;
+		}
+	      }
+	    }
+	  }
+	}
+      if (kbuf) {
+	int64_t voff = int64_fetch_add (&k2, kbuf), vk;
+	assert (voff + kbuf <= nv);
+	for (vk = 0; vk < kbuf; ++vk)
+	  vlist[voff + vk] = nbuf[vk];
       }
-      // Count the number of edges in the frontier
       OMP("omp single")
-	scout_count = 0;
-      OMP("omp for reduction(+ : scout_count)")
-      for (int64_t i=k1; i<k2; i++) {
-	int64_t v = vlist[i];
-	scout_count += XENDOFF(v) - XOFF(v);
-      }
+	k1 = oldk2;
+      OMP("omp barrier");
     }
   }
 
-  bm_free(&past);
-  bm_free(&next);
   xfree_large (vlist);
 
   return err;
