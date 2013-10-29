@@ -102,7 +102,10 @@ int main(int argc, char** argv) {
       MPI_File_set_errhandler(MPI_FILE_NULL, MPI_ERRORS_RETURN);
       if (MPI_File_open(MPI_COMM_WORLD, (char*)filename, mode,
 			MPI_INFO_NULL, &tg.edgefile)) {
-	mode |= MPI_MODE_RDWR | MPI_MODE_CREATE | MPI_MODE_DELETE_ON_CLOSE;
+	if (0 == rank && getenv("VERBOSE"))
+          fprintf (stderr, "%d: failed to open %s, creating\n",
+		   rank, filename);
+	mode |= MPI_MODE_RDWR | MPI_MODE_CREATE;
       } else {
 	MPI_Offset size;
 	MPI_File_get_size(tg.edgefile, &size);
@@ -361,6 +364,8 @@ int main(int argc, char** argv) {
 	if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
 	break;
       }
+    } else {
+      validate_times[bfs_root_idx] = -1;
     }
   }
 
