@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 ("Search")</title>
-<!-- 2013-04-18 Thu 15:19 -->
-<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-<meta name="generator" content="Org-mode"/>
-<meta name="author" content="Graph 500 Steering Committee"/>
+<!-- 2013-11-19 Tue 10:25 -->
+<meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta  name="generator" content="Org-mode" />
+<meta  name="author" content="Graph 500 Steering Committee" />
 <style type="text/css">
  <!--/*--><![CDATA[/*><!--*/
   .title  { text-align: center; }
@@ -133,7 +134,8 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
-<script type="text/javascript" src="http://orgmode.org/mathjax/MathJax.js">
+<script type="text/javascript" src="http://orgmode.org/mathjax/MathJax.js"></script>
+<script type="text/javascript">
 <!--/*--><![CDATA[/*><!--*/
     MathJax.Hub.Config({
         // Only one of the two following lines, depending on user settings
@@ -748,7 +750,7 @@ never occur in submitted results and is left unspecified.
 <div class="org-src-container">
 <label class="org-src-name">Generating a slice of the edge list.</label>
 <pre class="src src-Octave" id="alg:edge.list">function ijw = edge_list (ne_begin, ne_len,
-                          SCALE, NE, maxweight)
+			  SCALE, NE, maxweight)
 
   NV = 2**SCALE;
   ijw = zeros (3, ne_len);
@@ -826,12 +828,12 @@ edges and shows the mapping from edge index to PRNG arguments.
 </p>
 
 <table id="tbl:initiator" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
-<caption>Initiator parameters for the RMAT graph generator</caption>
+<caption align="above"><span class="table-number">Table 1:</span> Initiator parameters for the RMAT graph generator</caption>
 
 <colgroup>
-<col class="left"/>
+<col  class="left" />
 
-<col class="left"/>
+<col  class="left" />
 </colgroup>
 <tbody>
 <tr>
@@ -900,8 +902,8 @@ implementation implement this more efficiently by generating all the
   scl = 2.^(0:SCALE-1).';
   v1 = sum ((rnd(:, 2) &gt;= As + Bs) .* scl);
   v2 = sum ((or (and (rnd(:, 2) &gt;= As,
-                      rnd(:, 2) &lt; As + Bs),
-                 rnd(:, 2) &gt;= As + 2*Bs)) .* scl);
+		      rnd(:, 2) &lt; As + Bs),
+		 rnd(:, 2) &gt;= As + 2*Bs)) .* scl);
 endfunction
 </pre>
 </div>
@@ -1231,17 +1233,19 @@ high-level implementation of <a href="#kernel3">Kernel 3</a>.
 
   ## Very inefficient version of Dijkstra's algorithm.
   Q = 1:N;
-  while length (Q) &gt; 0,
+  old_len_q = inf;
+  while length (Q) &lt; old_len_q,
     [du, qk] = min (d(Q));
     u = Q(qk);
+    old_len_q = length (Q);
     Q = setdiff (Q, u);
     [V, J, W] = find (G (:, u));
     for vk = 1:length (V),
       v = V(vk);
       dtmp = d(u) + W(vk);
       if dtmp &lt; d(v),
-        d(v) = dtmp;
-        parent(v) = u;
+	d(v) = dtmp;
+	parent(v) = u;
       end
     end
   end
@@ -1374,9 +1378,9 @@ used for both kernels.
       P(slice) = P(P(slice));
       slice = slice(find (P(slice) != root));
       if any (d &gt; N),
-        ## There must be a cycle in the tree.
-        out = -2;
-        return;
+	## There must be a cycle in the tree.
+	out = -2;
+	return;
       end
     end
   end
@@ -1398,7 +1402,7 @@ used for both kernels.
   ## Check that every root-facing vertex in a
   ## parent-child edge is an internal tree node.
   if length (unique
-               (ijw(parent_child_edge_list, 1))) \
+	       (ijw(parent_child_edge_list, 1))) \
     != length (tree_nodes),
     ## Some tree edges are not in the input edge
     ## list.
@@ -1417,8 +1421,8 @@ used for both kernels.
 
   pc_edge = ijw(parent_child_edge_list, :);
   [PC_i, PC_j, PC_w] = find (sparse (pc_edge(:, 1),
-                                     pc_edge(:, 2),
-                                     pc_edge(:, 3), N, N));
+				     pc_edge(:, 2),
+				     pc_edge(:, 3), N, N));
   if is_bfs,
      gap = 1 + d(PC_i) - d(PC_j);
   else
@@ -1438,9 +1442,9 @@ used for both kernels.
   to_check = pc_edge (to_check, :);
 
   [ijw_i, ijw_j, ijw_w] = find (sparse (to_check(:, 1),
-                                        to_check(:, 2),
-                                        to_check(:, 3),
-                                        N, N));
+					to_check(:, 2),
+					to_check(:, 3),
+					N, N));
   ## Note: This checks every edge adjacent to the
   ## vertices.  Only needs to check up to the edge
   ## factor.
@@ -1617,16 +1621,16 @@ root,k2time,k2max,k2vtime,k3time,k3max,k3vtime
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of the output routine</label>
 <pre class="src src-Octave" id="alg:output">function output (machine, SCALE, edgefactor,
-                 root, kernel_1_time,
-                 kernel_2_time, kernel_2_dmax,
-                 kernel_2_verify_time,
-                 kernel_3_time, kernel_3_dmax,
-                 kernel_3_verify_time,
-                 comment=[])
+		 root, kernel_1_time,
+		 kernel_2_time, kernel_2_dmax,
+		 kernel_2_verify_time,
+		 kernel_3_time, kernel_3_dmax,
+		 kernel_3_verify_time,
+		 comment=[])
   printf ("MACHINE: %s\n", machine);
   if !isempty (comment), printf ("COMMENT: %s\n", comment); endif
   printf ("IMPLEMENTATION: %s\n",
-          "Pseudo-reference, unoptimized Octave");
+	  "Pseudo-reference, unoptimized Octave");
   printf ("SCALE: %d\n", SCALE);
   printf ("EDGEFACTOR: %d\n", edgefactor);
   printf ("NROOT: %d\n", length (root));
@@ -1647,11 +1651,11 @@ root,k2time,k2max,k2vtime,k3time,k3max,k3vtime
   printf ("\nroot,k2time,k2max,k2vtime,k3time,k3max,k3vtime\n");
   for k=1:length (root),
     printf ("%d,%11.8e,%d,%11.8e,%11.8e,%d,%11.8e\n",
-            root(k),
-            kernel_2_time(k), kernel_2_dmax(k),
-            kernel_2_verify_time(k),
-            kernel_3_time(k), kernel_3_dmax(k),
-            kernel_3_verify_time(k));
+	    root(k),
+	    kernel_2_time(k), kernel_2_dmax(k),
+	    kernel_2_verify_time(k),
+	    kernel_3_time(k), kernel_3_dmax(k),
+	    kernel_3_verify_time(k));
   endfor
   ## The verification times are not required but can be
   ## informative.
@@ -1786,12 +1790,12 @@ for k = 1:NROOT,
   kernel_2_dmax(k) = max (d);
   tic;
   err = verify (SCALE, parent, ijw, root (k), d,
-                ceil (NE/kernel_2_time(k)), 1);
+		ceil (NE/kernel_2_time(k)), 1);
   kernel_2_verify_time(k) = toc;
   if err &lt;= 0,
     error (sprintf (["BFS %d from search key %d"
-                     " failed to validate: %d"],
-                    k, root(k), err));
+		     " failed to validate: %d"],
+		    k, root(k), err));
   end
 end
 
@@ -1802,20 +1806,20 @@ for k = 1:NROOT,
   kernel_3_dmax(k) = max (d);
   tic;
   err = verify (SCALE, parent, ijw, root (k), d,
-                ceil (NE/kernel_3_time(k)), 0);
+		ceil (NE/kernel_3_time(k)), 0);
   kernel_3_verify_time(k) = toc;
   if err &lt;= 0,
     error (sprintf (["SSSP %d from search key %d"
-                     " failed to validate: %d"],
-                    k, root(k), err));
+		     " failed to validate: %d"],
+		    k, root(k), err));
   end
 end
 
 output ("An old server", SCALE, edgefactor,
-        root, kernel_1_time,
-        kernel_2_time, kernel_2_dmax, kernel_2_verify_time,
-        kernel_3_time, kernel_3_dmax, kernel_3_verify_time,
-        "Utterly unoptimized.");
+	root, kernel_1_time,
+	kernel_2_time, kernel_2_dmax, kernel_2_verify_time,
+	kernel_3_time, kernel_3_dmax, kernel_3_verify_time,
+	"Utterly unoptimized.");
 </pre>
 </div>
 </div>
