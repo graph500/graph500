@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 ("Search")</title>
-<!-- 2015-07-27 Mon 01:09 -->
+<!-- 2015-07-27 Mon 01:20 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Graph 500 Steering Committee" />
@@ -132,48 +132,6 @@ for the JavaScript code in this tag.
    if(elem.cacheClassTarget)
      target.className = elem.cacheClassTarget;
  }
-/*]]>*///-->
-</script>
-<script type="text/javascript" src="http://orgmode.org/mathjax/MathJax.js"></script>
-<script type="text/javascript">
-<!--/*--><![CDATA[/*><!--*/
-    MathJax.Hub.Config({
-        // Only one of the two following lines, depending on user settings
-        // First allows browser-native MathML display, second forces HTML/CSS
-        //  config: ["MMLorHTML.js"], jax: ["input/TeX"],
-            jax: ["input/TeX", "output/HTML-CSS"],
-        extensions: ["tex2jax.js","TeX/AMSmath.js","TeX/AMSsymbols.js",
-                     "TeX/noUndefined.js"],
-        tex2jax: {
-            inlineMath: [ ["\\(","\\)"] ],
-            displayMath: [ ['$$','$$'], ["\\[","\\]"], ["\\begin{displaymath}","\\end{displaymath}"] ],
-            skipTags: ["script","noscript","style","textarea","pre","code"],
-            ignoreClass: "tex2jax_ignore",
-            processEscapes: false,
-            processEnvironments: true,
-            preview: "TeX"
-        },
-        showProcessingMessages: true,
-        displayAlign: "center",
-        displayIndent: "2em",
-
-        "HTML-CSS": {
-             scale: 100,
-             availableFonts: ["STIX","TeX"],
-             preferredFont: "TeX",
-             webFont: "TeX",
-             imageFont: "TeX",
-             showMathMenu: true,
-        },
-        MMLorHTML: {
-             prefer: {
-                 MSIE:    "MML",
-                 Firefox: "MML",
-                 Opera:   "HTML",
-                 other:   "HTML"
-             }
-        }
-    });
 /*]]>*///-->
 </script>
 </head>
@@ -332,7 +290,7 @@ There are five problem classes defined by their input size:
 </dl>
 
 <p>
-Table \ref{tbl:classes} provides the parameters used by the graph
+Table <a href="#tbl:classes">2</a> provides the parameters used by the graph
 generator specified below.
 </p>
 </div>
@@ -464,7 +422,7 @@ distributes edges within these partitions with unequal
 probabilities. Initially, the adjacency matrix is empty, and edges are
 added one at a time. Each edge chooses one of the four partitions with
 probabilities A, B, C, and D, respectively.  These probabilities, the
-initiator parameters, are provided in Table \ref{tbl:initiator}.
+initiator parameters, are provided in Table <a href="#tbl:initiator">1</a>.
 </p>
 
 <table id="tbl:initiator" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
@@ -525,7 +483,7 @@ timed.
 <h3 id="sec-3-3"><span class="section-number-3">3.3</span> Sample High-Level Implementation of the Kronecker Generator</h3>
 <div class="outline-text-3" id="text-3-3">
 <p>
-The GNU Octave routine in Algorithm \ref{alg:generator} is an
+The GNU Octave routine in Algorithm <a href="#alg:generator">1</a> is an
 attractive implementation in that it is embarrassingly parallel and
 does not require the explicit formation of the adjacency matrix.
 </p>
@@ -588,7 +546,7 @@ does not require the explicit formation of the adjacency matrix.
 <h3 id="sec-3-4"><span class="section-number-3">3.4</span> Parameter Settings</h3>
 <div class="outline-text-3" id="text-3-4">
 <p>
-The input parameter settings for each class are given in Table \ref{tbl:classes}.
+The input parameter settings for each class are given in Table <a href="#tbl:classes">2</a>.
 </p>
 
 <table id="tbl:classes" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
@@ -709,7 +667,7 @@ including (but not limited to) sparse matrices and (multi-level)
 linked lists. For the purposes of this application, the kernel is
 provided only the edge list and the edge list's size.  Further
 information such as the number of vertices must be computed within this
-kernel.  Algorithm \ref{alg:kernel1} provides a high-level sample
+kernel.  Algorithm <a href="#alg:kernel1">2</a> provides a high-level sample
 implementation of kernel 1.
 </p>
 
@@ -819,7 +777,7 @@ considered to be correct.
 For each search key, the routine must return an array containing valid
 breadth-first search parent information (per vertex).  The parent of
 the search<sub>key</sub> is itself, and the parent of any vertex not included in
-the tree is -1.  Algorithm \ref{alg:kernel2} provides a sample (and
+the tree is -1.  Algorithm <a href="#alg:kernel2">3</a> provides a sample (and
 inefficient) high-level implementation of kernel two.
 </p>
 
@@ -905,7 +863,7 @@ by at most one or that both are not in the BFS tree,
 </ol>
 
 <p>
-Algorithm \ref{alg:validate} shows a sample validation routine.
+Algorithm <a href="#alg:validate">4</a> shows a sample validation routine.
 </p>
 
 <div class="org-src-container">
@@ -1039,7 +997,7 @@ rate, the rates are compared using <b>harmonic</b> means.
 </dl>
 
 <p>
-Additional fields are permitted.  Algorithm \ref{alg:output} provides
+Additional fields are permitted.  Algorithm <a href="#alg:output">5</a> provides
 a high-level sample.
 </p>
 
@@ -1112,7 +1070,7 @@ Statistics, vol. 11, num. 4, 1940.
 <div class="outline-text-2" id="text-9">
 <p>
 A high-level sample driver for the above routines is given in
-Algorithm \ref{alg:driver}.
+Algorithm <a href="#alg:driver">6</a>.
 </p>
 
 <div class="org-src-container">
@@ -1196,7 +1154,7 @@ Less important goals:
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Graph 500 Steering Committee</p>
-<p class="date">Created: 2015-07-27 Mon 01:09</p>
+<p class="date">Created: 2015-07-27 Mon 01:20</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

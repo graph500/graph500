@@ -74,7 +74,7 @@ There are five problem classes defined by their input size:
   - large :: 140TB (10^14 bytes, level 14), and
   - huge :: 1.1PB (10^15 bytes, level 15).
 
-Table \ref{tbl:classes} provides the parameters used by the graph
+Table [[tbl:classes]] provides the parameters used by the graph
 generator specified below.
 
 ** References
@@ -156,7 +156,7 @@ distributes edges within these partitions with unequal
 probabilities. Initially, the adjacency matrix is empty, and edges are
 added one at a time. Each edge chooses one of the four partitions with
 probabilities A, B, C, and D, respectively.  These probabilities, the
-initiator parameters, are provided in Table \ref{tbl:initiator}.
+initiator parameters, are provided in Table [[tbl:initiator]].
 
 #+CAPTION: Initiator parameters for the Kronecker graph generator
 #+LABEL:   tbl:initiator
@@ -188,7 +188,7 @@ timed.
 
 ** Sample High-Level Implementation of the Kronecker Generator
 
-The GNU Octave routine in Algorithm \ref{alg:generator} is an
+The GNU Octave routine in Algorithm [[alg:generator]] is an
 attractive implementation in that it is embarrassingly parallel and
 does not require the explicit formation of the adjacency matrix.
 
@@ -246,7 +246,7 @@ function ij = kronecker_generator (SCALE, edgefactor)
 
 ** Parameter Settings
 
-The input parameter settings for each class are given in Table \ref{tbl:classes}.
+The input parameter settings for each class are given in Table [[tbl:classes]].
 
 #+CAPTION: Problem class definitions and required storage for the edge list assuming 64-bit integers.
 #+LABEL: tbl:classes
@@ -302,7 +302,7 @@ including (but not limited to) sparse matrices and (multi-level)
 linked lists. For the purposes of this application, the kernel is
 provided only the edge list and the edge list's size.  Further
 information such as the number of vertices must be computed within this
-kernel.  Algorithm \ref{alg:kernel1} provides a high-level sample
+kernel.  Algorithm [[alg:kernel1]] provides a high-level sample
 implementation of kernel 1.
 
 The process of constructing the graph data structure (in internal or
@@ -382,7 +382,7 @@ considered to be correct.
 For each search key, the routine must return an array containing valid
 breadth-first search parent information (per vertex).  The parent of
 the search_key is itself, and the parent of any vertex not included in
-the tree is -1.  Algorithm \ref{alg:kernel2} provides a sample (and
+the tree is -1.  Algorithm [[alg:kernel2]] provides a sample (and
 inefficient) high-level implementation of kernel two.
 
 #+CAPTION: High-level implementation of kernel 2
@@ -448,7 +448,7 @@ correct by ensuring that:
   4) the BFS tree spans an entire connected component's vertices, and
   5) a node and its parent are joined by an edge of the original graph.
 
-Algorithm \ref{alg:validate} shows a sample validation routine.
+Algorithm [[alg:validate]] shows a sample validation routine.
 
 #+CAPTION: High-level implementation of kernel 2 validation
 #+LABEL: alg:validate
@@ -550,7 +550,7 @@ The output must contain the following information:
        deviation of the kernel 2 TEPS.  *Note*: Because TEPS is a
        rate, the rates are compared using *harmonic* means.
 
-Additional fields are permitted.  Algorithm \ref{alg:output} provides
+Additional fields are permitted.  Algorithm [[alg:output]] provides
 a high-level sample.
 
 #+CAPTION: High-level implementation of the output routine
@@ -612,7 +612,7 @@ http://www.jstor.org/stable/2235723
 * Sample Driver
 
 A high-level sample driver for the above routines is given in
-Algorithm \ref{alg:driver}.
+Algorithm [[alg:driver]].
 
 #+CAPTION: High-level sample driver
 #+LABEL: alg:driver
