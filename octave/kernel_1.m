@@ -1,14 +1,18 @@
-function G = kernel_1 (ij)
+function G = kernel_1 (ijw)
 %% Compute a sparse adjacency matrix representation
-%% of the graph with edges from ij.
+%% of the graph with edges from ijw.
 
   %% Remove self-edges.
-  ij(:, ij(1,:) == ij(2,:)) = [];
+  ijw(:, ijw(1,:) == ijw(2,:)) = [];
+  %% Order into a single triangle
+  mask = ijw(1, :) < ijw(2, :);
+  ijw([1 2], mask) = ijw([2 1], mask);
   %% Adjust away from zero labels.
-  ij = ij + 1;
+  ijw(1:2,:) = ijw(1:2,:) + 1;
   %% Find the maximum label for sizing.
-  N = max (max (ij));
+  N = max (max (ijw(1:2,:)));
   %% Create the matrix, ensuring it is square.
-  G = sparse (ij(1,:), ij(2,:), ones (1, size (ij, 2)), N, N);
+  G = accumarray ([ijw(1,:)', ijw(2,:)'], ijw(3,:)', [N, N], @min, 0, true);
   %% Symmetrize to model an undirected graph.
-  G = spones (G + G.');
+  G = G + G.';
+

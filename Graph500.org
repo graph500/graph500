@@ -353,8 +353,8 @@ For each initial vertex, the routine must return a the distance of
 each vertex from the initial vertex and the parent of each vertex in a
 valid single-source shortest path tree.  The parent of the initial
 vertex is itself, and the parent of any vertex not included in the
-tree is -1.  Algorithm \ref{alg:kernel.3} provides a sample (and
-inefficient) high-level implementation of [[#kernel3][Kernel 3]].
+tree is -1.  Algorithm \ref{alg:kernel.3} provides a sample high-level
+implementation of [[#kernel3][Kernel 3]].
 
 # <<alg:kernel.3>>
 #+CAPTION: High-level implementation of Kernel 3
@@ -376,10 +376,10 @@ http://www.dis.uniroma1.it/~challenge9/
 
 It is not intended that the results of full-scale runs of this benchmark
 can be validated by exact comparison to a standard reference result.  At
-full scale, the data set is enormous, and its exact details depend on
-the BFS or SSSP algorithm used.  Therefore, the validation of an
-implementation of the benchmark uses soft checking of the results.
-Validation is *not* part of the timed results.
+full scale, the data set is enormous, and its exact details depend on on
+the pseudo-random number generator and the BFS or SSSP algorithm used.
+Therefore, the validation of an implementation of the benchmark uses soft
+checking of the results.  Validation is *not* part of the timed results.
 
 The executable specification verifies its results by comparing them
 with results computed directly from the tuple list.  Note that the
@@ -417,7 +417,7 @@ The latter, =is_bfs=, is set to 1 (true) for BFS validation and 0
 used for both kernels.
 
 #+CAPTION: High-level implementation of kernel 2 validation
-#+LABEL: alg:validate
+#+LABEL: alg:verify
 #+INCLUDE: "octave/verify.m" src Octave
 
 * Computing and Outputting Performance Information
@@ -743,7 +743,10 @@ I did not include that requirement for now.
 
 ** Remarks
 
- - Edge weights are to be in the interval [1, maxweight].  We could also allow 0s.
+ - Edge weights are to be in the interval [1, maxweight].  We could
+   also allow 0s.
+ - I kept the changes as conservative as I think possible vs. version
+   1.2 of the benchmark.
 
 ** TODO
 
