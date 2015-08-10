@@ -46,6 +46,6 @@ function ijw = kronecker_generator (SCALE, edgefactor, maxweight)
   ijw = ijw(:, p);
 
   %% Adjust to zero-based labels.
-  ijw = ijw - 1;
+  ijw(1:2,:) = ijw(1:2,:) - 1;
 
 endfunction

@@ -51,4 +51,4 @@ for k = 1:NBFS,
   kernel_3_nedge(k) = sum (indeg(parent >= 0))/2; % Volume/2
 end
 
-output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
+output (SCALE, NBFS, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kernel_3_nedge);

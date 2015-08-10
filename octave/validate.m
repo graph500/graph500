@@ -45,21 +45,18 @@ function out = validate (parent, ijw, search_key, d, is_sssp)
   neither_in = lij(1,:) == 0 & lij(2,:) == 0;
   both_in = lij(1,:) > 0 & lij(2,:) > 0;
   if any (not (neither_in | both_in)),
-    disp(ijw(:,not (neither_in | both_in)));
     out = -4;
     return
   end
 
   %% Validate the distances/levels.
-  respects_tree_level = true(1,size(ijw));
+  respects_tree_level = true(1,size(ijw, 2));
   if !is_sssp
     respects_tree_level = abs (lij(1,:) - lij(2,:)) <= 1;
   else
-    respects_tree_level = abs (d(1,:) - d(2,:)) <= ijw(3,:)
+    respects_tree_level = abs (d(ijw(1,:)) - d(ijw(2,:)))' <= ijw(3,:);
   end
-  disp(ijw(:,not (neither_in | respects_tree_level)));
-  disp(lij(:,not (neither_in | respects_tree_level)));
-  if any (not (neither_in | respects_tree_level)),
+  if any (not (neither_in | respects_tree_level))
     out = -5;
     return
   end

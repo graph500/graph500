@@ -1,4 +1,4 @@
-function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kerner_3_nedge)
+function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kernel_3_nedge)
   printf ("SCALE: %d\n", SCALE);
   printf ("NBFS: %d\n", NBFS);
   printf ("NSSSP: %d\n", NSSSP);
@@ -30,8 +30,8 @@ function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedg
   %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
   %% Means and Their Application to Index Numbers, 1940.
   %% http://www.jstor.org/stable/2235723
-  k2tmp = zeros (N, 1);
-  k2tmp(K@TEPS > 0) = 1./K2TEPS(K2TEPS > 0);
+  k2tmp = zeros (K2N, 1);
+  k2tmp(K2TEPS > 0) = 1./K2TEPS(K2TEPS > 0);
   k2tmp = k2tmp - 1/S(6);
   S(7) = (sqrt (sum (k2tmp.^2)) / (K2N-1)) * S(6)^2;
   
@@ -69,8 +69,8 @@ function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedg
   %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
   %% Means and Their Application to Index Numbers, 1940.
   %% http://www.jstor.org/stable/2235723
-  k3tmp = zeros (N, 1);
-  k3tmp(K@TEPS > 0) = 1./K3TEPS(K3TEPS > 0);
+  k3tmp = zeros (K3N, 1);
+  k3tmp(K3TEPS > 0) = 1./K3TEPS(K3TEPS > 0);
   k3tmp = k3tmp - 1/S(6);
   S(7) = (sqrt (sum (k3tmp.^2)) / (K3N-1)) * S(6)^2;
   
