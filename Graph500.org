@@ -87,11 +87,16 @@ The benchmark performs the following steps:
      1. Compute the parent array (*timed*, kernel 2).
      2. Validate that the parent array is a correct BFS search tree
         for the given search tree.
-  5. Compute and output performance information.
+  4. For each search key:
+     1. Compute the parent array and the distance array (*timed*, 
+        kernel 3).
+     2. Validate that the parent array is a correct SSSP search tree
+        for the given search tree.
+  6. Compute and output performance information.
 
 Only the sections marked as *timed* are included in the performance
 information.  Note that all uses of "random" permit pseudorandom
-number generation.  Note that the [[#kernel2][Kernel 2]] and [[#kernel 3][Kernel 3]] are run in
+number generation.  Note that the [[#kernel2][Kernel 2]] and [[#kernel3][Kernel 3]] are run in
 separate loops and not consecutively off the same initial vertex.
 
 * Generating the Edge List
@@ -307,7 +312,7 @@ considered to be correct.
 
 For each search key, the routine must return an array containing valid
 breadth-first search parent information (per vertex).  The parent of
-the search_key is itself, and the parent of any vertex not included in
+the search key is itself, and the parent of any vertex not included in
 the tree is -1.  Algorithm [[alg:kernel2]] provides a sample (and
 inefficient) high-level implementation of kernel two.
 

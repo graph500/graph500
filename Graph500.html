@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 ("Search")</title>
-<!-- 2015-08-10 Mon 01:31 -->
+<!-- 2015-08-10 Mon 12:36 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Graph 500 Steering Committee" />
@@ -367,6 +367,16 @@ for the given search tree.
 </li>
 </ol>
 </li>
+<li>For each search key:
+<ol class="org-ol">
+<li>Compute the parent array and the distance array (<b>timed</b>, 
+kernel 3).
+</li>
+<li>Validate that the parent array is a correct SSSP search tree
+for the given search tree.
+</li>
+</ol>
+</li>
 <li>Compute and output performance information.
 </li>
 </ol>
@@ -374,7 +384,7 @@ for the given search tree.
 <p>
 Only the sections marked as <b>timed</b> are included in the performance
 information.  Note that all uses of "random" permit pseudorandom
-number generation.  Note that the <a href="#kernel2">Kernel 2</a> and <i>Kernel 3</i> are run in
+number generation.  Note that the <a href="#kernel2">Kernel 2</a> and <a href="#kernel3">Kernel 3</a> are run in
 separate loops and not consecutively off the same initial vertex.
 </p>
 </div>
@@ -592,7 +602,7 @@ does not require the explicit formation of the adjacency matrix.
   ijw = ijw(:, p);
 
   %% Adjust to zero-based labels.
-  ijw = ijw - 1;
+  ijw(1:2,:) = ijw(1:2,:) - 1;
 
 endfunction
 </pre>
@@ -670,11 +680,11 @@ external memory) from the set of tuples must be timed.
 
   %% Remove self-edges.
   ijw(:, ijw(1,:) == ijw(2,:)) = [];
+  %% Adjust away from zero labels.
+  ijw(1:2,:) = ijw(1:2,:) + 1;
   %% Order into a single triangle
   mask = ijw(1, :) &lt; ijw(2, :);
   ijw([1 2], mask) = ijw([2 1], mask);
-  %% Adjust away from zero labels.
-  ijw(1:2,:) = ijw(1:2,:) + 1;
   %% Find the maximum label for sizing.
   N = max (max (ijw(1:2,:)));
   %% Create the matrix, ensuring it is square.
@@ -769,7 +779,7 @@ considered to be correct.
 <p>
 For each search key, the routine must return an array containing valid
 breadth-first search parent information (per vertex).  The parent of
-the search<sub>key</sub> is itself, and the parent of any vertex not included in
+the search key is itself, and the parent of any vertex not included in
 the tree is -1.  Algorithm <a href="#alg:kernel2">3</a> provides a sample (and
 inefficient) high-level implementation of kernel two.
 </p>
@@ -1030,21 +1040,18 @@ Algorithm <a href="#alg:validate">5</a> shows a sample validation routine.
   neither_in = lij(1,:) == 0 &amp; lij(2,:) == 0;
   both_in = lij(1,:) &gt; 0 &amp; lij(2,:) &gt; 0;
   if any (not (neither_in | both_in)),
-    disp(ijw(:,not (neither_in | both_in)));
     out = -4;
     return
   end
 
   %% Validate the distances/levels.
-  respects_tree_level = true(1,size(ijw));
+  respects_tree_level = true(1,size(ijw, 2));
   if !is_sssp
     respects_tree_level = abs (lij(1,:) - lij(2,:)) &lt;= 1;
   else
-    respects_tree_level = abs (d(1,:) - d(2,:)) &lt;= ijw(3,:)
+    respects_tree_level = abs (d(ijw(1,:)) - d(ijw(2,:)))' &lt;= ijw(3,:);
   end
-  disp(ijw(:,not (neither_in | respects_tree_level)));
-  disp(lij(:,not (neither_in | respects_tree_level)));
-  if any (not (neither_in | respects_tree_level)),
+  if any (not (neither_in | respects_tree_level))
     out = -5;
     return
   end
@@ -1161,7 +1168,7 @@ a high-level sample.
 
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of the output routine</label>
-<pre class="src src-Octave">function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kerner_3_nedge)
+<pre class="src src-Octave">function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kernel_3_nedge)
   printf ("SCALE: %d\n", SCALE);
   printf ("NBFS: %d\n", NBFS);
   printf ("NSSSP: %d\n", NSSSP);
@@ -1193,8 +1200,8 @@ a high-level sample.
   %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
   %% Means and Their Application to Index Numbers, 1940.
   %% http://www.jstor.org/stable/2235723
-  k2tmp = zeros (N, 1);
-  k2tmp(K@TEPS &gt; 0) = 1./K2TEPS(K2TEPS &gt; 0);
+  k2tmp = zeros (K2N, 1);
+  k2tmp(K2TEPS &gt; 0) = 1./K2TEPS(K2TEPS &gt; 0);
   k2tmp = k2tmp - 1/S(6);
   S(7) = (sqrt (sum (k2tmp.^2)) / (K2N-1)) * S(6)^2;
 
@@ -1232,8 +1239,8 @@ a high-level sample.
   %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
   %% Means and Their Application to Index Numbers, 1940.
   %% http://www.jstor.org/stable/2235723
-  k3tmp = zeros (N, 1);
-  k3tmp(K@TEPS &gt; 0) = 1./K3TEPS(K3TEPS &gt; 0);
+  k3tmp = zeros (K3N, 1);
+  k3tmp(K3TEPS &gt; 0) = 1./K3TEPS(K3TEPS &gt; 0);
   k3tmp = k3tmp - 1/S(6);
   S(7) = (sqrt (sum (k3tmp.^2)) / (K3N-1)) * S(6)^2;
 
@@ -1274,14 +1281,15 @@ Algorithm <a href="#alg:driver">7</a>.
 <label class="org-src-name">High-level sample driver</label>
 <pre class="src src-Octave" id="alg:driver">SCALE = 10;
 edgefactor = 16;
+maxweight = 255;
 NBFS = 64;
 
 rand ("seed", 103);
 
-ij = kronecker_generator (SCALE, edgefactor);
+ijw = kronecker_generator (SCALE, edgefactor, maxweight);
 
 tic;
-G = kernel_1 (ij);
+G = kernel_1 (ijw);
 kernel_1_time = toc;
 
 N = size (G, 1);
@@ -1297,22 +1305,34 @@ search_key = search_key - 1;
 
 kernel_2_time = Inf * ones (NBFS, 1);
 kernel_2_nedge = zeros (NBFS, 1);
+kernel_3_time = Inf * ones (NBFS, 1);
+kernel_3_nedge = zeros (NBFS, 1);
 
-indeg = histc (ij(:), 1:N); % For computing the number of edges
+indeg = histc (ijw(:), 1:N); % For computing the number of edges
 
 for k = 1:NBFS,
   tic;
   parent = kernel_2 (G, search_key(k));
   kernel_2_time(k) = toc;
-  err = validate (parent, ij, search_key (k));
+  err = validate (parent, ijw, search_key(k), 0, false);
   if err &lt;= 0,
     error (sprintf ("BFS %d from search key %d failed to validate: %d",
                     k, search_key(k), err));
   end
   kernel_2_nedge(k) = sum (indeg(parent &gt;= 0))/2; % Volume/2
+
+  tic;
+  [parent, d] = kernel_3 (G, search_key(k));
+  kernel_3_time(k) = toc;
+  err = validate (parent, ijw, search_key (k), d, true);
+  if err &lt;= 0,
+    error (sprintf ("SSSP %d from search key %d failed to validate: %d",
+                    k, search_key(k), err));
+  end
+  kernel_3_nedge(k) = sum (indeg(parent &gt;= 0))/2; % Volume/2
 end
 
-output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
+output (SCALE, NBFS, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kernel_3_nedge);
 </pre>
 </div>
 </div>
@@ -1548,7 +1568,7 @@ also allow 0s.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Graph 500 Steering Committee</p>
-<p class="date">Created: 2015-08-10 Mon 01:31</p>
+<p class="date">Created: 2015-08-10 Mon 12:36</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
