@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 ("Search")</title>
-<!-- 2015-07-27 Mon 15:58 -->
+<!-- 2015-08-10 Mon 01:28 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Graph 500 Steering Committee" />
@@ -262,6 +262,8 @@ Version History:
 <dt> V1.1 </dt><dd>Created 3 October 2010
 </dd>
 <dt> V1.2 </dt><dd>Created 15 September 2011
+</dd>
+<dt> V2.0 </dt><dd>Draft, ongoing
 </dd>
 </dl>
 
@@ -542,16 +544,15 @@ does not require the explicit formation of the adjacency matrix.
 
 <div class="org-src-container">
 <label class="org-src-name">High-level generator code</label>
-<pre class="src src-Octave" id="alg:generator">function ij = kronecker_generator (SCALE, edgefactor)
-%% Generate an edgelist according to the Graph500
-%% parameters.  In this sample, the edge list is
-%% returned in an array with two rows, where StartVertex
-%% is first row and EndVertex is the second.  The vertex
-%% labels start at zero.
-%%
+<pre class="src src-Octave" id="alg:generator">function ijw = kronecker_generator (SCALE, edgefactor, maxweight)
+%% Generate an edgelist according to the Graph500 parameters.  In this
+%% sample, the edge list is returned in an array with three rows,
+%% where StartVertex is first row, EndVertex is the second row, and
+%% Weight is the third row.  The vertex labels start at zero.
+%%  
 %% Example, creating a sparse matrix for viewing:
-%%   ij = kronecker_generator (10, 16);
-%%   G = sparse (ij(1,:)+1, ij(2,:)+1, ones (1, size (ij, 2)));
+%%   ijw = kronecker_generator (10, 16);
+%%   G = sparse (ijw(1,:)+1, ijw(2,:)+1, ones (1, size (ijw, 2)));
 %%   spy (G);
 %% The spy plot should appear fairly dense. Any locality
 %% is removed by the final permutations.
@@ -566,7 +567,7 @@ does not require the explicit formation of the adjacency matrix.
   [A, B, C] = deal (0.57, 0.19, 0.19);
 
   %% Create index arrays.
-  ij = ones (2, M);
+  ijw = ones (3, M);
   %% Loop over each order of bit.
   ab = A + B;
   c_norm = C/(1 - (A + B));
@@ -576,19 +577,24 @@ does not require the explicit formation of the adjacency matrix.
     %% Compare with probabilities and set bits of indices.
     ii_bit = rand (1, M) &gt; ab;
     jj_bit = rand (1, M) &gt; ( c_norm * ii_bit + a_norm * not (ii_bit) );
-    ij = ij + 2^(ib-1) * [ii_bit; jj_bit];
+    ijw(1:2,:) = ijw(1:2,:) + 2^(ib-1) * [ii_bit; jj_bit];
   end
+
+  %% Generate weights
+  ijw(3,:) = unidrnd(maxweight, 1, M);
 
   %% Permute vertex labels
   p = randperm (N);
-  ij = p(ij);
+  ijw(1:2,:) = p(ijw(1:2,:));
 
   %% Permute the edge list
   p = randperm (M);
-  ij = ij(:, p);
+  ijw = ijw(:, p);
 
   %% Adjust to zero-based labels.
-  ij = ij - 1;
+  ijw = ijw - 1;
+
+endfunction
 </pre>
 </div>
 </div>
@@ -658,20 +664,23 @@ external memory) from the set of tuples must be timed.
 
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of kernel 1</label>
-<pre class="src src-Octave" id="alg:kernel1">function G = kernel_1 (ij)
+<pre class="src src-Octave" id="alg:kernel1">function G = kernel_1 (ijw)
 %% Compute a sparse adjacency matrix representation
-%% of the graph with edges from ij.
+%% of the graph with edges from ijw.
 
   %% Remove self-edges.
-  ij(:, ij(1,:) == ij(2,:)) = [];
+  ijw(:, ijw(1,:) == ijw(2,:)) = [];
+  %% Order into a single triangle
+  mask = ijw(1, :) &lt; ijw(2, :);
+  ijw([1 2], mask) = ijw([2 1], mask);
   %% Adjust away from zero labels.
-  ij = ij + 1;
+  ijw(1:2,:) = ijw(1:2,:) + 1;
   %% Find the maximum label for sizing.
-  N = max (max (ij));
+  N = max (max (ijw(1:2,:)));
   %% Create the matrix, ensuring it is square.
-  G = sparse (ij(1,:), ij(2,:), ones (1, size (ij, 2)), N, N);
+  G = accumarray ([ijw(1,:)', ijw(2,:)'], ijw(3,:)', [N, N], @min, 0, true);
   %% Symmetrize to model an undirected graph.
-  G = spones (G + G.');
+  G = G + G.';
 </pre>
 </div>
 </div>
@@ -768,8 +777,9 @@ inefficient) high-level implementation of kernel two.
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of kernel 2</label>
 <pre class="src src-Octave" id="alg:kernel2">function parent = kernel_2 (G, root)
-%% Compute a sparse adjacency matrix representation
-%% of the graph with edges from ij.
+%% Compute a breadth-first search tree starting
+%% from vertex root on the graph represented by
+%% the sparse matrix G.
 
   N = size (G, 1);
   %% Adjust from zero labels.
@@ -849,48 +859,44 @@ For each initial vertex, the routine must return a the distance of
 each vertex from the initial vertex and the parent of each vertex in a
 valid single-source shortest path tree.  The parent of the initial
 vertex is itself, and the parent of any vertex not included in the
-tree is -1.  Algorithm \ref{alg:kernel.3} provides a sample (and
-inefficient) high-level implementation of <a href="#kernel3">Kernel 3</a>.
+tree is -1.  Algorithm \ref{alg:kernel.3} provides a sample high-level
+implementation of <a href="#kernel3">Kernel 3</a>.
 </p>
 
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of Kernel 3</label>
 <pre class="src src-Octave" id="alg:kernel.3">function [parent, d] = kernel_3 (G, root)
-  ## Compute the shortest path lengths and parent
-  ## tree starting from vertex root on the graph
-  ## represented by the sparse matrix G. Every
-  ## vertex in G can be reached from root.
+  %% Compute the shortest path lengths and parent
+  %% tree starting from vertex root on the graph
+  %% represented by the sparse matrix G. Every
+  %% vertex in G can be reached from root.
 
   N = size (G, 1);
-  ## Adjust from zero labels.
+  %% Adjust from zero labels.
   root = root + 1;
   d = inf * ones (N, 1);
   parent = zeros (N, 1);
   d (root) = 0;
   parent (root) = root;
 
-  ## Very inefficient version of Dijkstra's algorithm.
   Q = 1:N;
-  old_len_q = inf;
-  while length (Q) &lt; old_len_q,
-    [du, qk] = min (d(Q));
-    u = Q(qk);
-    old_len_q = length (Q);
-    Q = setdiff (Q, u);
-    [V, J, W] = find (G (:, u));
-    for vk = 1:length (V),
-      v = V(vk);
-      dtmp = d(u) + W(vk);
-      if dtmp &lt; d(v),
-        d(v) = dtmp;
-        parent(v) = u;
+  while length (Q) &gt; 0
+    [dist, idx] = min (d(Q));
+    v = Q(idx);
+    Q = setdiff (Q, v);
+    [I, J, V] = find (G (:, v));
+    for idx = 1:length(I),
+      u = I(idx);
+      dist_tmp = d(v) + V(idx);
+      if dist_tmp &lt; d(u),
+        d(u) = dist_tmp;
+        parent(u) = v;
       end
     end
   end
 
-  ## Adjust back to zero labels.
-  parent -= 1;
-endfunction
+  %% Adjust back to zero labels.
+  parent = parent - 1;
 </pre>
 </div>
 </div>
@@ -920,192 +926,128 @@ Mathematical Society, 2009.
 <div class="outline-text-2" id="text-8">
 <p>
 It is not intended that the results of full-scale runs of this benchmark
-can be validated by exact comparison to a standard reference result.  At
-full scale, the data set is enormous, and its exact details depend on
-the BFS or SSSP algorithm used.  Therefore, the validation of an
-implementation of the benchmark uses soft checking of the results.
-Validation is <b>not</b> part of the timed results.
+can be validated by exact comparison to a standard reference result. At
+full scale, the data set is enormous, and its exact details depend on the
+pseudo-random number generator and BFS or SSSP algorithm used. Therefore,
+the validation of an implementation of the benchmark uses soft checking
+of the results.
 </p>
 
 <p>
-The executable specification verifies its results by comparing them
-with results computed directly from the tuple list.  Note that the
-SSSP kernel uses the sum of the weights for a particular edge that may
-have multiple entries in the input tuple list.  Because the edges need
-re-collapsed into a graph form, only a sampling of the edges are
-checked.  Every tree edge must be checked.  Additionally, select
-2*SCALE vertices similarly to <i>sampling the root vertices</i>.  For each
-such vertex, only the lesser of edgefactor and the vertex's degree
-adjacent edges need to be checked.  This specification does not
-require any particular adjacent edges.
+We emphasize that the intent of this benchmark is to exercise these
+algorithms on the largest data sets that will fit on machines being
+evaluated. However, for debugging purposes it may be desirable to run
+on small data sets, and it may be desirable to verify parallel results
+against serial results, or even against results from the executable
+specification.
 </p>
 
 <p>
-Here we specify the validation for the SSSP computation (<i>Kernel 3</i>) and
-treat BFS (<i>Kernel 2</i>) as a special case.  Let <i>w(u, v)</i> be the weight of
-an edge <i>{u, v}</i>, and let <i>d(u)</i> be the distance of vertex <i>u</i> from the
-source.  After each search, run a function that ensures that
-the discovered SSSP tree of parents is correct by ensuring that:
+The executable specification validates its results by comparing them
+with results computed directly from the tuple list.
+</p>
+
+<p>
+The validation procedure for BFS (<a href="#kernel2">Kernel 2</a>) is unchanged from version 1.2
+of the benchmark.  The validation procedure for SSSP (<a href="#kernel3">Kernel 3</a>) is
+similar to validation of BFS with differences stated explicitly.  After
+each search, run (but do not time) a function that ensures that the
+discovered breadth-first tree is correct by ensuring that:
 </p>
 
 <ol class="org-ol">
-<li>the SSSP tree is a tree rooted at the search vertex and without
-cycles,
+<li>the BFS/SSSP tree is a tree and does not contain cycles,
 </li>
-<li>a node and its parent are joined by an edge of the original graph,
+<li>each tree edge edge connects vertices whose
+a) BFS levels differ by exactly one,
+b) SSSP distances differ by at most the weight of the edge,
 </li>
-<li><i>w(u, v) + d(u) - d(v) &le; 0</i> for all unordered input edges <i>{u, v}</i>
-     where <i>d(u) &lt; d(v)</i>, 
+<li>every edge in the input list has vertices with
+a) BFS levels that differ by at most one or that both are not in the
+   BFS tree,
+b) SSSP distances that differ by at most the weight of the edge or
+   are not in the SSSP tree,
 </li>
-<li><i>abs(w(u, v) + d(u) - d(v)) &le; 1</i> for a BFS tree, and
+<li>the BFS/SSSP tree spans an entire connected component's vertices, 
+and
 </li>
-<li><i>w(u, v) + d(u) - d(v) == 0</i> when <i>u</i> is a parent of <i>v</i>.
+<li>a node and its BFS/SSSP parent are joined by an edge of the original 
+graph.
 </li>
 </ol>
 
 <p>
-A BFS tree is a SSSP tree with all total edge distances set to one and a
-maximum constraint gap (line three above) of one.  The distance <i>d(u)</i>
-is the depth of vertex <i>u</i>.
+Algorithm <a href="#alg:validate">5</a> shows a sample validation routine.
 </p>
 
-<p>
-Algorithm <i>alg:verify</i> shows a sample validation routine.  This
-sample optionally takes a distance vector <code>d</code> and parameter <code>is_bfs</code>.
-The latter, <code>is_bfs</code>, is set to 1 (true) for BFS validation and 0
-(false) for SSSP validation.  The same core validation routine may be
-used for both kernels.
-</p>
 
 <div class="org-src-container">
 <label class="org-src-name">High-level implementation of kernel 2 validation</label>
-<pre class="src src-Octave" id="alg:validate">function out = verify (SCALE, parent, ijw, root, d, prngidx, is_bfs)
+<pre class="src src-Octave" id="alg:validate">function out = validate (parent, ijw, search_key, d, is_sssp)
+  %% Validate the results of BFS or SSSP.
+
+  %% Default: no error.
   out = 1;
 
-  ## Adjust to 1-offset.
+  %% Adjust from zero labels.
   parent = parent + 1;
-  root = root + 1;
-  ijw(:, [1 2]) = ijw(:, [1 2]) + 1;
-  ## Remove self-loops.
-  ijw(ijw(:, 1) == ijw(:, 2), :) = [];
+  search_key = search_key + 1;
+  ijw = ijw + 1;
 
-  N = max (max (ijw(:, [1 2])));
+  %% Remove self-loops.
+  ijw(:,(ijw(1, :) == ijw(2, :))') = [];
 
-  if parent(root) != root || \
-     sum ((1:N).' == parent) != 1,
-    ## There is not a unique root.
+  %% root must be the parent of itself.
+  if parent (search_key) != search_key,
     out = 0;
     return;
   end
 
-  if size (parent, 1) != N || \
-     any (parent &lt;= 0 || parent &gt; N),
-    ## Not every vertex is included, or parent out
-    ## of range.
-    out = -1;
-    return;
-  end
+  N = max (max (ijw(1:2,:)));
+  slice = find (parent &gt; 0);
 
-  if nargin &lt; 4,
-    ## Compute the depth vector.
-    d = ones (size (parent));
-    d(root) = 0;
-    P = parent;
-    slice = find (P != root);
-    while !isempty (slice),
-      d(slice) += 1;
-      P(slice) = P(P(slice));
-      slice = slice(find (P(slice) != root));
-      if any (d &gt; N),
-        ## There must be a cycle in the tree.
-        out = -2;
-        return;
-      end
+  %% Compute levels and check for cycles.
+  level = zeros (size (parent));
+  level (slice) = 1;
+  P = parent (slice);
+  mask = P != search_key;
+  k = 0;
+  while any (mask),
+    level(slice(mask)) = level(slice(mask)) + 1;
+    P = parent (P);
+    mask = P != search_key;
+    k = k + 1;
+    if k &gt; N,
+      %% There must be a cycle in the tree.
+      out = -3;
+      return;
     end
   end
-  if nargin &lt; 5,
-    ## Assume we're verifying BFS.
-    is_bfs = 1;
-  endif
 
-  ## Order vertex tuples to point away from the
-  ## root.
-  mask = d(ijw(:, 1)) &gt; d(ijw(:, 2));
-  ijw(mask, [1, 2]) = ijw(mask, [2, 1]);
-  assert (d(ijw(:, 1)) &lt;= d(ijw(:, 2)));
+  %% Check that there are no edges with only one end in the tree.
+  %% This also checks the component condition.
+  lij = level (ijw(1:2,:));
+  neither_in = lij(1,:) == 0 &amp; lij(2,:) == 0;
+  both_in = lij(1,:) &gt; 0 &amp; lij(2,:) &gt; 0;
+  if any (not (neither_in | both_in)),
+    disp(ijw(:,not (neither_in | both_in)));
+    out = -4;
+    return
+  end
 
-  tree_nodes = unique (parent);
-  parent_child_edge_list = \
-    find(ijw(:, 1) == parent(ijw(:, 2)));
-
-  ## Check that every root-facing vertex in a
-  ## parent-child edge is an internal tree node.
-  if length (unique
-               (ijw(parent_child_edge_list, 1))) \
-    != length (tree_nodes),
-    ## Some tree edges are not in the input edge
-    ## list.
-    out = -3;
-  endif
-
-  ## Coping with duplicate edges without collapsing them
-  ## ahead of time:
-  ##
-  ##   1) Explicitly collapse the parent-child edges, check
-  ##   that gap is zero.
-  ##
-  ##   2) Check other edges for a sample of vertices.  For
-  ##   all negative gaps if not bfs, gather those edges and
-  ##   re-check.
-
-  pc_edge = ijw(parent_child_edge_list, :);
-  [PC_i, PC_j, PC_w] = find (sparse (pc_edge(:, 1),
-                                     pc_edge(:, 2),
-                                     pc_edge(:, 3), N, N));
-  if is_bfs,
-     gap = 1 + d(PC_i) - d(PC_j);
+  %% Validate the distances/levels.
+  respects_tree_level = true(1,size(ijw));
+  if !is_sssp
+    respects_tree_level = abs (lij(1,:) - lij(2,:)) &lt;= 1;
   else
-     gap = PC_w + d(PC_i) - d(PC_j);
-  endif
-
-  if any (gap != 0),
-     ## Constraints not exactly satisfied along tree edges.
-     out = -4;
-     return;
-  endif
-
-  ## Determine which vertices to check.
-  check_i = sample_roots (N, 2*SCALE, prngidx);
-  to_check = ismember (pc_edge(:, 1), check_i) | \
-    ismember (pc_edge(:, 2), check_i);
-  to_check = pc_edge (to_check, :);
-
-  [ijw_i, ijw_j, ijw_w] = find (sparse (to_check(:, 1),
-                                        to_check(:, 2),
-                                        to_check(:, 3),
-                                        N, N));
-  ## Note: This checks every edge adjacent to the
-  ## vertices.  Only needs to check up to the edge
-  ## factor.
-
-  if is_bfs,
-    gap = 1 + d(ijw_i) - d(ijw_j);
-    if any (abs (gap) &gt; 1),
-      ## Some edge crosses two levels down the
-      ## tree, cannot be from a BFS.
-      out = -6;
-      return;
-    endif
-  else
-    gap = ijw_w + d(ijw_i) - d(ijw_j);
-  endif
-
-  if any (gap &lt; 0),
-    ## Dual constraint violated.
+    respects_tree_level = abs (d(1,:) - d(2,:)) &lt;= ijw(3,:)
+  end
+  disp(ijw(:,not (neither_in | respects_tree_level)));
+  disp(lij(:,not (neither_in | respects_tree_level)));
+  if any (not (neither_in | respects_tree_level)),
     out = -5;
-    return;
-  endif
-endfunction
+    return
+  end
 </pre>
 </div>
 </div>
@@ -1441,10 +1383,12 @@ We agreed to make this optional/allowable.
 </blockquote>
 
 <p>
-If we make this optional/allowable, we cannot guarantee that all implementation
-produce identical graphs.  Do we care for that property?  On the one hand, it
-can make results more comparable, but, on the other hand, it is not
-backward-compatible.
+If we make this optional/allowable, we cannot guarantee that all
+implementation produce identical graphs.  Do we care for that
+property?  On the one hand, it can make results more comparable, but,
+on the other hand, it is not backward-compatible.  I think that
+currently there is nothing in the spec that prevents using a
+location-based hash for PRNG, so it is "optional/allowable."
 </p>
 
 <blockquote>
@@ -1455,7 +1399,14 @@ backward-compatible.
 <p>
 We agreed to make this optional/allowable.
 </p>
+</blockquote>
 
+<p>
+I left the current spec as is to have more backward compatibility.  Is
+excess data motion a real problem that benchmark participants have?
+</p>
+
+<blockquote>
 <p>
 &gt;  • All kernels:
 &gt;        • Reduced number of search roots to eight from 64 because the graph is fully connected.
@@ -1464,7 +1415,14 @@ We agreed to make this optional/allowable.
 <p>
 Agreed – we should have a debate in the steering committee of these options.  Tradeoffs are # of seeds vs. runtime.
 </p>
+</blockquote>
 
+<p>
+Since the idea of fully connected graph was rejected, I left the
+number of sources at 64.
+</p>
+
+<blockquote>
 <p>
 &gt;        • Both search kernels (2 and 3) use a single, unified, and simplified validation routine.
 </p>
@@ -1477,7 +1435,16 @@ Agreed.
 &gt;  • Kernel 1, graph construction:
 &gt;        • Removed restrictions on internal data structure.
 </p>
+</blockquote>
 
+<p>
+I kept the specification as in version 1.2.  I think that benchmark
+submitters usually find Delta value fro Delta stepping (for example)
+by experimentation, so we do not have to worry in the benchmark spec
+about precomputing these.
+</p>
+
+<blockquote>
 <p>
 Agreed.
 </p>
@@ -1517,11 +1484,24 @@ Agreed – multisource can be debated in the steering committee.
 <p>
 Agreed.
 </p>
+</blockquote>
 
+<p>
+I kept the old format.  The new format made sense if the graph was one
+large component because all edges were always included in the TEPS
+computation.  Since we rejected the single component idea, I feel that
+we still have to report statistics as in v. 1.2 of the benchmark.
+</p>
+
+<blockquote>
 <p>
 &gt;        • Require running the reference code if possible as in the Top500 list.
 </p>
 </blockquote>
+
+<p>
+I did not include that requirement for now.
+</p>
 </div>
 </div>
 
@@ -1529,7 +1509,13 @@ Agreed.
 <h3 id="sec-12-2"><span class="section-number-3">12.2</span> Remarks</h3>
 <div class="outline-text-3" id="text-12-2">
 <ul class="org-ul">
-<li>Edge weights are to be in the interval [1, maxweight].  We could also allow 0s.
+<li>Edge weights are to be in the interval [1, maxweight].  We could
+also allow 0s.
+</li>
+<li>I kept the changes as conservative as I think possible vs. version
+1.2 of the benchmark.
+</li>
+<li>I have changed Jason's validation procedure to closely resemble the previous procedure for BFS with small changes for SSSP.
 </li>
 </ul>
 </div>
@@ -1553,6 +1539,8 @@ Agreed.
 </li>
 <li>Spell check
 </li>
+<li>This is a draft, so read, fix, modify.  Repeat until satisfied.
+</li>
 </ul>
 </div>
 </div>
@@ -1560,7 +1548,7 @@ Agreed.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Graph 500 Steering Committee</p>
-<p class="date">Created: 2015-07-27 Mon 15:58</p>
+<p class="date">Created: 2015-08-10 Mon 01:28</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

@@ -375,50 +375,48 @@ http://www.dis.uniroma1.it/~challenge9/
 * Validation
 
 It is not intended that the results of full-scale runs of this benchmark
-can be validated by exact comparison to a standard reference result.  At
-full scale, the data set is enormous, and its exact details depend on on
-the pseudo-random number generator and the BFS or SSSP algorithm used.
-Therefore, the validation of an implementation of the benchmark uses soft
-checking of the results.  Validation is *not* part of the timed results.
+can be validated by exact comparison to a standard reference result. At
+full scale, the data set is enormous, and its exact details depend on the
+pseudo-random number generator and BFS or SSSP algorithm used. Therefore,
+the validation of an implementation of the benchmark uses soft checking
+of the results.
 
-The executable specification verifies its results by comparing them
-with results computed directly from the tuple list.  Note that the
-SSSP kernel uses the sum of the weights for a particular edge that may
-have multiple entries in the input tuple list.  Because the edges need
-re-collapsed into a graph form, only a sampling of the edges are
-checked.  Every tree edge must be checked.  Additionally, select
-2*SCALE vertices similarly to [[#sampleroot][sampling the root vertices]].  For each
-such vertex, only the lesser of edgefactor and the vertex's degree
-adjacent edges need to be checked.  This specification does not
-require any particular adjacent edges.
+We emphasize that the intent of this benchmark is to exercise these
+algorithms on the largest data sets that will fit on machines being
+evaluated. However, for debugging purposes it may be desirable to run
+on small data sets, and it may be desirable to verify parallel results
+against serial results, or even against results from the executable
+specification.
 
-Here we specify the validation for the SSSP computation ([[Kernel 3]]) and
-treat BFS ([[Kernel 2]]) as a special case.  Let /w(u, v)/ be the weight of
-an edge /{u, v}/, and let /d(u)/ be the distance of vertex /u/ from the
-source.  After each search, run a function that ensures that
-the discovered SSSP tree of parents is correct by ensuring that:
+The executable specification validates its results by comparing them
+with results computed directly from the tuple list.
 
-  1) the SSSP tree is a tree rooted at the search vertex and without
-     cycles,
-  2) a node and its parent are joined by an edge of the original graph,
-  3) /w(u, v) + d(u) - d(v) \le 0/ for all unordered input edges /{u, v}/
-     where /d(u) < d(v)/, 
-  4) /abs(w(u, v) + d(u) - d(v)) \le 1/ for a BFS tree, and
-  5) /w(u, v) + d(u) - d(v) == 0/ when /u/ is a parent of /v/.
+The validation procedure for BFS ([[#kernel2][Kernel 2]]) is unchanged from version 1.2
+of the benchmark.  The validation procedure for SSSP ([[#kernel3][Kernel 3]]) is
+similar to validation of BFS with differences stated explicitly.  After
+each search, run (but do not time) a function that ensures that the
+discovered breadth-first tree is correct by ensuring that:
 
-A BFS tree is a SSSP tree with all total edge distances set to one and a
-maximum constraint gap (line three above) of one.  The distance /d(u)/
-is the depth of vertex /u/.
+  1) the BFS/SSSP tree is a tree and does not contain cycles,
+  2) each tree edge edge connects vertices whose
+     a) BFS levels differ by exactly one,
+     b) SSSP distances differ by at most the weight of the edge,
+  3) every edge in the input list has vertices with
+     a) BFS levels that differ by at most one or that both are not in the
+        BFS tree,
+     b) SSSP distances that differ by at most the weight of the edge or
+        are not in the SSSP tree,
+  4) the BFS/SSSP tree spans an entire connected component's vertices, 
+     and
+  5) a node and its BFS/SSSP parent are joined by an edge of the original 
+     graph.
 
-Algorithm [[alg:verify]] shows a sample validation routine.  This
-sample optionally takes a distance vector =d= and parameter =is_bfs=.
-The latter, =is_bfs=, is set to 1 (true) for BFS validation and 0
-(false) for SSSP validation.  The same core validation routine may be
-used for both kernels.
+Algorithm [[alg:validate]] shows a sample validation routine.
+
 
 #+CAPTION: High-level implementation of kernel 2 validation
-#+LABEL: alg:verify
-#+INCLUDE: "octave/verify.m" src Octave
+#+LABEL: alg:validate
+#+INCLUDE: "octave/validate.m" src Octave
 
 * Computing and Outputting Performance Information
 
@@ -747,6 +745,7 @@ I did not include that requirement for now.
    also allow 0s.
  - I kept the changes as conservative as I think possible vs. version
    1.2 of the benchmark.
+ - I have changed Jason's validation procedure to closely resemble the previous procedure for BFS with small changes for SSSP.
 
 ** TODO
 
