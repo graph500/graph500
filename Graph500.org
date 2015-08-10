@@ -486,92 +486,7 @@ Additional fields are permitted.  Algorithm [[alg:output]] provides
 a high-level sample.
 
 #+CAPTION: High-level implementation of the output routine
-#+LABEL: alg:output
-#+BEGIN_SRC Octave
-function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kerner_3_nedge)
-  printf ("SCALE: %d\n", SCALE);
-  printf ("NBFS: %d\n", NBFS);
-  printf ("NSSSP: %d\n", NSSSP);
-  printf ("construction_time: %20.17e\n", kernel_1_time);
-
-  S = statistics (kernel_2_time);
-  printf ("min_k2time: %20.17e\n", S(1));
-  printf ("firstquartile_k2time: %20.17e\n", S(2));
-  printf ("median_k2time: %20.17e\n", S(3));
-  printf ("thirdquartile_k2time: %20.17e\n", S(4));
-  printf ("max_k2time: %20.17e\n", S(5));
-  printf ("mean_k2time: %20.17e\n", S(6));
-  printf ("stddev_k2time: %20.17e\n", S(7));
-
-  S = statistics (kernel_2_nedge);
-  printf ("min_k2nedge: %20.17e\n", S(1));
-  printf ("firstquartile_k2nedge: %20.17e\n", S(2));
-  printf ("median_k2nedge: %20.17e\n", S(3));
-  printf ("thirdquartile_k2nedge: %20.17e\n", S(4));
-  printf ("max_k2nedge: %20.17e\n", S(5));
-  printf ("mean_k2nedge: %20.17e\n", S(6));
-  printf ("stddev_k2nedge: %20.17e\n", S(7));
-
-  K2TEPS = kernel_2_nedge ./ kernel_2_time;
-  K2N = length (K2TEPS);
-  S = statistics (K2TEPS);
-  S(6) = mean (K2TEPS, 'h');
-  %% Harmonic standard deviation from:
-  %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
-  %% Means and Their Application to Index Numbers, 1940.
-  %% http://www.jstor.org/stable/2235723
-  k2tmp = zeros (N, 1);
-  k2tmp(K@TEPS > 0) = 1./K2TEPS(K2TEPS > 0);
-  k2tmp = k2tmp - 1/S(6);
-  S(7) = (sqrt (sum (k2tmp.^2)) / (K2N-1)) * S(6)^2;
-  
-  printf ("min_K2TEPS: %20.17e\n", S(1));
-  printf ("firstquartile_K2TEPS: %20.17e\n", S(2));
-  printf ("median_K2TEPS: %20.17e\n", S(3));
-  printf ("thirdquartile_K2TEPS: %20.17e\n", S(4));
-  printf ("max_K2TEPS: %20.17e\n", S(5));
-  printf ("harmonic_mean_K2TEPS: %20.17e\n", S(6));
-  printf ("harmonic_stddev_K2TEPS: %20.17e\n", S(7));
-
-  S = statistics (kernel_3_time);
-  printf ("min_k3time: %20.17e\n", S(1));
-  printf ("firstquartile_k3time: %20.17e\n", S(2));
-  printf ("median_k3time: %20.17e\n", S(3));
-  printf ("thirdquartile_k3time: %20.17e\n", S(4));
-  printf ("max_k3time: %20.17e\n", S(5));
-  printf ("mean_k3time: %20.17e\n", S(6));
-  printf ("stddev_k3time: %20.17e\n", S(7));
-
-  S = statistics (kernel_3_nedge);
-  printf ("min_k3nedge: %20.17e\n", S(1));
-  printf ("firstquartile_k3nedge: %20.17e\n", S(2));
-  printf ("median_k3nedge: %20.17e\n", S(3));
-  printf ("thirdquartile_k3nedge: %20.17e\n", S(4));
-  printf ("max_k3nedge: %20.17e\n", S(5));
-  printf ("mean_k3nedge: %20.17e\n", S(6));
-  printf ("stddev_k3nedge: %20.17e\n", S(7));
-
-  K3TEPS = kernel_3_nedge ./ kernel_3_time;
-  K3N = length (K3TEPS);
-  S = statistics (K3TEPS);
-  S(6) = mean (K3TEPS, 'h');
-  %% Harmonic standard deviation from:
-  %% Nilan Norris, The Standard Errors of the Geometric and Harmonic
-  %% Means and Their Application to Index Numbers, 1940.
-  %% http://www.jstor.org/stable/2235723
-  k3tmp = zeros (N, 1);
-  k3tmp(K@TEPS > 0) = 1./K3TEPS(K3TEPS > 0);
-  k3tmp = k3tmp - 1/S(6);
-  S(7) = (sqrt (sum (k3tmp.^2)) / (K3N-1)) * S(6)^2;
-  
-  printf ("min_K3TEPS: %20.17e\n", S(1));
-  printf ("firstquartile_K3TEPS: %20.17e\n", S(2));
-  printf ("median_K3TEPS: %20.17e\n", S(3));
-  printf ("thirdquartile_K3TEPS: %20.17e\n", S(4));
-  printf ("max_K3TEPS: %20.17e\n", S(5));
-  printf ("harmonic_mean_K3TEPS: %20.17e\n", S(6));
-  printf ("harmonic_stddev_K3TEPS: %20.17e\n", S(7));
-#+END_SRC
+#+INCLUDE: "octave/output.m" src Octave
 
 ** References
 
@@ -587,49 +502,7 @@ Algorithm [[alg:driver]].
 
 #+CAPTION: High-level sample driver
 #+LABEL: alg:driver
-#+BEGIN_SRC Octave
-SCALE = 10;
-edgefactor = 16;
-NBFS = 64;
-
-rand ("seed", 103);
-
-ij = kronecker_generator (SCALE, edgefactor);
-
-tic;
-G = kernel_1 (ij);
-kernel_1_time = toc;
-
-N = size (G, 1);
-coldeg = full (spstats (G));
-search_key = randperm (N);
-search_key(coldeg(search_key) == 0) = [];
-if length (search_key) > NBFS,
-  search_key = search_key(1:NBFS);
-else
-  NBFS = length (search_key);
-end
-search_key = search_key - 1;  
-
-kernel_2_time = Inf * ones (NBFS, 1);
-kernel_2_nedge = zeros (NBFS, 1);
-
-indeg = histc (ij(:), 1:N); % For computing the number of edges
-
-for k = 1:NBFS,
-  tic;
-  parent = kernel_2 (G, search_key(k));
-  kernel_2_time(k) = toc;
-  err = validate (parent, ij, search_key (k));
-  if err <= 0,
-    error (sprintf ("BFS %d from search key %d failed to validate: %d",
-		    k, search_key(k), err));
-  end
-  kernel_2_nedge(k) = sum (indeg(parent >= 0))/2; % Volume/2
-end
-
-output (SCALE, edgefactor, NBFS, kernel_1_time, kernel_2_time, kernel_2_nedge);
-#+END_SRC
+#+INCLUDE: "octave/driver.m" src Octave
 
 * Evaluation Criteria
 
