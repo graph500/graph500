@@ -1,4 +1,4 @@
-function out = verify (SCALE, parent, ijw, root, d, prngidx, is_bfs)
+function out = verify (SCALE, parent, ijw, root, d, is_bfs)
   out = 1;
 
   ## Adjust to 1-offset.
