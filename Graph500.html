@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Graph 500 Benchmark 1 ("Search")</title>
-<!-- 2015-08-10 Mon 18:22 -->
+<!-- 2015-08-27 Thu 06:15 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Graph 500 Steering Committee" />
@@ -1125,38 +1125,38 @@ The output must contain the following information:
 </dd>
 <dt> NBFS </dt><dd>Number of BFS searches run, 64 for non-trivial graphs
 </dd>
-<dt> construction\<sub>time</sub> </dt><dd>The single kernel 1 time
+<dt> construction_time </dt><dd>The single kernel 1 time
 </dd>
-<dt> min\<sub>k2time</sub>, firstquartile\<sub>k2time</sub>, median\<sub>k2time</sub>, thirdquartile\<sub>k2time</sub>, max\<sub>k2time</sub> </dt><dd>Quartiles for the kernel 2 times
+<dt> min_k2time, firstquartile_k2time, median_k2time, thirdquartile_k2time, max_k2time </dt><dd>Quartiles for the kernel 2 times
 </dd>
-<dt> mean\<sub>k2time</sub>, stddev\<sub>k2time</sub> </dt><dd>Mean and standard deviation of the kernel 2 times
+<dt> mean_k2time, stddev_k2time </dt><dd>Mean and standard deviation of the kernel 2 times
 </dd>
-<dt> min\<sub>k2nedge</sub>, firstquartile\<sub>k2nedge</sub>, median\<sub>k2nedge</sub>, thirdquartile\<sub>k2nedge</sub>, max\<sub>k2nedge</sub> </dt><dd>Quartiles for the number of
+<dt> min_k2nedge, firstquartile_k2nedge, median_k2nedge, thirdquartile_k2nedge, max_k2nedge </dt><dd>Quartiles for the number of
 input edges visited by kernel 2, see TEPS section above.
 </dd>
-<dt> mean\<sub>k2nedge</sub>, stddev\<sub>k2nedge</sub> </dt><dd>Mean and standard deviation of the number of
+<dt> mean_k2nedge, stddev_k2nedge </dt><dd>Mean and standard deviation of the number of
 input edges visited by kernel 2, see TEPS section above.
 </dd>
-<dt> min\<sub>k2TEPS</sub>, firstquartile\<sub>k2TEPS</sub>, median\<sub>k2TEPS</sub>, thirdquartile\<sub>k2TEPS</sub>, max\<sub>k2TEPS</sub> </dt><dd>Quartiles for the kernel 2 TEPS
+<dt> min_k2TEPS, firstquartile_k2TEPS, median_k2TEPS, thirdquartile_k2TEPS, max_k2TEPS </dt><dd>Quartiles for the kernel 2 TEPS
 </dd>
-<dt> harmonic\<sub>mean\</sub><sub>k2TEPS</sub>, harmonic\<sub>stddev\</sub><sub>k2TEPS</sub> </dt><dd>Mean and standard
+<dt> harmonic_mean_k2TEPS, harmonic_stddev_k2TEPS </dt><dd>Mean and standard
 deviation of the kernel 2 TEPS.
 </dd>
 <dt> NSSSP </dt><dd>Number of SSSP searches run, 64 for non-trivial graphs
 </dd>
-<dt> min\<sub>k3time</sub>, firstquartile\<sub>k3time</sub>, median\<sub>k3time</sub>, thirdquartile\<sub>k3time</sub>, max\<sub>k3time</sub> </dt><dd>Quartiles for the kernel 3 times
+<dt> min_k3time, firstquartile_k3time, median_k3time, thirdquartile_k3time, max_k3time </dt><dd>Quartiles for the kernel 3 times
 </dd>
-<dt> mean\<sub>k3time</sub>, stddev\<sub>k3time</sub> </dt><dd>Mean and standard deviation of the kernel 3 times
+<dt> mean_k3time, stddev_k3time </dt><dd>Mean and standard deviation of the kernel 3 times
 </dd>
-<dt> min\<sub>k3nedge</sub>, firstquartile\<sub>k3nedge</sub>, median\<sub>k3nedge</sub>, thirdquartile\<sub>k3nedge</sub>, max\<sub>k3nedge</sub> </dt><dd>Quartiles for the number of
+<dt> min_k3nedge, firstquartile_k3nedge, median_k3nedge, thirdquartile_k3nedge, max_k3nedge </dt><dd>Quartiles for the number of
 input edges visited by kernel 3, see TEPS section above.
 </dd>
-<dt> mean\<sub>k3nedge</sub>, stddev\<sub>k3nedge</sub> </dt><dd>Mean and standard deviation of the number of
+<dt> mean_k3nedge, stddev_k3nedge </dt><dd>Mean and standard deviation of the number of
 input edges visited by kernel 3, see TEPS section above.
 </dd>
-<dt> min\<sub>k3TEPS</sub>, firstquartile\<sub>k3TEPS</sub>, median\<sub>k3TEPS</sub>, thirdquartile\<sub>k3TEPS</sub>, max\<sub>k3TEPS</sub> </dt><dd>Quartiles for the kernel 3 TEPS
+<dt> min_k3TEPS, firstquartile_k3TEPS, median_k3TEPS, thirdquartile_k3TEPS, max_k3TEPS </dt><dd>Quartiles for the kernel 3 TEPS
 </dd>
-<dt> harmonic\<sub>mean\</sub><sub>k3TEPS</sub>, harmonic\<sub>stddev\</sub><sub>k3TEPS</sub> </dt><dd>Mean and standard
+<dt> harmonic_mean_k3TEPS, harmonic_stddev_k3TEPS </dt><dd>Mean and standard
 deviation of the kernel 3 TEPS.  
 </dd>
 </dl>
@@ -1167,10 +1167,10 @@ deviation of the kernel 3 TEPS.
 </p>
 
 <p>
-The fields for <a href="#kernel2">Kernel 2</a> or <a href="#kernel3">Kernel 3</a> can be set to zero if only one
-kernel was run.  It is permissible to run <a href="#kernel2">Kernel 2</a> and <a href="#kernel3">Kernel 3</a> on
-different graphs.  In such situation, two outputs can be submitted, each
-with statistics for one of the kernels set to zeros.
+The <b>*TEPS</b> fields (all fields that end with "TEPS") for <a href="#kernel2">Kernel 2</a> or <a href="#kernel3">Kernel 3</a>
+can be set to zero if only one kernel was run.  It is permissible to run <a href="#kernel2">Kernel
+2</a> and <a href="#kernel3">Kernel 3</a> on different graphs.  In such situation, two outputs can be
+submitted, each with the <b>*TEPS</b> for one of the kernels set to zeros.
 </p>
 
 <p>
@@ -1580,7 +1580,7 @@ also allow 0s.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Graph 500 Steering Committee</p>
-<p class="date">Created: 2015-08-10 Mon 18:22</p>
+<p class="date">Created: 2015-08-27 Thu 06:15</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

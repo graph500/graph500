@@ -4,6 +4,7 @@
 #+LANGUAGE:  en
 #+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
 #+OPTIONS:   TeX:t LaTeX:t skip:nil d:nil todo:t pri:nil tags:not-in-toc
+#+OPTIONS:   ^:{}
 #+STYLE: <style>body {margin-left: 10%; margin-right: 10%;} table {margin-left:auto; margin-right:auto;}</style>
 
 Contributors: David A. Bader (Georgia Institute of Technology),
@@ -150,7 +151,7 @@ testing and exploration but not permitted for submitted results.
 
 These inputs determine the graph's size:
 
- - N :: the total number of vertices, 2^SCALE. An implementation may
+ - N :: the total number of vertices, 2^{SCALE}. An implementation may
    use any set of N distinct integers to number the vertices, but at
    least 48 bits must be allocated per vertex number. Other parameters
    may be assumed to fit within the natural word of the machine. N is
@@ -452,14 +453,14 @@ computing rates floating-point operations per second (flops) measured
 by the LINPACK benchmark and global updates per second (GUPs) measured
 by the HPCC RandomAccess benchmark, we define a new rate called traversed
 edges per second (TEPS). We measure TEPS through the benchmarking of
-[[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_K(n) be the measured execution time for
+[[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_{K}(n) be the measured execution time for
 a kernel run. Let m be the number of input edge tuples within the
 component traversed by the search, counting any multiple edges and
 self-loops. We define the normalized performance rate (number of edge
 traversals per second) as:
 
 #+BEGIN_CENTER
-		       TEPS(n) = m / time_K(n)
+		       TEPS(n) = m / time_{K}(n)
 #+END_CENTER
 
 ** Output
@@ -468,34 +469,34 @@ The output must contain the following information:
   - SCALE :: Graph generation parameter
   - edgefactor :: Graph generation parameter
   - NBFS :: Number of BFS searches run, 64 for non-trivial graphs
-  - construction\_time :: The single kernel 1 time
-  - min\_k2time, firstquartile\_k2time, median\_k2time, thirdquartile\_k2time, max\_k2time :: Quartiles for the kernel 2 times
-  - mean\_k2time, stddev\_k2time :: Mean and standard deviation of the kernel 2 times
-  - min\_k2nedge, firstquartile\_k2nedge, median\_k2nedge, thirdquartile\_k2nedge, max\_k2nedge :: Quartiles for the number of
+  - construction_time :: The single kernel 1 time
+  - min_k2time, firstquartile_k2time, median_k2time, thirdquartile_k2time, max_k2time :: Quartiles for the kernel 2 times
+  - mean_k2time, stddev_k2time :: Mean and standard deviation of the kernel 2 times
+  - min_k2nedge, firstquartile_k2nedge, median_k2nedge, thirdquartile_k2nedge, max_k2nedge :: Quartiles for the number of
        input edges visited by kernel 2, see TEPS section above.
-  - mean\_k2nedge, stddev\_k2nedge :: Mean and standard deviation of the number of
+  - mean_k2nedge, stddev_k2nedge :: Mean and standard deviation of the number of
        input edges visited by kernel 2, see TEPS section above.
-  - min\_k2TEPS, firstquartile\_k2TEPS, median\_k2TEPS, thirdquartile\_k2TEPS, max\_k2TEPS :: Quartiles for the kernel 2 TEPS
-  - harmonic\_mean\_k2TEPS, harmonic\_stddev\_k2TEPS :: Mean and standard
+  - min_k2TEPS, firstquartile_k2TEPS, median_k2TEPS, thirdquartile_k2TEPS, max_k2TEPS :: Quartiles for the kernel 2 TEPS
+  - harmonic_mean_k2TEPS, harmonic_stddev_k2TEPS :: Mean and standard
        deviation of the kernel 2 TEPS.
   - NSSSP :: Number of SSSP searches run, 64 for non-trivial graphs
-  - min\_k3time, firstquartile\_k3time, median\_k3time, thirdquartile\_k3time, max\_k3time :: Quartiles for the kernel 3 times
-  - mean\_k3time, stddev\_k3time :: Mean and standard deviation of the kernel 3 times
-  - min\_k3nedge, firstquartile\_k3nedge, median\_k3nedge, thirdquartile\_k3nedge, max\_k3nedge :: Quartiles for the number of
+  - min_k3time, firstquartile_k3time, median_k3time, thirdquartile_k3time, max_k3time :: Quartiles for the kernel 3 times
+  - mean_k3time, stddev_k3time :: Mean and standard deviation of the kernel 3 times
+  - min_k3nedge, firstquartile_k3nedge, median_k3nedge, thirdquartile_k3nedge, max_k3nedge :: Quartiles for the number of
        input edges visited by kernel 3, see TEPS section above.
-  - mean\_k3nedge, stddev\_k3nedge :: Mean and standard deviation of the number of
+  - mean_k3nedge, stddev_k3nedge :: Mean and standard deviation of the number of
        input edges visited by kernel 3, see TEPS section above.
-  - min\_k3TEPS, firstquartile\_k3TEPS, median\_k3TEPS, thirdquartile\_k3TEPS, max\_k3TEPS :: Quartiles for the kernel 3 TEPS
-  - harmonic\_mean\_k3TEPS, harmonic\_stddev\_k3TEPS :: Mean and standard
+  - min_k3TEPS, firstquartile_k3TEPS, median_k3TEPS, thirdquartile_k3TEPS, max_k3TEPS :: Quartiles for the kernel 3 TEPS
+  - harmonic_mean_k3TEPS, harmonic_stddev_k3TEPS :: Mean and standard
        deviation of the kernel 3 TEPS.  
 
 *Note*: Because TEPS is a rate, the rates are compared using
        *harmonic* means.
 
-The *\*TEPS* fields (all fields that end with "TEPS") for [[#kernel2][Kernel 2]] or [[#kernel3][Kernel 3]]
+The **TEPS* fields (all fields that end with "TEPS") for [[#kernel2][Kernel 2]] or [[#kernel3][Kernel 3]]
 can be set to zero if only one kernel was run.  It is permissible to run [[#kernel2][Kernel
 2]] and [[#kernel3][Kernel 3]] on different graphs.  In such situation, two outputs can be
-submitted, each with the *\*TEPS* for one of the kernels set to zeros.
+submitted, each with the **TEPS* for one of the kernels set to zeros.
 
 Additional fields are permitted.  Algorithm [[alg:output]] provides
 a high-level sample.
