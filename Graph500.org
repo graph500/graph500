@@ -492,10 +492,10 @@ The output must contain the following information:
 *Note*: Because TEPS is a rate, the rates are compared using
        *harmonic* means.
 
-The fields for [[#kernel2][Kernel 2]] or [[#kernel3][Kernel 3]] can be set to zero if only one
-kernel was run.  It is permissible to run [[#kernel2][Kernel 2]] and [[#kernel3][Kernel 3]] on
-different graphs.  In such situation, two outputs can be submitted, each
-with statistics for one of the kernels set to zeros.
+The *\*TEPS* fields (all fields that end with "TEPS") for [[#kernel2][Kernel 2]] or [[#kernel3][Kernel 3]]
+can be set to zero if only one kernel was run.  It is permissible to run [[#kernel2][Kernel
+2]] and [[#kernel3][Kernel 3]] on different graphs.  In such situation, two outputs can be
+submitted, each with the *\*TEPS* for one of the kernels set to zeros.
 
 Additional fields are permitted.  Algorithm [[alg:output]] provides
 a high-level sample.
