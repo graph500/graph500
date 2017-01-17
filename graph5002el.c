@@ -23,7 +23,11 @@ int main (int argc, char **argv)
 
   /* Convert the roots */
   ssize_t sz, sz_read;
-  FILE* infp = fopen (argv[2], "r");
+  FILE* infp;
+  if ((infp  = fopen (argv[2], "r")) == NULL) {
+    perror("Can't read file at argv[2]");
+    return EXIT_FAILURE;
+  }
   fseek (infp, 0L, SEEK_END);
   sz = ftell (infp);
   rewind (infp);
@@ -34,7 +38,11 @@ int main (int argc, char **argv)
     return EXIT_FAILURE;
   }
   fclose (infp);
-  FILE* outfp = fopen (argv[4], "w");
+  FILE* outfp;
+  if ((outfp = fopen (argv[4], "w")) == NULL) {
+    perror("Can't write file at argv[4]");
+    return EXIT_FAILURE;
+  }
   int64_t m;
   for (m = 0; m < sz / 8; m++) {
     fprintf (outfp, "%lld\n", bfs_root[m]);
@@ -42,13 +50,16 @@ int main (int argc, char **argv)
   fclose (outfp);
 
   /* Convert the edge list */ 
-  infp = fopen (argv[1], "r");
+  if ((infp  = fopen (argv[1], "r")) == NULL) {
+    perror("Can't read file at argv[1]");
+    return EXIT_FAILURE;
+  }
   fseek (infp, 0L, SEEK_END);
   sz = ftell (infp);
   rewind (infp);
   /* This is a highly suboptimal way of doing things.
    * If the graph can't fit in RAM, this could be modifed to loop
-   * making sure to read in multiples of  sizeof(struct packed_edge)
+   * making sure to read in multiples of sizeof(struct packed_edge)
    */
   const size_t chunks = 1;
   IJ = xmalloc_large_ext (sz / chunks);
@@ -58,14 +69,19 @@ int main (int argc, char **argv)
     return EXIT_FAILURE;
   }
   fclose (infp);
-  outfp = fopen (argv[3], "w");
+  if ((outfp = fopen (argv[4], "w")) == NULL) {
+    perror("Can't write file at argv[3]");
+    return EXIT_FAILURE;
+  }
   int64_t i,j;
   for (m = 0; m < sz / sizeof(*IJ); m++) {
     i = get_v0_from_edge(&IJ[m]);
     j = get_v1_from_edge(&IJ[m]);
     fprintf (outfp, "%lld %lld\n", i, j);
   }
-  xfree_large (IJ);
 
+  /* Cleanup */
+  fclose (outfp);
+  xfree_large (IJ);
   return EXIT_SUCCESS;
 }
