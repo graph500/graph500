@@ -81,7 +81,10 @@ main (int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  write (fd, IJ, nedge * sizeof (*IJ));
+  if (write (fd, IJ, nedge * sizeof (*IJ)) < 1) {
+    perror ("Unable to write edge list structure");
+    return EXIT_FAILURE;
+  }
 
   close (fd);
 
