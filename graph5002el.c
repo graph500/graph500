@@ -6,6 +6,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h> // ssize_t
 #include "xalloc.h" // for xmaloc_large_ext
 #include "generator/make_graph.h" // for packed_edge
 #include "options.h" // for NBFS_max
@@ -31,10 +32,11 @@ int main (int argc, char **argv)
   fseek (infp, 0L, SEEK_END);
   sz = ftell (infp);
   rewind (infp);
-  printf ("Found %ld roots\n", sz / 8); // VERBOSE
+  printf ("Found %lld roots\n", (long long) sz / 8); // VERBOSE
   int64_t bfs_root[sz / 8]; // ~64, small enough for the stack
   if ((sz_read = fread (bfs_root, 1, sz, infp)) != sz) {
-    fprintf (stderr, "Expected %ld bytes, read %ld\n", sz, sz_read);
+    fprintf (stderr, "Expected %lld bytes, read %lld\n",
+        (long long) sz, (long long) sz_read);
     return EXIT_FAILURE;
   }
   fclose (infp);
@@ -45,7 +47,7 @@ int main (int argc, char **argv)
   }
   int64_t m;
   for (m = 0; m < sz / 8; m++) {
-    fprintf (outfp, "%lld\n", bfs_root[m]);
+    fprintf (outfp, "%lld\n", (long long) bfs_root[m]);
   }
   fclose (outfp);
 
@@ -65,11 +67,12 @@ int main (int argc, char **argv)
   IJ = xmalloc_large_ext (sz / chunks);
   printf ("Found %ld edges\n", sz / sizeof(*IJ)); // VERBOSE
   if ((sz_read = fread (IJ, 1, sz, infp)) != sz) {
-    fprintf (stderr, "Expected %ld bytes, read %ld\n", sz, sz_read);
+    fprintf (stderr, "Expected %lld bytes, read %lld\n",
+        (long long) sz, (long long) sz_read);
     return EXIT_FAILURE;
   }
   fclose (infp);
-  if ((outfp = fopen (argv[4], "w")) == NULL) {
+  if ((outfp = fopen (argv[3], "w")) == NULL) {
     perror("Can't write file at argv[3]");
     return EXIT_FAILURE;
   }
@@ -77,7 +80,7 @@ int main (int argc, char **argv)
   for (m = 0; m < sz / sizeof(*IJ); m++) {
     i = get_v0_from_edge(&IJ[m]);
     j = get_v1_from_edge(&IJ[m]);
-    fprintf (outfp, "%lld %lld\n", i, j);
+    fprintf (outfp, "%lld %lld\n", (long long) i, (long long) j);
   }
 
   /* Cleanup */
