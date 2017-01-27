@@ -42,6 +42,7 @@ main (int argc, char **argv)
   int * restrict has_adj;
   int fd;
   int64_t desired_nedge;
+  int64_t nvtx_connected, k = 0;
   if (sizeof (int64_t) < 8) {
     fprintf (stderr, "No 64-bit support.\n");
     return EXIT_FAILURE;
@@ -77,11 +78,14 @@ main (int argc, char **argv)
 
   if (fd < 0) {
     fprintf (stderr, "Cannot open output file : %s\n",
-	     (dumpname? dumpname : "stdout"));
+             (dumpname? dumpname : "stdout"));
     return EXIT_FAILURE;
   }
 
-  write (fd, IJ, nedge * sizeof (*IJ));
+  if (write (fd, IJ, nedge * sizeof (*IJ)) < 1) {
+    perror ("Unable to write edge list structure");
+    return EXIT_FAILURE;
+  }
 
   close (fd);
 
@@ -94,42 +98,50 @@ main (int argc, char **argv)
     has_adj = xmalloc_large (nvtx_scale * sizeof (*has_adj));
     OMP("omp parallel") {
       OMP("omp for")
-	for (int64_t k = 0; k < nvtx_scale; ++k)
-	  has_adj[k] = 0;
+        for (int64_t k = 0; k < nvtx_scale; ++k)
+          has_adj[k] = 0;
       MTA("mta assert nodep") OMP("omp for")
-	for (int64_t k = 0; k < nedge; ++k) {
-	  const int64_t i = get_v0_from_edge(&IJ[k]);
-	  const int64_t j = get_v1_from_edge(&IJ[k]);
-	  if (i != j)
-	    has_adj[i] = has_adj[j] = 1;
-	}
+        for (int64_t k = 0; k < nedge; ++k) {
+          const int64_t i = get_v0_from_edge(&IJ[k]);
+          const int64_t j = get_v1_from_edge(&IJ[k]);
+          if (i != j)
+            has_adj[i] = has_adj[j] = 1;
+        }
+      OMP("omp for reduction(+:nvtx_connected)")
+        for (k = 0; k < nvtx_scale; ++k)
+          if (has_adj[k]) ++nvtx_connected;
     }
 
-    /* Sample from {0, ..., nvtx_scale-1} without replacement. */
+    /* Sample from {0, ..., nvtx_scale-1} without replacement, but
+       only from vertices with degree > 0. */
     {
       int m = 0;
       int64_t t = 0;
-      while (m < NBFS && t < nvtx_scale) {
-	double R = mrg_get_double_orig (prng_state);
-	if (!has_adj[t] || (nvtx_scale - t)*R > NBFS - m) ++t;
-	else bfs_root[m++] = t++;
+      for (k = 0; k < nvtx_scale && m < NBFS && t < nvtx_connected; ++k) {
+        if (has_adj[k]) {
+        double R = mrg_get_double_orig (prng_state);
+        if ((nvtx_connected - t)*R > NBFS - m) ++t;
+        else bfs_root[m++] = t++;
       }
+    }
       if (t >= nvtx_scale && m < NBFS) {
-	if (m > 0) {
-	  fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
-		   NBFS, m);
-	  NBFS = m;
-	} else {
-	  fprintf (stderr, "Cannot find any sample roots of non-self degree > 0.\n");
-	  exit (EXIT_FAILURE);
-	}
+        if (m > 0) {
+          fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
+                   NBFS, m);
+          NBFS = m;
+        } else {
+          fprintf (stderr, "Cannot find any sample roots of non-self degree > 0.\n");
+          exit (EXIT_FAILURE);
+        }
       }
     }
 
     xfree_large (has_adj);
-    write (fd, bfs_root, NBFS * sizeof (*bfs_root));
+    if (write (fd, bfs_root, NBFS * sizeof (*bfs_root)) < 1) {
+      perror ("Unable to write bfs roots");
+      return EXIT_FAILURE;
+    }
     close (fd);
   }
-
   return EXIT_SUCCESS;
 }

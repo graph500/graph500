@@ -11,7 +11,7 @@ GRAPH500_SOURCES=graph500.c options.c rmat.c kronecker.c verify.c prng.c \
 MAKE_EDGELIST_SOURCES=make-edgelist.c options.c rmat.c kronecker.c prng.c \
 	xalloc.c timer.c 
 
-BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist
+BIN=seq-list/seq-list seq-csr/seq-csr make-edgelist graph5002el
 
 ifeq ($(BUILD_OPENMP), Yes)
 BIN += omp-csr/omp-csr
@@ -37,6 +37,7 @@ CPPFLAGS += -I./generator
 make-edgelist: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
 make-edgelist:	make-edgelist.c options.c rmat.c kronecker.c prng.c \
 	xalloc.c timer.c $(addprefix generator/,$(GENERATOR_SRCS))
+graph5002el: graph5002el.c xalloc.c $(addprefix generator/,$(GENERATOR_SRCS))
 
 seq-list/seq-list: seq-list/seq-list.c $(GRAPH500_SOURCES) \
 	$(addprefix generator/,$(GENERATOR_SRCS))
