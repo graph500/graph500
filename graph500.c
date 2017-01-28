@@ -79,10 +79,10 @@ main (int argc, char **argv)
     the following if () {} else {} with a statement pointing IJ
     to wherever the edge list is mapped into the simulator's memory.
   */
+  nedge = desired_nedge;
   if (!dumpname) {
     if (VERBOSE) fprintf (stderr, "Generating edge list...");
     if (use_RMAT) {
-      nedge = desired_nedge;
       IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
       TIME(generation_time, rmat_edgelist (IJ, nedge, SCALE, A, B, C));
     } else {
@@ -96,7 +96,8 @@ main (int argc, char **argv)
       perror ("Cannot open input graph file");
       return EXIT_FAILURE;
     }
-    sz = nedge * sizeof (*IJ);
+    sz = nedge * sizeof (*IJ) / 2;
+    IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
     if (sz != read (fd, IJ, sz)) {
       perror ("Error reading input graph file");
       return EXIT_FAILURE;
