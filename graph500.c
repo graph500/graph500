@@ -349,11 +349,6 @@ output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
   printf ("construction_time: %20.17e\n", construction_time);
   printf ("nbfs: %d\n", NBFS);
 
-  // Print out each time so the user can make her own statistics.
-  for (k = 0; k < NBFS; k++) {
-    printf ("bfs_time[%d]: %20.17e\n", k, bfs_time[k]);
-  }
-
   memcpy (tm, bfs_time, NBFS*sizeof(tm[0]));
   statistics (stats, tm, NBFS);
   PRINT_STATS("time", 0);

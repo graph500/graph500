@@ -42,11 +42,7 @@ main (int argc, char **argv)
   int * restrict has_adj;
   int fd;
   int64_t desired_nedge;
-<<<<<<< HEAD
   int64_t k, t, nvtx_connected = 0;
-=======
-  int64_t nvtx_connected, k = 0;
->>>>>>> master
   if (sizeof (int64_t) < 8) {
     fprintf (stderr, "No 64-bit support.\n");
     return EXIT_FAILURE;
@@ -82,7 +78,7 @@ main (int argc, char **argv)
 
   if (fd < 0) {
     fprintf (stderr, "Cannot open output file : %s\n",
-             (dumpname? dumpname : "stdout"));
+	     (dumpname? dumpname : "stdout"));
     return EXIT_FAILURE;
   }
 
@@ -90,10 +86,6 @@ main (int argc, char **argv)
     perror ("Unable to write edge list structure");
     return EXIT_FAILURE;
   }
-<<<<<<< HEAD
-=======
-
->>>>>>> master
   close (fd);
 
   if (rootname)
@@ -133,16 +125,6 @@ main (int argc, char **argv)
         }
       }
 
-=======
-      int64_t t = 0;
-      for (k = 0; k < nvtx_scale && m < NBFS && t < nvtx_connected; ++k) {
-        if (has_adj[k]) {
-        double R = mrg_get_double_orig (prng_state);
-        if ((nvtx_connected - t)*R > NBFS - m) ++t;
-        else bfs_root[m++] = t++;
-      }
-    }
->>>>>>> master
       if (t >= nvtx_scale && m < NBFS) {
 	if (m > 0) {
 	  fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
@@ -162,5 +144,6 @@ main (int argc, char **argv)
     }
     close (fd);
   }
+
   return EXIT_SUCCESS;
 }
