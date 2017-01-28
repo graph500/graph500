@@ -42,6 +42,11 @@ main (int argc, char **argv)
   int * restrict has_adj;
   int fd;
   int64_t desired_nedge;
+<<<<<<< HEAD
+  int64_t k, t, nvtx_connected = 0;
+=======
+  int64_t nvtx_connected, k = 0;
+>>>>>>> master
   if (sizeof (int64_t) < 8) {
     fprintf (stderr, "No 64-bit support.\n");
     return EXIT_FAILURE;
@@ -77,12 +82,18 @@ main (int argc, char **argv)
 
   if (fd < 0) {
     fprintf (stderr, "Cannot open output file : %s\n",
-	     (dumpname? dumpname : "stdout"));
+             (dumpname? dumpname : "stdout"));
     return EXIT_FAILURE;
   }
 
-  write (fd, IJ, nedge * sizeof (*IJ));
+  if (write (fd, IJ, nedge * sizeof (*IJ)) < 1) {
+    perror ("Unable to write edge list structure");
+    return EXIT_FAILURE;
+  }
+<<<<<<< HEAD
+=======
 
+>>>>>>> master
   close (fd);
 
   if (rootname)
@@ -103,17 +114,35 @@ main (int argc, char **argv)
 	  if (i != j)
 	    has_adj[i] = has_adj[j] = 1;
 	}
+      OMP("omp for reduction(+:nvtx_connected)")
+        for (k = 0; k < nvtx_scale; ++k)
+          if (has_adj[k]) ++nvtx_connected;
     }
 
-    /* Sample from {0, ..., nvtx_scale-1} without replacement. */
+    /* Sample from {0, ..., nvtx_scale-1} without replacement, but
+       only from vertices with degree > 0. */
     {
       int m = 0;
-      int64_t t = 0;
-      while (m < NBFS && t < nvtx_scale) {
-	double R = mrg_get_double_orig (prng_state);
-	if (!has_adj[t] || (nvtx_scale - t)*R > NBFS - m) ++t;
-	else bfs_root[m++] = t++;
+      for (k = 0; k < nvtx_scale && m < NBFS; ++k) {
+        unsigned long challenge = (unsigned long)(mrg_get_double_orig(prng_state) * (double)(nvtx_scale-1));
+
+        if (has_adj[challenge]) {
+          size_t i=0;
+          for (; i<m; i++) if (bfs_root[i] == challenge) break; // check for duplicates
+          if (i == m) bfs_root[m++] = challenge; // if not duplicate, add to list
+        }
       }
+
+=======
+      int64_t t = 0;
+      for (k = 0; k < nvtx_scale && m < NBFS && t < nvtx_connected; ++k) {
+        if (has_adj[k]) {
+        double R = mrg_get_double_orig (prng_state);
+        if ((nvtx_connected - t)*R > NBFS - m) ++t;
+        else bfs_root[m++] = t++;
+      }
+    }
+>>>>>>> master
       if (t >= nvtx_scale && m < NBFS) {
 	if (m > 0) {
 	  fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
@@ -127,9 +156,11 @@ main (int argc, char **argv)
     }
 
     xfree_large (has_adj);
-    write (fd, bfs_root, NBFS * sizeof (*bfs_root));
+    if (write (fd, bfs_root, NBFS * sizeof (*bfs_root)) < 1) {
+      perror ("Unable to write bfs roots");
+      return EXIT_FAILURE;
+    }
     close (fd);
   }
-
   return EXIT_SUCCESS;
 }

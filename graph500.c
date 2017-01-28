@@ -79,10 +79,10 @@ main (int argc, char **argv)
     the following if () {} else {} with a statement pointing IJ
     to wherever the edge list is mapped into the simulator's memory.
   */
+  nedge = desired_nedge;
   if (!dumpname) {
     if (VERBOSE) fprintf (stderr, "Generating edge list...");
     if (use_RMAT) {
-      nedge = desired_nedge;
       IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
       TIME(generation_time, rmat_edgelist (IJ, nedge, SCALE, A, B, C));
     } else {
@@ -96,7 +96,8 @@ main (int argc, char **argv)
       perror ("Cannot open input graph file");
       return EXIT_FAILURE;
     }
-    sz = nedge * sizeof (*IJ);
+    sz = nedge * sizeof (*IJ) / 2;
+    IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
     if (sz != read (fd, IJ, sz)) {
       perror ("Error reading input graph file");
       return EXIT_FAILURE;
@@ -347,6 +348,11 @@ output_results (const int64_t SCALE, int64_t nvtx_scale, int64_t edgefactor,
   printf ("generation_time: %20.17e\n", generation_time);
   printf ("construction_time: %20.17e\n", construction_time);
   printf ("nbfs: %d\n", NBFS);
+
+  // Print out each time so the user can make her own statistics.
+  for (k = 0; k < NBFS; k++) {
+    printf ("bfs_time[%d]: %20.17e\n", k, bfs_time[k]);
+  }
 
   memcpy (tm, bfs_time, NBFS*sizeof(tm[0]));
   statistics (stats, tm, NBFS);
