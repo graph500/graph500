@@ -1,15 +1,2 @@
-*.a
-*.o
 *~
-make.inc
-seq-list/seq-list
-seq-csr/seq-csr
-omp-csr/omp-csr
-*.pl
-xmt-csr/xmt-csr
-xmt-csr-local/xmt-csr-local
-*.gcda
-mpi/graph500_mpi_*
-generator/generator_test_mpi
-*.bin
-make-edgelist
+mpi/graph500_*
