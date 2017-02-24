@@ -1,87 +1,24 @@
-Graph500 sequentual and shared-memory reference implementation
+Compiling should be pretty straightforward as long as you have a valid MPI-3 library loaded in your PATH.
+There is no more OpenMP,Sequential and XMT versions of benchmark.
 
-See COPYING for the general license.  Portions copyright 2010 by
-the Georgia Institute of Technology, and portions copyright 2009-2011
-by the Trustees of Indiana University.
+On single node you can run MPI code with reasonable performance.
 
-The specification is included both in plain text format (Graph500.org,
-with Emacs Org mode annotations) and exported HTML (Graph500.html).
 
-Included implementations:
-  octave/Graph500.m : GNU Octave (may be Matlab(TM) compatible) from
-    the specification.
-  seq-list/seq-list : Sequential list-based implementation
-  seq-csr/seq-csr : Sequential compressed-sparse-row implementation
-  omp-csr/omp-csr : OpenMP compressed-sparse-row implementation
-  xmt-csr/xmt-csr : Cray XMT compressed-sparse-row implementation
-  xmt-csr-local/xmt-csr-local : Cray XMT compressed-sparse-row
-    implementation accumulating vertices into a small buffer before
-    storing globally
-  mpi/ : Several implementations using MPI
+To build binaries change directory to src and execute make.
+If you are lucky four binaries would be built, two of which are of interest:
 
-BUILDING INSTRUCTIONS
+graph500_reference_bfs runs BFS kernel (and skips weight generation)
+graph500_reference_bfs_sssp runs both BFS and SSSP kernels
 
-The Makefile includes make.inc to define compiler and flag variables.
-Some sample make.inc files are in the make-incs directory.  The
-Makefile relies heavily on implicit rules and is known to work using
-GNU Make.
+both binaries require one integer parameter which is scale of the graph
+validation can be deactivated by specifying SKIP_VALIDATION=1 as an environment variable
+bfs_sssp binary would skip BFS part if SKIP_BFS=1 is present in your environment
 
-To build the MPI executables, set BUILD_MPI=Yes in your make.inc, and
-optionally set MPICC if needed.  There is a separate README file in the mpi/
-directory with more information.
+If you want to store/read generated graph from/to file use environment variables TMPFILE=<filename> and also REUSEFILE to keep the file.
+It's advised to use bfs_sssp binary to generate graph files as it generates both files of edges and weights (filename.weights)
+bfs binary would only use/write edges file. And once bfs_sssp cant open weights file it would generate both files even if edges files is present.
 
-To build the OpenMP executables, set BUILD_OPENMP=Yes in your
-make.inc, and define CFLAGS_OPENMP appropriately.
+N.B:
 
-For the XMT, ensure the correct modules are loaded and set
-BUILD_XMT=Yes.  This disables all other builds, including the
-sequential versions.
-
-RUNNING INSTRUCTIONS (OTHER THAN MPI VERSIONS)
-
-Options:
-  v   : version
-  h|? : this message
-  R   : use R-MAT from SSCA2 (default: use Kronecker generator)
-  s   : R-MAT scale (default 14)
-  e   : R-MAT edge factor (default 16)
-  A|a : R-MAT A (default 0.57) >= 0
-  B|b : R-MAT B (default 0.19) >= 0
-  C|c : R-MAT C (default 0.19) >= 0
-  D|d : R-MAT D (default 0.05) >= 0
-        Note: Setting 3 of A,B,C,D requires the arguments to sum to
-        at most 1.  Otherwise, the parameters are added and normalized
-        so that the sum is 1.
-  V   : Enable extra (Verbose) output
-  o   : Read the edge list from (or dump to) the named file
-  r   : Read the BFS roots from (or dump to) the named file
-
-The -o and -r options to the graph500 executable read the data from
-binary files that must already match in byte order.  The make-edgelist
-executable generates these files given the same options.
-
-Outputs take the form of "key: value", with keys:
-  SCALE
-  edgefactor
-  construction_time
-  min_time
-  firstquartile_time
-  median_time
-  thirdquartile_time
-  max_time
-  mean_time
-  stddev_time
-  min_nedge
-  firstquartile_nedge
-  median_nedge
-  thirdquartile_nedge
-  max_nedge
-  mean_nedge
-  stddev_nedge
-  min_TEPS
-  firstquartile_TEPS
-  median_TEPS
-  thirdquartile_TEPS
-  max_TEPS
-  harmonic_mean_TEPS
-  harmonic_stddev_TEPS
+Current limitation forces you to use powers of 2: total number of cores and number of cores per node.
+It's possible to have non-power of two of nodes if you comment macro defined in common.h SIZE_MUST_BE_POWER_OF_TWO but that will drop your performance by more then 20%

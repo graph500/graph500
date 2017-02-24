@@ -35,6 +35,7 @@ uint_fast32_t mrg_get_uint_orig(mrg_state* state);
 
 /* Returns real value in [0, 1) using original transition matrix */
 double mrg_get_double_orig(mrg_state* state);
+float mrg_get_float_orig(mrg_state* state);
 
 /* Seed PRNG with a given array of five values in the range [0, 0x7FFFFFFE] and
  * not all zero. */

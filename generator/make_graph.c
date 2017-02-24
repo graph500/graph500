@@ -17,9 +17,6 @@
 #ifdef __MTA__
 #include <sys/mta_task.h>
 #endif
-#ifdef GRAPH_GENERATOR_MPI
-#include <mpi.h>
-#endif
 #ifdef GRAPH_GENERATOR_OMP
 #include <omp.h>
 #endif
@@ -28,15 +25,6 @@
 
 #include "graph_generator.h"
 #include "utils.h"
-
-#ifdef GRAPH_GENERATOR_MPI
-static void compute_edge_range(int rank, int size, int64_t M, int64_t* start_idx, int64_t* end_idx) {
-  int64_t rankc = (int64_t)(rank);
-  int64_t sizec = (int64_t)(size);
-  *start_idx = rankc * (M / sizec) + (rankc < (M % sizec) ? rankc : (M % sizec));
-  *end_idx = (rankc + 1) * (M / sizec) + (rankc + 1 < (M % sizec) ? rankc + 1 : (M % sizec));
-}
-#endif
 
 #ifndef GRAPH_GENERATOR_MPI
 void make_graph(int log_numverts, int64_t M, uint64_t userseed1, uint64_t userseed2, int64_t* nedges_ptr_in, packed_edge** result_ptr_in) {
@@ -58,37 +46,6 @@ void make_graph(int log_numverts, int64_t M, uint64_t userseed1, uint64_t userse
   generate_kronecker_range(seed, log_numverts, 0, M, edges);
 }
 #endif /* !GRAPH_GENERATOR_MPI */
-
-#ifdef GRAPH_GENERATOR_MPI
-void make_graph(int log_numverts, int64_t M, uint64_t userseed1, uint64_t userseed2, int64_t* nedges_ptr, packed_edge** result_ptr) {
-  int rank, size;
-
-  /* Spread the two 64-bit numbers into five nonzero values in the correct
-   * range. */
-  uint_fast32_t seed[5];
-  make_mrg_seed(userseed1, userseed2, seed);
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  int64_t start_idx, end_idx;
-  compute_edge_range(rank, size, M, &start_idx, &end_idx);
-  int64_t nedges = end_idx - start_idx;
-
-  packed_edge* local_edges = (packed_edge*)xmalloc((size_t)nedges * sizeof(packed_edge));
-
-  double start = MPI_Wtime();
-  generate_kronecker_range(seed, log_numverts, start_idx, end_idx, local_edges);
-  double gen_time = MPI_Wtime() - start;
-
-  *result_ptr = local_edges;
-  *nedges_ptr = nedges;
-
-  if (rank == 0) {
-    fprintf(stdout, "graph_generation:               %f s\n", gen_time);
-  }
-}
-#endif
 
 /* PRNG interface for implementations; takes seed in same format as given by
  * users, and creates a vector of doubles in a reproducible (and

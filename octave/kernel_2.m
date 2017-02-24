@@ -1,7 +1,8 @@
 function parent = kernel_2 (G, root)
-%% Compute a sparse adjacency matrix representation
-%% of the graph with edges from ij.
-
+%% Compute a breadth-first search tree starting
+%% from vertex root on the graph represented by
+%% the sparse matrix G.
+  
   N = size (G, 1);
   %% Adjust from zero labels.
   root = root + 1;

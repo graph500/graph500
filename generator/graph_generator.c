@@ -174,7 +174,11 @@ void generate_kronecker_range(
        const uint_fast32_t seed[5] /* All values in [0, 2^31 - 1), not all zero */,
        int logN /* In base 2 */,
        int64_t start_edge, int64_t end_edge,
-       packed_edge* edges) {
+       packed_edge* edges
+#ifdef SSSP
+       , float* weights
+#endif
+       ) {
   mrg_state state;
   int64_t nverts = (int64_t)1 << logN;
   int64_t ei;
@@ -204,6 +208,9 @@ void generate_kronecker_range(
     mrg_state new_state = state;
     mrg_skip(&new_state, 0, (uint64_t)ei, 0);
     make_one_edge(nverts, 0, logN, &new_state, edges + (ei - start_edge), val0, val1);
+#ifdef SSSP
+    weights[ei-start_edge]=mrg_get_float_orig(&new_state);
+#endif
   }
 }
 

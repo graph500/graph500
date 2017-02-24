@@ -77,6 +77,9 @@ void generate_kronecker_range(
        int logN /* In base 2 */,
        int64_t start_edge, int64_t end_edge /* Indices (in [0, M)) for the edges to generate */,
        packed_edge* edges /* Size >= end_edge - start_edge */
+#ifdef SSSP
+       ,float* weights
+#endif
 );
 
 #ifdef __cplusplus

@@ -1,0 +1,40 @@
+AML =  Active Messages Library
+
+AML is an SPMD communication library built on top of MPI3 intented to be used in fine grain applications like Graph500
+
+Two main goals of AML : user code clarity while delivering high performance through tricky internal implementation
+
+It's targeted to support asynchronous small messages delivery
+while having reasonable performance on modern multicore systems by
+doing transparantly to user following
+
+1. message coalescing
+2. software routing on multicore systems
+
+To enable both optimizations messages are delivered asynchronously.
+To ensure delivery = an completion of handler executions on remote nodes collective barrier should be called.
+Current version support only one-sided message (cannot send a response from active message handler)
+but future version would support two-sided active messages.
+
+For each process all delivered AMs are executed sequentially, so atomicity is guaranted and no locking required.
+Progress of AM delivery is passive which means that handlers are executed inside library calls (aml_send and aml_barrier).
+
+How to send messages:
+
+1. call aml_init(..)
+
+2. register handler of an active message whose prototype should be:
+    void handler(int fromPE,void* data,int dataSize)
+where fromPE is sender's rank, data is pointer to message sent by sender and dataSize being size in bytes
+
+registration is done using function aml_register_handler( handler, handlerid) where handlerid is integer in range [0..255]
+
+3. send messages to other nodes using 
+    aml_send(data,handlerid,dataSize,destPE)
+   where data is dataSize bytes of data to be sent to PE with rank destPE and to be processed by handler registered under handlerid
+
+4. call collectively aml_barrier() which would not only synchronize all processes but also ensure that all active messages 
+   sent prior to aml_barrier call are delivered (and requested handlers completed its execution) after exit from aml_barrier
+
+
+5. call aml_finalize()
