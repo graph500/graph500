@@ -1,8 +1,9 @@
+Graph500-3.0.0rc1
+
 Compiling should be pretty straightforward as long as you have a valid MPI-3 library loaded in your PATH.
 There is no more OpenMP,Sequential and XMT versions of benchmark.
 
 On single node you can run MPI code with reasonable performance.
-
 
 To build binaries change directory to src and execute make.
 If you are lucky four binaries would be built, two of which are of interest:
@@ -14,11 +15,11 @@ both binaries require one integer parameter which is scale of the graph
 validation can be deactivated by specifying SKIP_VALIDATION=1 as an environment variable
 bfs_sssp binary would skip BFS part if SKIP_BFS=1 is present in your environment
 
-If you want to store/read generated graph from/to file use environment variables TMPFILE=<filename> and also REUSEFILE to keep the file.
+If you want to store/read generated graph from/to file use environment variables TMPFILE=<filename> and also REUSEFILE=1 to keep the file.
 It's advised to use bfs_sssp binary to generate graph files as it generates both files of edges and weights (filename.weights)
 bfs binary would only use/write edges file. And once bfs_sssp cant open weights file it would generate both files even if edges files is present.
 
 N.B:
 
-Current limitation forces you to use powers of 2: total number of cores and number of cores per node.
+Current limitations force you to use powers of 2: total number of cores and number of cores per node.
 It's possible to have non-power of two of nodes if you comment macro defined in common.h SIZE_MUST_BE_POWER_OF_TWO but that will drop your performance by more then 20%
