@@ -73,9 +73,11 @@ own reference CRS)
 
 Troubleshooting:
 
--AML library currently supports only power-of-two processes per node.
-Workaround: use max power of 2 processes available on a node. I.e on 24-core
-node use 16 processes per node.
+-If number of processes per node is not a power of 2 you would have to add
+macro definition -DPROCS_PER_NODE_NOT_POWER_OF_TWO to CFLAGS in a src/Makefile. 
+Macro SIZE_MUST_BE_A_POWER_OF_TWO would be undefined automatically. Experiments
+normally give better performance if you use power of twos: using 16 cores on 24-core
+node is always faster.
 
 -If you are running on non-power of two of nodes, you would need to comment out
 definition of a macro SIZE_MUST_BE_A_POWER_OF_TWO in common.h. But beware it's

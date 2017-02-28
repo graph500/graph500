@@ -26,7 +26,7 @@ void setup_globals() {
 
 #ifdef SIZE_MUST_BE_A_POWER_OF_TWO
 	if (/* Check for power of 2 */ (size & (size - 1)) != 0) {
-		fprintf(stderr, "Number of processes %d is not a power of two, yet SIZE_MUST_BE_A_POWER_OF_TWO is defined in main.cpp.\n", size);
+		fprintf(stderr, "Number of processes %d is not a power of two, yet SIZE_MUST_BE_A_POWER_OF_TWO is defined in common.h.\n", size);
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
 	for (lgsize = 0; lgsize < size; ++lgsize) {

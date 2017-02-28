@@ -38,8 +38,17 @@
 #define ushort unsigned short
 static int myproc,num_procs;
 static int mygroup,num_groups;
-static int mylocal,group_size,loggroup,groupmask;
-
+static int mylocal,group_size;
+#ifndef PROCS_PER_NODE_NOT_POWER_OF_TWO
+static int loggroup,groupmask;
+#define PROC_FROM_GROUPLOCAL(g,l) ((l)+((g)<<loggroup))
+#define GROUP_FROM_PROC(p) ((p) >> loggroup)
+#define LOCAL_FROM_PROC(p) ((p) & groupmask)
+#else
+#define PROC_FROM_GROUPLOCAL(g,l) ((g)*group_size+(l))
+#define GROUP_FROM_PROC(p) ((p)/group_size)
+#define LOCAL_FROM_PROC(p) ((p)%group_size)
+#endif
 volatile static int ack=0;
 
 volatile static int inbarrier=0;
@@ -87,13 +96,13 @@ struct __attribute__((__packed__)) hdr { //header of internode message
 //process internode messages
 static void process(int fromgroup,int length ,char* message) {
 	int i = 0;
-	int from = (fromgroup<<loggroup)+mylocal;
+	int from = PROC_FROM_GROUPLOCAL(fromgroup,mylocal);
 	while ( i < length ) {
 		void* m = message+i;
 		struct hdr *h = m;
 		int hsz=h->sz;
 		int hndl=h->hndl;
-		int destlocal = h->routing & groupmask;
+		int destlocal = LOCAL_FROM_PROC(h->routing);
 		if(destlocal == mylocal)
 			aml_handlers[hndl](from,m+sizeof(struct hdr),hsz);
 		else
@@ -115,7 +124,7 @@ static void process_intra(int fromlocal,int length ,char* message) {
 		struct hdri *h = m;
 		int hsz=h->sz;
 		int hndl=h->hndl;
-		aml_handlers[hndl](((int)(h->routing) << loggroup)+fromlocal,m+sizeof(struct hdri),hsz);
+		aml_handlers[hndl](PROC_FROM_GROUPLOCAL((int)(h->routing),fromlocal),m+sizeof(struct hdri),hsz);
 		i += sizeof(struct hdri) + hsz;
 	}
 }
@@ -206,7 +215,7 @@ inline void aml_send_intra(void *src, int type, int length, int local, int from)
 	}
 	char* dst = (SENDSOURCE_intra(local)+sendsize_intra[local]);
 	struct hdri *h=(void*)dst;
-	h->routing = from>>loggroup;
+	h->routing = GROUP_FROM_PROC(from);
 	h->sz=length;
 	h->hndl = type;
 	sendsize_intra[local] += length+sizeof(struct hdri);
@@ -218,8 +227,8 @@ SOATTR void aml_send(void *src, int type,int length, int node ) {
 	if ( node == myproc )
 		return aml_handlers[type](myproc,src,length);
 
-	int group = node >> loggroup;
-	int local = node & groupmask;
+	int group = GROUP_FROM_PROC(node);
+	int local = LOCAL_FROM_PROC(node);
 
 	//send to another node in my group
 	if ( group == mygroup )
@@ -289,13 +298,13 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	MPI_Ibarrier(comm_intra,&hndl);
 	MPI_Wait(&hndl,MPI_STATUS_IGNORE);
 
+#ifndef PROCS_PER_NODE_NOT_POWER_OF_TWO
 	groupmask=group_size-1;
-	if((group_size&groupmask)) { printf("AML: Fatal: non power2 groupsize unsupported.\n");return -1;}
-	if(myproc!=mygroup*group_size+mylocal) {printf("AML: Fatal: Strange group rank assignment scheme.\n");return -1;}
-
+	if((group_size&groupmask)) { printf("AML: Fatal: non power2 groupsize unsupported. Define macro PROCS_PER_NODE_NOT_POWER_OF_TWO to override\n");return -1;}
 	for (loggroup = 0; loggroup < group_size; loggroup++)
 		if ((1 << loggroup) == group_size) break;
-
+#endif
+	if(myproc!=PROC_FROM_GROUPLOCAL(mygroup,mylocal)) {printf("AML: Fatal: Strange group rank assignment scheme.\n");return -1;}
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
 
@@ -303,7 +312,11 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 #ifdef DEBUGSTATS
 	if(myproc==0) printf ("AML: multicore, num_groups %d group_size %d\n",num_groups,group_size);
+#ifdef PROCS_PER_NODE_NOT_POWER_OF_TWO
+	if(myproc==0) printf ("AML: multicore, PROCS_PER_NODE_NOT_POWER_OF_TWO defined\n");
+#else
 	if(myproc==0) printf ("AML: multicore, loggroup=%d groupmask=%d\n",loggroup,groupmask);
+#endif
 	if(myproc==0) printf ("NRECV=%d NRECVi=%d NSEND=%d  NSENDi=%d AGGR=%dK AGGRi=%dK\n",NRECV,NRECV_intra,NSEND,NSEND_intra,AGGR>>10,AGGR_intra>>10);
 #endif
 	if(num_groups>MAXGROUPS) { if(myproc==0) printf("AML:v1.0 reference:unsupported num_groups > MAXGROUPS=%d\n",MAXGROUPS); exit(-1); }
@@ -381,7 +394,7 @@ SOATTR void aml_barrier( void ) {
 
 	//5. Flush all intranode buffers
 	for ( i = 1; i < group_size; i++ ) {
-		int localproc=(mylocal+i)&groupmask;
+		int localproc=LOCAL_FROM_PROC(mylocal+i);
 		flush_buffer_intra(localproc);
 	}
 	//inbarrier=2;

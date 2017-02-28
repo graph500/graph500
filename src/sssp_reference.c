@@ -40,7 +40,7 @@ typedef struct  __attribute__((__packed__)) relaxmsg {
 } relaxmsg;
 
 // Active message handler for relaxation
-void relaxhndl(int from, void* dat, int size) {
+void relaxhndl(int from, void* dat, int sz) {
 	relaxmsg* m = (relaxmsg*) dat;
 	int vloc = m->dest_vloc;
 	float w = m->w;
@@ -99,8 +99,8 @@ void run_sssp(int64_t root,int64_t* pred,float *dist) {
 #endif
 		//1. iterate over light edges
 		while(sum!=0) {
-			CLEAN_VISITED()
-				lightphase=1;
+			CLEAN_VISITED();
+			lightphase=1;
 			aml_barrier();
 			for(i=0;i<qc;i++)
 				for(j=rowstarts[q1[i]];j<rowstarts[q1[i]+1];j++)

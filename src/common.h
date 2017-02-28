@@ -16,9 +16,9 @@
 #include <limits.h>
 #include <mpi.h>
 #include "../generator/graph_generator.h"
-
+#ifndef PROCS_PER_NODE_NOT_POWER_OF_TWO
 #define SIZE_MUST_BE_A_POWER_OF_TWO
-
+#endif
 extern int rank, size;
 #ifdef SIZE_MUST_BE_A_POWER_OF_TWO
 extern int lgsize;
@@ -26,7 +26,6 @@ extern int lgsize;
 extern MPI_Datatype packed_edge_mpi_type; /* MPI datatype for packed_edge struct */
 
 static const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
-static const int ulong_bits_squared = sizeof(unsigned long) * sizeof(unsigned long) * CHAR_BIT * CHAR_BIT;
 
 /* Distribute edges by their endpoints (make two directed copies of each input
  * undirected edge); distribution is 1-d and cyclic. */
@@ -34,17 +33,15 @@ static const int ulong_bits_squared = sizeof(unsigned long) * sizeof(unsigned lo
 #define MOD_SIZE(v) ((v) & ((1 << lgsize) - 1))
 #define DIV_SIZE(v) ((v) >> lgsize)
 #define MUL_SIZE(x) ((x) << lgsize)
-#define VERTEX_OWNER(v) ((int)(MOD_SIZE(v)))
-#define VERTEX_LOCAL(v) ((size_t)(DIV_SIZE(v)))
-#define VERTEX_TO_GLOBAL(r, i) ((int64_t)(MUL_SIZE((uint64_t)((i))) + (int)((r))))
 #else
 #define MOD_SIZE(v) ((v) % size)
 #define DIV_SIZE(v) ((v) / size)
 #define MUL_SIZE(x) ((x) * size)
-#define VERTEX_OWNER(v) ((int)(MOD_SIZE((v) / ulong_bits_squared)))
-#define VERTEX_LOCAL(v) ((size_t)(DIV_SIZE((v) / ulong_bits_squared) * ulong_bits_squared + ((v) % ulong_bits_squared)))
-#define VERTEX_TO_GLOBAL(r, i) ((int64_t)(((MUL_SIZE((uint64_t)((i) / ulong_bits_squared)) + (r)) * ulong_bits_squared) + ((i) % ulong_bits_squared)))
 #endif
+
+#define VERTEX_OWNER(v) ((int)(MOD_SIZE(v)))
+#define VERTEX_LOCAL(v) ((size_t)(DIV_SIZE(v)))
+#define VERTEX_TO_GLOBAL(r, i) ((int64_t)(MUL_SIZE((uint64_t)((i))) + (int)((r))))
 
 typedef struct tuple_graph {
 	int data_in_file; /* 1 for file, 0 for memory */
