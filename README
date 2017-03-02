@@ -21,5 +21,7 @@ bfs binary would only use/write edges file. And once bfs_sssp cant open weights 
 
 N.B:
 
-Current limitations force you to use powers of 2: total number of cores and number of cores per node.
+Current settings assume you are using powers of 2: total number of cores and number of cores per node.
 It's possible to have non-power of two of nodes if you comment macro defined in common.h SIZE_MUST_BE_POWER_OF_TWO but that will drop your performance by more then 20%
+If you want to use non-power of two processes per node, you should add -DPROCS_PER_NODE_NOT_POWER_OF_TWO to CFLAGS in src/Makefile, this one will enable SIZE_MUST_BE_POWER_OF_TWO
+automatically.
