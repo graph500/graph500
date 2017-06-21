@@ -21,7 +21,7 @@ Version History:
  - V1.0 :: Created 1 October 2010
  - V1.1 :: Created 3 October 2010
  - V1.2 :: Created 15 September 2011
- - V2.0 :: Draft, Estimated May 2017 
+ - V2.0 :: Created 20 June 2017 
 
 Version 0.1 of this document was part of the Graph 500 community
 benchmark effort, led by Richard Murphy (Micron Technology).  The
@@ -404,7 +404,7 @@ The validation procedure for SSSP ([[#kernel3][Kernel 3]]) is similar to one fro
 of the benchmark.  The validation procedure for BFS ([[#kernel3][Kernel 3]]) is
 construction search depth tree in place of distance array and then runs SSSP validation routine.
 After each search, run (but do not time) a function that ensures that the
-discovered parent tree and distance arrya are correct by ensuring that:
+discovered parent tree and distance vector are correct by ensuring that:
 
   1) the BFS/SSSP tree is a tree and does not contain cycles,
   2) each tree edge edge connects vertices whose
@@ -433,10 +433,7 @@ Algorithm [[alg:validate]] shows a sample validation routine.
 
 Start the time for a search immediately prior to visiting the search
 root.  Stop the time for that search when the output has been written
-to memory.  Do not time any I/O outside of the search routine.  If
-your algorithm relies on problem-specific data structures (by our
-definition, these are informed by vertex degree), you must include the
-setup time for such structures in /each search/. The spirit of the
+to memory.  Do not time any I/O outside of the search routine.  The spirit of the
 benchmark is to gauge the performance of a single search.  We run many
 searches in order to compute means and variances, not to amortize data
 structure setup time.
@@ -451,11 +448,12 @@ computing rates floating-point operations per second (flops) measured
 by the LINPACK benchmark and global updates per second (GUPs) measured
 by the HPCC RandomAccess benchmark, we define a new rate called traversed
 edges per second (TEPS). We measure TEPS through the benchmarking of
-[[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_{K}(n) be the measured execution time for
-a kernel run. Let m be the number of input edge tuples within the
-component traversed by the search, counting any multiple edges and
-self-loops. We define the normalized performance rate (number of edge
-traversals per second) as:
+[[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_{K}(n) be 
+the measured execution time for a kernel run. Let m be the number of 
+undirected edges in a traversed component of the graph counted as number 
+of self-loop edge tuples within component traversed added to halfed number 
+of non self-loop edge tuples within component traversed. We define the 
+normalized performance rate (number of edge traversals per second) as:
 
 #+BEGIN_CENTER
 	       TEPS(n) = m / time_{K}(n)
@@ -468,24 +466,24 @@ The output must contain the following information:
   - edgefactor :: Graph generation parameter
   - NBFS :: Number of BFS searches run, 64 for non-trivial graphs
   - construction_time :: The single kernel 1 time
-  - min_k2time, firstquartile_k2time, median_k2time, thirdquartile_k2time, max_k2time :: Quartiles for the kernel 2 times
-  - mean_k2time, stddev_k2time :: Mean and standard deviation of the kernel 2 times
-  - min_k2nedge, firstquartile_k2nedge, median_k2nedge, thirdquartile_k2nedge, max_k2nedge :: Quartiles for the number of
+  - bfs_min_time, bfs_firstquartile_time, bfs_median_time, bfs_thirdquartile_time, bfs_max_time :: Quartiles for the kernel 2 times
+  - bfs_mean_time, bfs_stddev_time :: Mean and standard deviation of the kernel 2 times
+  - bfs_min_nedge, bfs_firstquartile_nedge, bfs_median_nedge, bfs_thirdquartile_nedge, bfs_max_nedge :: Quartiles for the number of
        input edges visited by kernel 2, see TEPS section above.
-  - mean_k2nedge, stddev_k2nedge :: Mean and standard deviation of the number of
+  - bfs_mean_nedge, bfs_stddev_nedge :: Mean and standard deviation of the number of
        input edges visited by kernel 2, see TEPS section above.
-  - min_k2TEPS, firstquartile_k2TEPS, median_k2TEPS, thirdquartile_k2TEPS, max_k2TEPS :: Quartiles for the kernel 2 TEPS
-  - harmonic_mean_k2TEPS, harmonic_stddev_k2TEPS :: Mean and standard
+  - bfs_min_TEPS, bfs_firstquartile_TEPS, bfs_median_TEPS, bfs_thirdquartile_TEPS, bfs_max_TEPS :: Quartiles for the kernel 2 TEPS
+  - bfs_harmonic_mean_TEPS, bfs_harmonic_stddev_TEPS :: Mean and standard
        deviation of the kernel 2 TEPS.
   - NSSSP :: Number of SSSP searches run, 64 for non-trivial graphs
-  - min_k3time, firstquartile_k3time, median_k3time, thirdquartile_k3time, max_k3time :: Quartiles for the kernel 3 times
-  - mean_k3time, stddev_k3time :: Mean and standard deviation of the kernel 3 times
-  - min_k3nedge, firstquartile_k3nedge, median_k3nedge, thirdquartile_k3nedge, max_k3nedge :: Quartiles for the number of
+  - sssp_min_time, sssp_firstquartile_time, sssp_median_time, sssp_thirdquartile_time, sssp_max_time :: Quartiles for the kernel 3 times
+  - sssp_mean_time, sssp_stddev_time :: Mean and standard deviation of the kernel 3 times
+  - sssp_min_nedge, sssp_firstquartile_nedge, sssp_median_nedge, sssp_thirdquartile_nedge, sssp_max_nedge :: Quartiles for the number of
        input edges visited by kernel 3, see TEPS section above.
-  - mean_k3nedge, stddev_k3nedge :: Mean and standard deviation of the number of
+  - sssp_mean_nedge, sssp_stddev_nedge :: Mean and standard deviation of the number of
        input edges visited by kernel 3, see TEPS section above.
-  - min_k3TEPS, firstquartile_k3TEPS, median_k3TEPS, thirdquartile_k3TEPS, max_k3TEPS :: Quartiles for the kernel 3 TEPS
-  - harmonic_mean_k3TEPS, harmonic_stddev_k3TEPS :: Mean and standard
+  - sssp_min_TEPS, sssp_firstquartile_TEPS, sssp_median_TEPS, sssp_thirdquartile_TEPS, sssp_max_TEPS :: Quartiles for the kernel 3 TEPS
+  - sssp_harmonic_mean_TEPS, sssp_harmonic_stddev_TEPS :: Mean and standard
        deviation of the kernel 3 TEPS.  
 
 *Note*: Because TEPS is a rate, the rates are compared using
