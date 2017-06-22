@@ -1,4 +1,4 @@
-Graph500-3.0.0rc1
+Graph500-3.0.0
 
 Compiling should be pretty straightforward as long as you have a valid MPI-3 library loaded in your PATH.
 There is no more OpenMP,Sequential and XMT versions of benchmark.
@@ -11,9 +11,9 @@ If you are lucky four binaries would be built, two of which are of interest:
 graph500_reference_bfs runs BFS kernel (and skips weight generation)
 graph500_reference_bfs_sssp runs both BFS and SSSP kernels
 
-both binaries require one integer parameter which is scale of the graph
-validation can be deactivated by specifying SKIP_VALIDATION=1 as an environment variable
-bfs_sssp binary would skip BFS part if SKIP_BFS=1 is present in your environment
+Both binaries require one integer parameter which is scale of the graph.
+Validation can be deactivated by specifying SKIP_VALIDATION=1 as an environment variable.
+bfs_sssp binary would skip BFS part if SKIP_BFS=1 is present in your environment.
 
 If you want to store/read generated graph from/to file use environment variables TMPFILE=<filename> and also REUSEFILE=1 to keep the file.
 It's advised to use bfs_sssp binary to generate graph files as it generates both files of edges and weights (filename.weights)
@@ -22,6 +22,8 @@ bfs binary would only use/write edges file. And once bfs_sssp cant open weights 
 N.B:
 
 Current settings assume you are using powers of 2: total number of cores and number of cores per node.
-It's possible to have non-power of two of nodes if you comment macro defined in common.h SIZE_MUST_BE_POWER_OF_TWO but that will drop your performance by more then 20%
-If you want to use non-power of two processes per node, you should add -DPROCS_PER_NODE_NOT_POWER_OF_TWO to CFLAGS in src/Makefile, this one will enable SIZE_MUST_BE_POWER_OF_TWO
-automatically.
+It's possible to have non-power of two of nodes if you comment macro defined in common.h SIZE_MUST_BE_POWER_OF_TWO.
+Be aware normally that will drop your performance by more then 20%.
+
+If you want to use non-power of two processes per node, you should add -DPROCS_PER_NODE_NOT_POWER_OF_TWO to CFLAGS in src/Makefile,
+this one will enable SIZE_MUST_BE_POWER_OF_TWO automatically.
