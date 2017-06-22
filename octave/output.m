@@ -1,7 +1,6 @@
 function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedge, kernel_3_time, kernel_3_nedge)
   printf ("SCALE: %d\n", SCALE);
   printf ("NBFS: %d\n", NBFS);
-  printf ("NSSSP: %d\n", NSSSP);
   printf ("construction_time: %20.17e\n", kernel_1_time);
 
   S = statistics (kernel_2_time);

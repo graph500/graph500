@@ -28,7 +28,7 @@ benchmark effort, led by Richard Murphy (Micron Technology).  The
 intent is that there will be at least three variants of
 implementations, on shared memory and threaded systems, on distributed
 memory clusters, and on external memory map-reduce clouds. This
-specification is for the first of potentially several benchmark
+specification is for the first two of potentially several benchmark
 problems.
 
 References: "Introducing the Graph 500," Richard C. Murphy, Kyle
@@ -55,12 +55,12 @@ provide a rallying point for data-intensive supercomputing
 problems. This is the first serious approach to augment the Top 500
 with data-intensive applications.
 
-The intent of this benchmark problem ("Search") is to develop a
+The intent of this benchmark problems ("Search" and "Shortest Path") is to develop a
 compact application that has multiple analysis techniques (multiple
 kernels) accessing a single data structure representing a weighted,
 undirected graph. In addition to a kernel to construct the graph from
-the input tuple list, there is one additional computational
-kernel to operate on the graph.
+the input tuple list, there are two additional computational
+kernels to operate on the graph.
 
 This benchmark includes a scalable data generator which produces edge tuples
 containing the start vertex and end vertex for each edge. The first kernel
@@ -109,7 +109,7 @@ separate runs of [[#kernel1][Kernel 1]].
 
 The scalable data generator will construct a list of edge tuples
 containing vertex identifiers. Each edge is undirected with its
-endpoints given in the tuple as StartVertex and EndVertex and weight as
+endpoints given in the tuple as StartVertex, EndVertex and
 Weight.  If the edge tuples are only to be used for running [[#kernel2][Kernel 2]], it
 is permissible to not generate edge weights.  This allows BFS runs that
 are not encumbered by unnecessary memory usage resulting from storing
@@ -131,7 +131,7 @@ where StartVertex is one endpoint vertex label, EndVertex is the other
 endpoint vertex label, and Weight is the weight of the edge.  The
 space of labels is the set of integers beginning with *zero* up to but
 not including the number of vertices N (defined below), and the space
-of weights is the set of single precision floats in the range [0,1). The 
+of weights is the range [0,1) of single precision floats. The 
 kernels are not provided the size N explicitly and must discover it if required for
 constructing the graph.
 
@@ -151,7 +151,7 @@ These inputs determine the graph's size:
  - N :: the total number of vertices, 2^{SCALE}. An implementation may
    use any set of N distinct integers to number the vertices, but at
    least 48 bits must be allocated per vertex number and 32 bits must be
-   allocated for edge weight unless benchmark is run in BSF-only mode. 
+   allocated for edge weight unless benchmark is run in BFS-only mode. 
    Other parameters may be assumed to fit within the natural word of the machine. 
    N is derived from the problem's scaling parameter.
 
@@ -401,8 +401,8 @@ The executable specification validates its results by comparing them
 with results computed directly from the tuple list.
 
 The validation procedure for SSSP ([[#kernel3][Kernel 3]]) is similar to one from version 1.2
-of the benchmark.  The validation procedure for BFS ([[#kernel3][Kernel 3]]) is
-construction search depth tree in place of distance array and then runs SSSP validation routine.
+of the benchmark.  The validation procedure for BFS ([[#kernel3][Kernel 3]]) constructs
+search depth tree in place of distance array and then runs SSSP validation routine.
 After each search, run (but do not time) a function that ensures that the
 discovered parent tree and distance vector are correct by ensuring that:
 
@@ -451,7 +451,7 @@ edges per second (TEPS). We measure TEPS through the benchmarking of
 [[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_{K}(n) be 
 the measured execution time for a kernel run. Let m be the number of 
 undirected edges in a traversed component of the graph counted as number 
-of self-loop edge tuples within component traversed added to halfed number 
+of self-loop edge tuples within component traversed added to halved number 
 of non self-loop edge tuples within component traversed. We define the 
 normalized performance rate (number of edge traversals per second) as:
 
@@ -475,7 +475,6 @@ The output must contain the following information:
   - bfs_min_TEPS, bfs_firstquartile_TEPS, bfs_median_TEPS, bfs_thirdquartile_TEPS, bfs_max_TEPS :: Quartiles for the kernel 2 TEPS
   - bfs_harmonic_mean_TEPS, bfs_harmonic_stddev_TEPS :: Mean and standard
        deviation of the kernel 2 TEPS.
-  - NSSSP :: Number of SSSP searches run, 64 for non-trivial graphs
   - sssp_min_time, sssp_firstquartile_time, sssp_median_time, sssp_thirdquartile_time, sssp_max_time :: Quartiles for the kernel 3 times
   - sssp_mean_time, sssp_stddev_time :: Mean and standard deviation of the kernel 3 times
   - sssp_min_nedge, sssp_firstquartile_nedge, sssp_median_nedge, sssp_thirdquartile_nedge, sssp_max_nedge :: Quartiles for the number of
