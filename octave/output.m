@@ -5,22 +5,22 @@ function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedg
   printf ("construction_time: %20.17e\n", kernel_1_time);
 
   S = statistics (kernel_2_time);
-  printf ("min_k2time: %20.17e\n", S(1));
-  printf ("firstquartile_k2time: %20.17e\n", S(2));
-  printf ("median_k2time: %20.17e\n", S(3));
-  printf ("thirdquartile_k2time: %20.17e\n", S(4));
-  printf ("max_k2time: %20.17e\n", S(5));
-  printf ("mean_k2time: %20.17e\n", S(6));
-  printf ("stddev_k2time: %20.17e\n", S(7));
+  printf ("bfs_min_time: %20.17e\n", S(1));
+  printf ("bfs_firstquartile_time: %20.17e\n", S(2));
+  printf ("bfs_median_time: %20.17e\n", S(3));
+  printf ("bfs_thirdquartile_time: %20.17e\n", S(4));
+  printf ("bfs_max_time: %20.17e\n", S(5));
+  printf ("bfs_mean_time: %20.17e\n", S(6));
+  printf ("bfs_stddev_time: %20.17e\n", S(7));
 
   S = statistics (kernel_2_nedge);
-  printf ("min_k2nedge: %20.17e\n", S(1));
-  printf ("firstquartile_k2nedge: %20.17e\n", S(2));
-  printf ("median_k2nedge: %20.17e\n", S(3));
-  printf ("thirdquartile_k2nedge: %20.17e\n", S(4));
-  printf ("max_k2nedge: %20.17e\n", S(5));
-  printf ("mean_k2nedge: %20.17e\n", S(6));
-  printf ("stddev_k2nedge: %20.17e\n", S(7));
+  printf ("bfs_min_nedge: %20.17e\n", S(1));
+  printf ("bfs_firstquartile_nedge: %20.17e\n", S(2));
+  printf ("bfs_median_nedge: %20.17e\n", S(3));
+  printf ("bfs_thirdquartile_nedge: %20.17e\n", S(4));
+  printf ("bfs_max_nedge: %20.17e\n", S(5));
+  printf ("bfs_mean_nedge: %20.17e\n", S(6));
+  printf ("bfs_stddev_nedge: %20.17e\n", S(7));
 
   K2TEPS = kernel_2_nedge ./ kernel_2_time;
   K2N = length (K2TEPS);
@@ -35,31 +35,31 @@ function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedg
   k2tmp = k2tmp - 1/S(6);
   S(7) = (sqrt (sum (k2tmp.^2)) / (K2N-1)) * S(6)^2;
   
-  printf ("min_K2TEPS: %20.17e\n", S(1));
-  printf ("firstquartile_K2TEPS: %20.17e\n", S(2));
-  printf ("median_K2TEPS: %20.17e\n", S(3));
-  printf ("thirdquartile_K2TEPS: %20.17e\n", S(4));
-  printf ("max_K2TEPS: %20.17e\n", S(5));
-  printf ("harmonic_mean_K2TEPS: %20.17e\n", S(6));
-  printf ("harmonic_stddev_K2TEPS: %20.17e\n", S(7));
+  printf ("bfs_min_TEPS: %20.17e\n", S(1));
+  printf ("bfs_firstquartile_TEPS: %20.17e\n", S(2));
+  printf ("bfs_median_TEPS: %20.17e\n", S(3));
+  printf ("bfs_thirdquartile_TEPS: %20.17e\n", S(4));
+  printf ("bfs_max_TEPS: %20.17e\n", S(5));
+  printf ("bfs_harmonic_mean_TEPS: %20.17e\n", S(6));
+  printf ("bfs_harmonic_stddev_TEPS: %20.17e\n", S(7));
 
   S = statistics (kernel_3_time);
-  printf ("min_k3time: %20.17e\n", S(1));
-  printf ("firstquartile_k3time: %20.17e\n", S(2));
-  printf ("median_k3time: %20.17e\n", S(3));
-  printf ("thirdquartile_k3time: %20.17e\n", S(4));
-  printf ("max_k3time: %20.17e\n", S(5));
-  printf ("mean_k3time: %20.17e\n", S(6));
-  printf ("stddev_k3time: %20.17e\n", S(7));
+  printf ("sssp_min_time: %20.17e\n", S(1));
+  printf ("sssp_firstquartile_time: %20.17e\n", S(2));
+  printf ("sssp_median_time: %20.17e\n", S(3));
+  printf ("sssp_thirdquartile_time: %20.17e\n", S(4));
+  printf ("sssp_max_time: %20.17e\n", S(5));
+  printf ("sssp_mean_time: %20.17e\n", S(6));
+  printf ("sssp_stddev_time: %20.17e\n", S(7));
 
   S = statistics (kernel_3_nedge);
-  printf ("min_k3nedge: %20.17e\n", S(1));
-  printf ("firstquartile_k3nedge: %20.17e\n", S(2));
-  printf ("median_k3nedge: %20.17e\n", S(3));
-  printf ("thirdquartile_k3nedge: %20.17e\n", S(4));
-  printf ("max_k3nedge: %20.17e\n", S(5));
-  printf ("mean_k3nedge: %20.17e\n", S(6));
-  printf ("stddev_k3nedge: %20.17e\n", S(7));
+  printf ("sssp_min_nedge: %20.17e\n", S(1));
+  printf ("sssp_firstquartile_nedge: %20.17e\n", S(2));
+  printf ("sssp_median_nedge: %20.17e\n", S(3));
+  printf ("sssp_thirdquartile_nedge: %20.17e\n", S(4));
+  printf ("sssp_max_nedge: %20.17e\n", S(5));
+  printf ("sssp_mean_nedge: %20.17e\n", S(6));
+  printf ("sssp_stddev_nedge: %20.17e\n", S(7));
 
   K3TEPS = kernel_3_nedge ./ kernel_3_time;
   K3N = length (K3TEPS);
@@ -74,10 +74,10 @@ function output (SCALE, NBFS, NSSSP, kernel_1_time, kernel_2_time, kernel_2_nedg
   k3tmp = k3tmp - 1/S(6);
   S(7) = (sqrt (sum (k3tmp.^2)) / (K3N-1)) * S(6)^2;
   
-  printf ("min_K3TEPS: %20.17e\n", S(1));
-  printf ("firstquartile_K3TEPS: %20.17e\n", S(2));
-  printf ("median_K3TEPS: %20.17e\n", S(3));
-  printf ("thirdquartile_K3TEPS: %20.17e\n", S(4));
-  printf ("max_K3TEPS: %20.17e\n", S(5));
-  printf ("harmonic_mean_K3TEPS: %20.17e\n", S(6));
-  printf ("harmonic_stddev_K3TEPS: %20.17e\n", S(7));
+  printf ("sssp_min_TEPS: %20.17e\n", S(1));
+  printf ("sssp_firstquartile_TEPS: %20.17e\n", S(2));
+  printf ("sssp_median_TEPS: %20.17e\n", S(3));
+  printf ("sssp_thirdquartile_TEPS: %20.17e\n", S(4));
+  printf ("sssp_max_TEPS: %20.17e\n", S(5));
+  printf ("sssp_harmonic_mean_TEPS: %20.17e\n", S(6));
+  printf ("sssp_harmonic_stddev_TEPS: %20.17e\n", S(7));

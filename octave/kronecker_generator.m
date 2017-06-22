@@ -1,4 +1,4 @@
-function ijw = kronecker_generator (SCALE, edgefactor, maxweight)
+function ijw = kronecker_generator (SCALE, edgefactor)
 %% Generate an edgelist according to the Graph500 parameters.  In this
 %% sample, the edge list is returned in an array with three rows,
 %% where StartVertex is first row, EndVertex is the second row, and
@@ -35,7 +35,7 @@ function ijw = kronecker_generator (SCALE, edgefactor, maxweight)
   end
 
   %% Generate weights
-  ijw(3,:) = unidrnd(maxweight, 1, M);
+  ijw(3,:) = unifrnd(0, 1, M);
 
   %% Permute vertex labels
   p = randperm (N);

@@ -1,11 +1,10 @@
 SCALE = 10;
 edgefactor = 16;
-maxweight = 255;
 NBFS = 64;
 
 rand ("seed", 103);
 
-ijw = kronecker_generator (SCALE, edgefactor, maxweight);
+ijw = kronecker_generator (SCALE, edgefactor);
 
 tic;
 G = kernel_1 (ijw);
