@@ -11,8 +11,9 @@ Contributors: David A. Bader (Georgia Institute of Technology),
 Jonathan Berry (Sandia National Laboratories), Simon Kahan (Pacific
 Northwest National Laboratory and University of Washington), Richard
 Murphy (Micron Technology), E. Jason Riedy (Georgia
-Institute of Technology),Jeremiah Willcock (Indiana University) and
-Anton Korzh (Micron Technology).
+Institute of Technology), Jeremiah Willcock (Indiana University),
+Anton Korzh (Micron Technology), and Marcin Zalewski (Pacific
+Northwest National Laboratory).
 
 Version History:
  - V0.1 :: Draft, created 28 July 2010
@@ -21,7 +22,7 @@ Version History:
  - V1.0 :: Created 1 October 2010
  - V1.1 :: Created 3 October 2010
  - V1.2 :: Created 15 September 2011
- - V2.0 :: Created 20 June 2017 
+ - V2.0 :: Created 20 June 2017
 
 Version 0.1 of this document was part of the Graph 500 community
 benchmark effort, led by Richard Murphy (Micron Technology).  The
@@ -90,7 +91,7 @@ The benchmark performs the following steps:
      2. Validate that the parent array is a correct BFS search tree
         for the given search tree.
   4. For each search key:
-     1. Compute the parent array and the distance array (*timed*, 
+     1. Compute the parent array and the distance array (*timed*,
         kernel 3).
      2. Validate that the parent array is a correct SSSP search tree
         for the given search tree.
@@ -131,7 +132,7 @@ where StartVertex is one endpoint vertex label, EndVertex is the other
 endpoint vertex label, and Weight is the weight of the edge.  The
 space of labels is the set of integers beginning with *zero* up to but
 not including the number of vertices N (defined below), and the space
-of weights is the range [0,1) of single precision floats. The 
+of weights is the range [0,1) of single precision floats. The
 kernels are not provided the size N explicitly and must discover it if required for
 constructing the graph.
 
@@ -151,8 +152,8 @@ These inputs determine the graph's size:
  - N :: the total number of vertices, 2^{SCALE}. An implementation may
    use any set of N distinct integers to number the vertices, but at
    least 48 bits must be allocated per vertex number and 32 bits must be
-   allocated for edge weight unless benchmark is run in BFS-only mode. 
-   Other parameters may be assumed to fit within the natural word of the machine. 
+   allocated for edge weight unless benchmark is run in BFS-only mode.
+   Other parameters may be assumed to fit within the natural word of the machine.
    N is derived from the problem's scaling parameter.
 
  - M :: the number of edges. M = edgefactor * N.
@@ -400,8 +401,8 @@ specification.
 The executable specification validates its results by comparing them
 with results computed directly from the tuple list.
 
-The validation procedure for SSSP ([[#kernel3][Kernel 3]]) is similar to one from version 1.2
-of the benchmark.  The validation procedure for BFS ([[#kernel3][Kernel 3]]) constructs
+The validation procedure for BSP ([[#kernel2][Kernel 2]]) is similar to one from version 1.2
+of the benchmark.  The validation procedure for SSSP ([[#kernel3][Kernel 3]]) constructs
 search depth tree in place of distance array and then runs SSSP validation routine.
 After each search, run (but do not time) a function that ensures that the
 discovered parent tree and distance vector are correct by ensuring that:
@@ -415,9 +416,9 @@ discovered parent tree and distance vector are correct by ensuring that:
         BFS tree,
      b) SSSP distances that differ by at most the weight of the edge or
         are not in the SSSP tree,
-  4) the BFS/SSSP tree spans an entire connected component's vertices, 
+  4) the BFS/SSSP tree spans an entire connected component's vertices,
      and
-  5) a node and its BFS/SSSP parent are joined by an edge of the original 
+  5) a node and its BFS/SSSP parent are joined by an edge of the original
      graph.
 
 Algorithm [[alg:validate]] shows a sample validation routine.
@@ -448,11 +449,11 @@ computing rates floating-point operations per second (flops) measured
 by the LINPACK benchmark and global updates per second (GUPs) measured
 by the HPCC RandomAccess benchmark, we define a new rate called traversed
 edges per second (TEPS). We measure TEPS through the benchmarking of
-[[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_{K}(n) be 
-the measured execution time for a kernel run. Let m be the number of 
-undirected edges in a traversed component of the graph counted as number 
-of self-loop edge tuples within component traversed added to halved number 
-of non self-loop edge tuples within component traversed. We define the 
+[[Kernel%202][Kernel 2]] and [[Kernel 3]] as follows. Let time_{K}(n) be
+the measured execution time for a kernel run. Let m be the number of
+undirected edges in a traversed component of the graph counted as number
+of self-loop edge tuples within component traversed added to halved number
+of non self-loop edge tuples within component traversed. We define the
 normalized performance rate (number of edge traversals per second) as:
 
 #+BEGIN_CENTER
@@ -483,7 +484,7 @@ The output must contain the following information:
        input edges visited by kernel 3, see TEPS section above.
   - sssp_min_TEPS, sssp_firstquartile_TEPS, sssp_median_TEPS, sssp_thirdquartile_TEPS, sssp_max_TEPS :: Quartiles for the kernel 3 TEPS
   - sssp_harmonic_mean_TEPS, sssp_harmonic_stddev_TEPS :: Mean and standard
-       deviation of the kernel 3 TEPS.  
+       deviation of the kernel 3 TEPS.
 
 *Note*: Because TEPS is a rate, the rates are compared using
        *harmonic* means.
@@ -527,11 +528,3 @@ Less important goals:
  - Minimal development time
  - Maximal maintainability
  - Maximal extensibility
-
-
-
-
-
-
-
-
