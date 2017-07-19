@@ -18,7 +18,7 @@ typedef struct oned_csr_graph {
 	size_t nlocaledges;
 	int lg_nglobalverts;
 	int64_t nglobalverts,notisolated;
-	int *rowstarts;
+	unsigned int *rowstarts;
 	int64_t *column;
 #ifdef SSSP 
 	float *weights;

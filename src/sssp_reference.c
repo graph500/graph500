@@ -14,6 +14,7 @@
 #include "common.h"
 #include "csr_reference.h"
 #include "bitmap_reference.h"
+#include <string.h>
 
 #ifdef DEBUGSTATS
 extern int64_t nbytes_sent,nbytes_rcvd;

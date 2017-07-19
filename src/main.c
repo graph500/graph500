@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+int isisolated(int64_t v);
 static int compare_doubles(const void* a, const void* b) {
 	double aa = *(const double*)a;
 	double bb = *(const double*)b;

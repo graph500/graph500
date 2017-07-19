@@ -29,7 +29,7 @@
 #ifdef REUSE_CSR_FOR_VALIDATION
 #include "csr_reference.h"
 extern int64_t* column;
-extern int* rowstarts;
+extern unsigned int* rowstarts;
 #ifdef SSSP
 extern float* weights;
 #endif
