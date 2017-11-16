@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
 	int wmode;
 	char *wfilename=NULL;  
 	if(filename!=NULL) {
-		wfilename=malloc(strlen(filename)+8);
+		wfilename=malloc(strlen(filename)+9);
 		wfilename[0]='\0';strcat(wfilename,filename);strcat(wfilename,".weights");
 	}
 #endif
