@@ -165,6 +165,20 @@ typedef struct tuple_graph {
 #define ITERATE_TUPLE_GRAPH_BREAK /* Must be done collectively and before ITERATE_TUPLE_GRAPH_RELEASE_BUFFER */ \
 									break_from_block_loop = 1; \
 									break
+#ifdef SSSP
+#define ITERATE_TUPLE_GRAPH_RELEASE_BUFFER \
+									do { \
+										if ((tg)->data_in_file && block_idx + 1 < block_limit) { \
+											MPI_Offset start_edge_index = FILE_CHUNKSIZE * (MUL_SIZE((block_idx) + 1) + rank); \
+											if (start_edge_index > (tg)->nglobaledges) start_edge_index = (tg)->nglobaledges; \
+											edge_count_i = (tg)->nglobaledges - start_edge_index; \
+											if (edge_count_i > FILE_CHUNKSIZE) edge_count_i = FILE_CHUNKSIZE; \
+											MPI_File_read_at_all_begin((tg)->edgefile, start_edge_index, edge_data_from_file, edge_count_i, packed_edge_mpi_type); \
+											MPI_File_read_at_all_begin((tg)->weightfile, start_edge_index, weight_data_from_file, edge_count_i, MPI_FLOAT); \
+											buffer_released_this_iter = 1; \
+										} \
+									} while (0)
+#else
 #define ITERATE_TUPLE_GRAPH_RELEASE_BUFFER \
 									do { \
 										if ((tg)->data_in_file && block_idx + 1 < block_limit) { \
@@ -176,6 +190,7 @@ typedef struct tuple_graph {
 											buffer_released_this_iter = 1; \
 										} \
 									} while (0)
+#endif
 #define ITERATE_TUPLE_GRAPH_END \
 									if (!buffer_released_this_iter) ITERATE_TUPLE_GRAPH_RELEASE_BUFFER; \
 								} \
