@@ -182,4 +182,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 void free_oned_csr_graph(oned_csr_graph* const g) {
 	if (g->rowstarts != NULL) {free(g->rowstarts); g->rowstarts = NULL;}
 	if (g->column != NULL) {free(g->column); g->column = NULL;}
+#ifdef SSSP
+	if (g->weights != NULL) {free(g->weights); g->weights = NULL;}
+#endif
 }
