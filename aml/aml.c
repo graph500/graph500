@@ -477,7 +477,11 @@ SOATTR void aml_finalize( void ) {
 #ifndef NOINTRA
 	for(i=0;i<NRECV_intra;i++)
 		MPI_Cancel(rqrecv_intra+i);
+	MPI_Status stat_intra[NSEND_intra];
+	MPI_Waitall(NSEND_intra,rqsend_intra,stat_intra);
 #endif
+	MPI_Status stat[NSEND];
+	MPI_Waitall(NSEND,rqsend,stat);
 	MPI_Finalize();
 }
 

@@ -27,3 +27,5 @@ Be aware normally that will drop your performance by more then 20%.
 
 If you want to use non-power of two processes per node, you should add -DPROCS_PER_NODE_NOT_POWER_OF_TWO to CFLAGS in src/Makefile,
 this one will enable SIZE_MUST_BE_POWER_OF_TWO automatically.
+
+For GreenGraph500 runs define compile time macro ENERGYLOOP_BFS or ENERGYLOOP_SSSP to measure energy in long enough loop to measure average power.

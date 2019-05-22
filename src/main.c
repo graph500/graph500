@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
 		if (bitmap_size_in_bytes * size * CHAR_BIT < nglobalverts) {
 			bitmap_size_in_bytes = (nglobalverts + size * CHAR_BIT - 1) / (size * CHAR_BIT);
 		}
-		int ranks_per_row = ((nglobalverts + CHAR_BIT - 1) / CHAR_BIT + bitmap_size_in_bytes - 1) / bitmap_size_in_bytes;
+		int ranks_per_row = tg.data_in_file ? ((nglobalverts + CHAR_BIT - 1) / CHAR_BIT + bitmap_size_in_bytes - 1) / bitmap_size_in_bytes : 1;
 		int nrows = size / ranks_per_row;
 		int my_row = -1, my_col = -1;
 		MPI_Comm cart_comm;
@@ -349,6 +349,16 @@ int main(int argc, char** argv) {
 	if (!getenv("SKIP_BFS")) {
 		clean_pred(&pred[0]); //user-provided function from bfs_implementation.c
 		run_bfs(bfs_roots[0], &pred[0]); //warm-up
+#ifdef ENERGYLOOP_BFS
+                int eloop;
+                if(!my_pe()) printf("starting energy loop BFS\n");
+                for(eloop=0;eloop<1000000;eloop++)
+                        for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
+                clean_pred(&pred[0]);
+                run_bfs(bfs_roots[bfs_root_idx], &pred[0]);
+                }
+                if(!my_pe()) printf("finished energy loop BFS\n");
+#endif
 		if (!getenv("SKIP_VALIDATION")) {
 			int64_t nedges=0;
 			validate_result(1,&tg, nlocalverts, bfs_roots[0], pred,shortest,NULL);
@@ -399,7 +409,17 @@ int main(int argc, char** argv) {
 	clean_shortest(shortest);
 	clean_pred(pred);
 	run_sssp(bfs_roots[0], &pred[0],shortest); //warm-up
-
+#ifdef ENERGYLOOP_SSSP
+		int eloop;
+		if(!my_pe()) printf("starting energy loop SSSP\n");
+		for(eloop=0;eloop<1000000;eloop++)
+			for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
+				clean_shortest(shortest);
+				clean_pred(&pred[0]);
+				run_sssp(bfs_roots[bfs_root_idx], &pred[0],shortest);
+		}
+		if(!my_pe()) printf("finished energy loop SSSP\n");
+#endif
 	for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
 		int64_t root = bfs_roots[bfs_root_idx];
 
