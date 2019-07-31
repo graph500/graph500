@@ -119,7 +119,7 @@ void sendedgepreddist(unsigned vloc,unsigned int vedge) {
 	aml_send(&m,1,sizeof(edgedist),VERTEX_OWNER(COLUMN(vedge)));
 }
 
-#define DUMPERROR(text) { printf("Validation Error: %s, edge %llu %llu weight %f pred0 %llu pred1 %llu dist0 %f dist1 %f\n",text,v0,v1,w,predv0,predv1,distv0,distv1); val_errors++; return; }
+#define DUMPERROR(text) { printf("Validation Error: %s, edge %" PRId64 " %" PRId64 " weight %f pred0 %" PRId64 " pred1 %" PRId64 " dist0 %f dist1 %f\n",text,v0,v1,w,predv0,predv1,distv0,distv1); val_errors++; return; }
 
 //main validation handler: tracks all edges and at delivery has both vertex preds and distances to be checked
 void edgepreddisthndl(int frompe,void* data,int sz) {
@@ -257,7 +257,7 @@ vweights=weights;
 
 	for (i = 0; i < nlocalverts; ++i)
 		if((pred[i]!=-1 && pred[i]<0) || pred[i]>maxvertex) 
-		printf("Validation Error: predecessor %llu of vertex %llu is out of range\n",pred[i],VERTEX_TO_GLOBAL(my_pe(),i)),val_errors++;
+		printf("Validation Error: predecessor %" PRId64 " of vertex %" PRId64 " is out of range\n",pred[i],VERTEX_TO_GLOBAL(my_pe(),i)),val_errors++;
 	aml_long_allsum(&val_errors);
 	if(val_errors>0) return 0;
 
@@ -266,15 +266,15 @@ vweights=weights;
 
 	for (i = 0; i < nlocalverts; ++i) {
 		if(dist[i]!=-1.0 && dist[i]<0.0) 
-		printf("Validation Error: distance/depth %3.2f of vertex %llu is out of range\n",dist[i],VERTEX_TO_GLOBAL(my_pe(),i)),val_errors++;
+		printf("Validation Error: distance/depth %3.2f of vertex %" PRId64 " is out of range\n",dist[i],VERTEX_TO_GLOBAL(my_pe(),i)),val_errors++;
 		if((pred[i]==-1 && dist[i]!=-1.0) || (pred[i]!=-1 && dist[i]==-1.0)) 
-		printf("Validation Error: vertex %llu has inconsistent predecessor %llu and distance %f\n",VERTEX_TO_GLOBAL(my_pe(),i),pred[i],dist[i]),val_errors++;
+		printf("Validation Error: vertex %" PRId64 " has inconsistent predecessor %" PRId64 " and distance %f\n",VERTEX_TO_GLOBAL(my_pe(),i),pred[i],dist[i]),val_errors++;
 	}
 
 	if(my_pe()==VERTEX_OWNER(root)) {
 		int vloc = VERTEX_LOCAL(root);
 		if(pred[vloc]!=root || dist[vloc]!=0.0) 
-		printf("Validation Error: root vertex %llu has predecessor %llu and distance %f\n",root,pred[vloc],dist[vloc]),val_errors++;
+		printf("Validation Error: root vertex %" PRId64 " has predecessor %" PRId64 " and distance %f\n",root,pred[vloc],dist[vloc]),val_errors++;
 		else confirmed[vloc]=1;
 	}
 
@@ -288,11 +288,11 @@ vweights=weights;
 
 	for (i = 0; i < nlocalverts; ++i)
 		if(confirmed[i]==0 && pred[i]!=-1) 
-		printf("Validation Error: path to vertex %llu not confirmed from predecessor %llu with distance %f\n",VERTEX_TO_GLOBAL(my_pe(),i),pred[i],dist[i]),val_errors++;
+		printf("Validation Error: path to vertex %" PRId64 " not confirmed from predecessor %" PRId64 " with distance %f\n",VERTEX_TO_GLOBAL(my_pe(),i),pred[i],dist[i]),val_errors++;
 
 	aml_long_allsum(&val_errors);
 	aml_long_allsum(&nedges_traversed);
 	if(nedges_in!=NULL && *nedges_in!=nedges_traversed) 
-	printf("Validation Error: wrong nedge_traversed %llu (correct number is %llu)\n",*nedges_in,nedges_traversed),val_errors++;
+	printf("Validation Error: wrong nedge_traversed %" PRId64 " (correct number is %" PRId64 ")\n",*nedges_in,nedges_traversed),val_errors++;
 	if(val_errors>0) return 0; else return 1;
 }
