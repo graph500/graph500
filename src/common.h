@@ -25,8 +25,6 @@ extern int lgsize;
 #endif
 extern MPI_Datatype packed_edge_mpi_type; /* MPI datatype for packed_edge struct */
 
-static const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
-
 /* Distribute edges by their endpoints (make two directed copies of each input
  * undirected edge); distribution is 1-d and cyclic. */
 #ifdef SIZE_MUST_BE_A_POWER_OF_TWO
