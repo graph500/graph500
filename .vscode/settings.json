@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "csr_reference.h": "c",
+        "cinttypes": "c",
+        "splittable_mrg.h": "c",
+        "stdint.h": "c",
+        "inttypes.h": "c"
+    }
+}

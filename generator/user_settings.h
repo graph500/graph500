@@ -16,7 +16,8 @@
 //#undef GENERATOR_USE_PACKED_EDGE_TYPE /* 64 bits per edge */
 
 #define FAST_64BIT_ARITHMETIC /* Use 64-bit arithmetic when possible. */
-/* #undef FAST_64BIT_ARITHMETIC -- Assume 64-bit arithmetic is slower than 32-bit. */
+/* #undef FAST_64BIT_ARITHMETIC -- Assume 64-bit arithmetic is slower than
+ * 32-bit. */
 
 /* End of user settings ----------------------------------- */
 

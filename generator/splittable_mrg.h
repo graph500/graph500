@@ -43,10 +43,8 @@ void mrg_seed(mrg_state* st, const uint_fast32_t seed[5]);
 
 /* Skip the PRNG ahead _exponent_ steps.  This code treats the exponent as a
  * 192-bit word, even though the PRNG period is less than that. */
-void mrg_skip(mrg_state* state,
-              uint_least64_t exponent_high,
-              uint_least64_t exponent_middle,
-              uint_least64_t exponent_low);
+void mrg_skip(mrg_state* state, uint_least64_t exponent_high,
+              uint_least64_t exponent_middle, uint_least64_t exponent_low);
 
 #ifdef __cplusplus
 }

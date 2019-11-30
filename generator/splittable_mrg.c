@@ -8,8 +8,8 @@
 /*           Andrew Lumsdaine                                              */
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include "mod_arith.h"
@@ -63,7 +63,8 @@ typedef struct mrg_transition_matrix {
 } mrg_transition_matrix;
 
 #ifdef DUMP_TRANSITION_TABLE
-static void mrg_update_cache(mrg_transition_matrix* restrict p) { /* Set a, b, c, and d */
+static void mrg_update_cache(
+    mrg_transition_matrix* restrict p) { /* Set a, b, c, and d */
   p->a = mod_add(mod_mul_x(p->s), p->t);
   p->b = mod_add(mod_mul_x(p->a), p->u);
   p->c = mod_add(mod_mul_x(p->b), p->v);
@@ -76,19 +77,41 @@ static void mrg_make_identity(mrg_transition_matrix* result) {
   mrg_update_cache(result);
 }
 
-static void mrg_make_A(mrg_transition_matrix* result) { /* Initial RNG transition matrix */
+static void mrg_make_A(
+    mrg_transition_matrix* result) { /* Initial RNG transition matrix */
   result->s = result->t = result->u = result->w = 0;
   result->v = 1;
   mrg_update_cache(result);
 }
 
 /* Multiply two transition matrices; result may alias either/both inputs. */
-static void mrg_multiply(const mrg_transition_matrix* restrict m, const mrg_transition_matrix* restrict n, mrg_transition_matrix* result) {
-  uint_least32_t rs = mod_mac(mod_mac(mod_mac(mod_mac(mod_mul(m->s, n->d), m->t, n->c), m->u, n->b), m->v, n->a), m->w, n->s);
-  uint_least32_t rt = mod_mac(mod_mac(mod_mac(mod_mac(mod_mul_y(mod_mul(m->s, n->s)), m->t, n->w), m->u, n->v), m->v, n->u), m->w, n->t);
-  uint_least32_t ru = mod_mac(mod_mac(mod_mac(mod_mul_y(mod_mac(mod_mul(m->s, n->a), m->t, n->s)), m->u, n->w), m->v, n->v), m->w, n->u);
-  uint_least32_t rv = mod_mac(mod_mac(mod_mul_y(mod_mac(mod_mac(mod_mul(m->s, n->b), m->t, n->a), m->u, n->s)), m->v, n->w), m->w, n->v);
-  uint_least32_t rw = mod_mac(mod_mul_y(mod_mac(mod_mac(mod_mac(mod_mul(m->s, n->c), m->t, n->b), m->u, n->a), m->v, n->s)), m->w, n->w);
+static void mrg_multiply(const mrg_transition_matrix* restrict m,
+                         const mrg_transition_matrix* restrict n,
+                         mrg_transition_matrix* result) {
+  uint_least32_t rs = mod_mac(
+      mod_mac(mod_mac(mod_mac(mod_mul(m->s, n->d), m->t, n->c), m->u, n->b),
+              m->v, n->a),
+      m->w, n->s);
+  uint_least32_t rt = mod_mac(
+      mod_mac(mod_mac(mod_mac(mod_mul_y(mod_mul(m->s, n->s)), m->t, n->w), m->u,
+                      n->v),
+              m->v, n->u),
+      m->w, n->t);
+  uint_least32_t ru = mod_mac(
+      mod_mac(mod_mac(mod_mul_y(mod_mac(mod_mul(m->s, n->a), m->t, n->s)), m->u,
+                      n->w),
+              m->v, n->v),
+      m->w, n->u);
+  uint_least32_t rv = mod_mac(
+      mod_mac(mod_mul_y(mod_mac(mod_mac(mod_mul(m->s, n->b), m->t, n->a), m->u,
+                                n->s)),
+              m->v, n->w),
+      m->w, n->v);
+  uint_least32_t rw =
+      mod_mac(mod_mul_y(mod_mac(
+                  mod_mac(mod_mac(mod_mul(m->s, n->c), m->t, n->b), m->u, n->a),
+                  m->v, n->s)),
+              m->w, n->w);
   result->s = rs;
   result->t = rt;
   result->u = ru;
@@ -98,7 +121,9 @@ static void mrg_multiply(const mrg_transition_matrix* restrict m, const mrg_tran
 }
 
 /* No aliasing allowed */
-static void mrg_power(const mrg_transition_matrix* restrict m, unsigned int exponent, mrg_transition_matrix* restrict result) {
+static void mrg_power(const mrg_transition_matrix* restrict m,
+                      unsigned int exponent,
+                      mrg_transition_matrix* restrict result) {
   mrg_transition_matrix current_power_of_2 = *m;
   mrg_make_identity(result);
   while (exponent > 0) {
@@ -113,7 +138,8 @@ static void mrg_power(const mrg_transition_matrix* restrict m, unsigned int expo
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static void mrg_apply_transition(const mrg_transition_matrix* restrict mat, const mrg_state* restrict st, mrg_state* r) {
+static void mrg_apply_transition(const mrg_transition_matrix* restrict mat,
+                                 const mrg_state* restrict st, mrg_state* r) {
 #ifdef __MTA__
   uint_fast64_t s = mat->s;
   uint_fast64_t t = mat->t;
@@ -135,21 +161,33 @@ static void mrg_apply_transition(const mrg_transition_matrix* restrict mat, cons
   r->z3 = mod_down(mod_down_fast(b * z1 + v * z2 + w * z3) + sy * z4 + ay * z5);
   uint_fast64_t c = mod_down(107374182 * b + v);
   uint_fast64_t by = mod_down(104480 * b);
-  r->z2 = mod_down(mod_down_fast(c * z1 + w * z2 + sy * z3) + ay * z4 + by * z5);
+  r->z2 =
+      mod_down(mod_down_fast(c * z1 + w * z2 + sy * z3) + ay * z4 + by * z5);
   uint_fast64_t d = mod_down(107374182 * c + w);
   uint_fast64_t cy = mod_down(104480 * c);
-  r->z1 = mod_down(mod_down_fast(d * z1 + sy * z2 + ay * z3) + by * z4 + cy * z5);
+  r->z1 =
+      mod_down(mod_down_fast(d * z1 + sy * z2 + ay * z3) + by * z4 + cy * z5);
 /* A^n = [d   s*y a*y b*y c*y]                                           */
 /*       [c   w   s*y a*y b*y]                                           */
 /*       [b   v   w   s*y a*y]                                           */
 /*       [a   u   v   w   s*y]                                           */
 /*       [s   t   u   v   w  ]                                           */
 #else
-  uint_fast32_t o1 = mod_mac_y(mod_mul(mat->d, st->z1), mod_mac4(0, mat->s, st->z2, mat->a, st->z3, mat->b, st->z4, mat->c, st->z5));
-  uint_fast32_t o2 = mod_mac_y(mod_mac2(0, mat->c, st->z1, mat->w, st->z2), mod_mac3(0, mat->s, st->z3, mat->a, st->z4, mat->b, st->z5));
-  uint_fast32_t o3 = mod_mac_y(mod_mac3(0, mat->b, st->z1, mat->v, st->z2, mat->w, st->z3), mod_mac2(0, mat->s, st->z4, mat->a, st->z5));
-  uint_fast32_t o4 = mod_mac_y(mod_mac4(0, mat->a, st->z1, mat->u, st->z2, mat->v, st->z3, mat->w, st->z4), mod_mul(mat->s, st->z5));
-  uint_fast32_t o5 = mod_mac2(mod_mac3(0, mat->s, st->z1, mat->t, st->z2, mat->u, st->z3), mat->v, st->z4, mat->w, st->z5);
+  uint_fast32_t o1 = mod_mac_y(mod_mul(mat->d, st->z1),
+                               mod_mac4(0, mat->s, st->z2, mat->a, st->z3,
+                                        mat->b, st->z4, mat->c, st->z5));
+  uint_fast32_t o2 =
+      mod_mac_y(mod_mac2(0, mat->c, st->z1, mat->w, st->z2),
+                mod_mac3(0, mat->s, st->z3, mat->a, st->z4, mat->b, st->z5));
+  uint_fast32_t o3 =
+      mod_mac_y(mod_mac3(0, mat->b, st->z1, mat->v, st->z2, mat->w, st->z3),
+                mod_mac2(0, mat->s, st->z4, mat->a, st->z5));
+  uint_fast32_t o4 = mod_mac_y(mod_mac4(0, mat->a, st->z1, mat->u, st->z2,
+                                        mat->v, st->z3, mat->w, st->z4),
+                               mod_mul(mat->s, st->z5));
+  uint_fast32_t o5 =
+      mod_mac2(mod_mac3(0, mat->s, st->z1, mat->t, st->z2, mat->u, st->z3),
+               mat->v, st->z4, mat->w, st->z5);
   r->z1 = o1;
   r->z2 = o2;
   r->z3 = o3;
@@ -168,7 +206,8 @@ static void mrg_step(const mrg_transition_matrix* mat, mrg_state* state) {
 #ifdef __MTA__
 #pragma mta inline
 #endif
-static void mrg_orig_step(mrg_state* state) { /* Use original A, not fully optimized yet */
+static void mrg_orig_step(
+    mrg_state* state) { /* Use original A, not fully optimized yet */
   uint_fast32_t new_elt = mod_mac_y(mod_mul_x(state->z1), state->z5);
   state->z5 = state->z4;
   state->z4 = state->z3;
@@ -183,8 +222,10 @@ static void mrg_orig_step(mrg_state* state) { /* Use original A, not fully optim
 extern const mrg_transition_matrix mrg_skip_matrices[][256]; */
 #endif
 
-void mrg_skip(mrg_state* state, uint_least64_t exponent_high, uint_least64_t exponent_middle, uint_least64_t exponent_low) {
-  /* fprintf(stderr, "skip(%016" PRIXLEAST64 "%016" PRIXLEAST64 "%016" PRIXLEAST64 ")\n", exponent_high, exponent_middle, exponent_low); */
+void mrg_skip(mrg_state* state, uint_least64_t exponent_high,
+              uint_least64_t exponent_middle, uint_least64_t exponent_low) {
+  /* fprintf(stderr, "skip(%016" PRIXLEAST64 "%016" PRIXLEAST64 "%016"
+   * PRIXLEAST64 ")\n", exponent_high, exponent_middle, exponent_low); */
   int byte_index;
   for (byte_index = 0; exponent_low; ++byte_index, exponent_low >>= 8) {
     uint_least8_t val = (uint_least8_t)(exponent_low & 0xFF);
@@ -207,7 +248,11 @@ void dump_mrg(FILE* out, const mrg_transition_matrix* m) {
   /* This is used as an initializer for the mrg_transition_matrix struct, so
    * the order of the fields here needs to match the struct
    * mrg_transition_matrix definition in splittable_mrg.h */
-  fprintf(out, "{%" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 "}\n", m->s, m->t, m->u, m->v, m->w, m->a, m->b, m->c, m->d);
+  fprintf(out,
+          "{%" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32
+          ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32
+          ", %" PRIuFAST32 "}\n",
+          m->s, m->t, m->u, m->v, m->w, m->a, m->b, m->c, m->d);
 }
 
 void dump_mrg_powers(void) {
@@ -216,19 +261,39 @@ void dump_mrg_powers(void) {
   mrg_transition_matrix transitions[192 / 8];
   FILE* out = fopen("mrg_transitions.c", "w");
   if (!out) {
-    fprintf(stderr, "dump_mrg_powers: could not open mrg_transitions.c for output\n");
-    exit (1);
+    fprintf(stderr,
+            "dump_mrg_powers: could not open mrg_transitions.c for output\n");
+    exit(1);
   }
-  fprintf(out, "/* Copyright (C) 2010 The Trustees of Indiana University.                  */\n");
-  fprintf(out, "/*                                                                         */\n");
-  fprintf(out, "/* Use, modification and distribution is subject to the Boost Software     */\n");
-  fprintf(out, "/* License, Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at */\n");
-  fprintf(out, "/* http://www.boost.org/LICENSE_1_0.txt)                                   */\n");
-  fprintf(out, "/*                                                                         */\n");
-  fprintf(out, "/*  Authors: Jeremiah Willcock                                             */\n");
-  fprintf(out, "/*           Andrew Lumsdaine                                              */\n");
+  fprintf(out,
+          "/* Copyright (C) 2010 The Trustees of Indiana University.           "
+          "       */\n");
+  fprintf(out,
+          "/*                                                                  "
+          "       */\n");
+  fprintf(out,
+          "/* Use, modification and distribution is subject to the Boost "
+          "Software     */\n");
+  fprintf(out,
+          "/* License, Version 1.0. (See accompanying file LICENSE_1_0.txt or "
+          "copy at */\n");
+  fprintf(out,
+          "/* http://www.boost.org/LICENSE_1_0.txt)                            "
+          "       */\n");
+  fprintf(out,
+          "/*                                                                  "
+          "       */\n");
+  fprintf(out,
+          "/*  Authors: Jeremiah Willcock                                      "
+          "       */\n");
+  fprintf(out,
+          "/*           Andrew Lumsdaine                                       "
+          "       */\n");
   fprintf(out, "\n");
-  fprintf(out, "/* This code was generated by dump_mrg_powers() in splittable_mrg.c;\n * look there for how to rebuild the table. */\n\n");
+  fprintf(
+      out,
+      "/* This code was generated by dump_mrg_powers() in splittable_mrg.c;\n "
+      "* look there for how to rebuild the table. */\n\n");
   fprintf(out, "#include \"splittable_mrg.h\"\n");
   fprintf(out, "const mrg_transition_matrix mrg_skip_matrices[][256] = {\n");
   for (i = 0; i < 192 / 8; ++i) {
@@ -271,15 +336,17 @@ uint_fast32_t mrg_get_uint_orig(mrg_state* state) {
 
 /* Returns real value in [0, 1) using original transition matrix. */
 double mrg_get_double_orig(mrg_state* state) {
-  return (double)mrg_get_uint_orig(state) * .000000000465661287524579692 /* (2^31 - 1)^(-1) */ +
-         (double)mrg_get_uint_orig(state) * .0000000000000000002168404346990492787 /* (2^31 - 1)^(-2) */
-    ;
+  return (double)mrg_get_uint_orig(state) *
+             .000000000465661287524579692 /* (2^31 - 1)^(-1) */
+         + (double)mrg_get_uint_orig(state) *
+               .0000000000000000002168404346990492787 /* (2^31 - 1)^(-2) */
+      ;
 }
 
 float mrg_get_float_orig(mrg_state* state) {
-  return (float)mrg_get_uint_orig(state) * .000000000465661287524579692; /* (2^31 - 1)^(-1) */
+  return (float)mrg_get_uint_orig(state) *
+         .000000000465661287524579692; /* (2^31 - 1)^(-1) */
 }
-
 
 void mrg_seed(mrg_state* st, const uint_fast32_t seed[5]) {
   st->z1 = seed[0];
