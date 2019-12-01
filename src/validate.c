@@ -165,8 +165,7 @@ void edgepreddisthndl(int frompe, void* data, int sz) {
 
 void makedepthmapforbfs(const size_t nlocalverts, const int64_t root,
                         int64_t* const pred, float* dist) {
-  int i, j;
-  for (i = 0; i < nlocalverts; i++) {
+  for (size_t i = 0; i < nlocalverts; i++) {
     dist[i] = FLT_MAX;  // at the end there should be no FLT_MAX left
     if (pred[i] == -1) dist[i] = -1.0;
     if (pred[i] == root) dist[i] = 1.0;
@@ -183,9 +182,9 @@ void makedepthmapforbfs(const size_t nlocalverts, const int64_t root,
     newvisits = 0;
     prevlevel += 1.0;
 
-    for (i = 0; i < nlocalverts; i++)
+    for (size_t i = 0; i < nlocalverts; i++)
       if (dist[i] == prevlevel)
-        for (j = vrowstarts[i]; j < vrowstarts[i + 1]; j++)
+        for (unsigned int j = vrowstarts[i]; j < vrowstarts[i + 1]; j++)
           send_frompred(i, COLUMN(j));
     aml_barrier();
 
@@ -201,7 +200,6 @@ int validate_result(int isbfs, const tuple_graph* const tg,
   // if(failedtovalidate) return 0; //failed to allocate lots of memory for
   // validation: skipping all validation now
 
-  size_t i, j, k;
   if (firstvalidationrun) {
     firstvalidationrun = 0;
     confirmed = xmalloc(nlocalverts * sizeof(int));
@@ -230,10 +228,10 @@ int validate_result(int isbfs, const tuple_graph* const tg,
     }
     ITERATE_TUPLE_GRAPH_END;
 
-    vrowstarts = xmalloc((nlocalverts + 1) * sizeof(int));
+    vrowstarts = xmalloc((nlocalverts + 1) * sizeof(unsigned int));
 
     vrowstarts[0] = 0;
-    for (i = 0; i < nlocalverts; ++i) {
+    for (size_t i = 0; i < nlocalverts; ++i) {
       vrowstarts[i + 1] = vrowstarts[i] + (i >= nlocalverts ? 0 : vdegrees[i]);
       vdegrees[i] = vrowstarts[i];
     }
@@ -267,7 +265,7 @@ int validate_result(int isbfs, const tuple_graph* const tg,
     free(vdegrees);
     vdegrees = NULL;
 #endif
-    for (i = 0; i < nlocalverts; ++i)
+    for (size_t i = 0; i < nlocalverts; ++i)
       if (VERTEX_TO_GLOBAL(my_pe(), i) > maxvertex)
         maxvertex = VERTEX_TO_GLOBAL(my_pe(), i);
     aml_long_allmax(&maxvertex);
@@ -277,9 +275,9 @@ int validate_result(int isbfs, const tuple_graph* const tg,
   // Actual validation here:
   globpred = pred;
   globdist = dist;
-  for (i = 0; i < nlocalverts; ++i) confirmed[i] = 0;
+  for (size_t i = 0; i < nlocalverts; ++i) confirmed[i] = 0;
 
-  for (i = 0; i < nlocalverts; ++i)
+  for (size_t i = 0; i < nlocalverts; ++i)
     if ((pred[i] != -1 && pred[i] < 0) || pred[i] > maxvertex)
       printf(
           "Validation Error: predecessor %llu of vertex %llu is out of range\n",
@@ -290,7 +288,7 @@ int validate_result(int isbfs, const tuple_graph* const tg,
 
   if (validatingbfs) makedepthmapforbfs(nlocalverts, root, pred, dist);
 
-  for (i = 0; i < nlocalverts; ++i) {
+  for (size_t i = 0; i < nlocalverts; ++i) {
     if (dist[i] != -1.0 && dist[i] < 0.0)
       printf(
           "Validation Error: distance/depth %3.2f of vertex %llu is out of "
@@ -321,11 +319,12 @@ int validate_result(int isbfs, const tuple_graph* const tg,
   aml_register_handler(edgepreddisthndl, 1);
   nedges_traversed = 0;
 
-  for (i = 0; i < nlocalverts; ++i)
-    for (j = vrowstarts[i]; j < vrowstarts[i + 1]; j++) sendedgepreddist(i, j);
+  for (size_t i = 0; i < nlocalverts; ++i)
+    for (unsigned int j = vrowstarts[i]; j < vrowstarts[i + 1]; j++)
+      sendedgepreddist(i, j);
   aml_barrier();
 
-  for (i = 0; i < nlocalverts; ++i)
+  for (size_t i = 0; i < nlocalverts; ++i)
     if (confirmed[i] == 0 && pred[i] != -1)
       printf(
           "Validation Error: path to vertex %llu not confirmed from "

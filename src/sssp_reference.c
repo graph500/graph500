@@ -21,11 +21,12 @@ extern int64_t nbytes_sent, nbytes_rcvd;
 #endif
 // variables shared from bfs_reference
 extern oned_csr_graph g;
-extern int qc, q2c;
-extern int *q1, *q2;
-extern int* rowstarts;
-extern int64_t *column, *pred_glob, visited_size;
+extern int *q1, q1c;  // current bucket
+extern int *q2, q2c;  // next bucket
+extern int64_t *column, *glob_pred;
+extern unsigned int* rowstarts;
 extern unsigned long* visited;
+extern int64_t visited_size;
 #ifdef SSSP
 // global variables as those accesed by active message handler
 float* glob_dist;
@@ -50,13 +51,13 @@ void relaxhndl(int from, void* dat, int sz) {
   // reached earlier
   if (*dest_dist < 0 || *dest_dist > w) {
     *dest_dist = w;                                         // update distance
-    pred_glob[vloc] = VERTEX_TO_GLOBAL(from, m->src_vloc);  // update path
+    glob_pred[vloc] = VERTEX_TO_GLOBAL(from, m->src_vloc);  // update path
 
-    if (lightphase && !TEST_VISITEDLOC(vloc))  // Bitmap used to track if was
-                                               // already relaxed with light edge
-    {
-      if (w < glob_maxdelta) {  // if falls into current bucket needs further
-                                // reprocessing
+    if (lightphase &&
+        !TEST_VISITEDLOC(vloc)) {  // Bitmap used to track if was
+                                   // already relaxed with light edge
+      if (w < glob_maxdelta) {     // if falls into current bucket needs further
+                                   // reprocessing
         q2[q2c++] = vloc;
         SET_VISITEDLOC(vloc);
       }
@@ -65,87 +66,89 @@ void relaxhndl(int from, void* dat, int sz) {
 }
 
 // Sending relaxation active message
-void send_relax(int64_t glob, float weight, int fromloc) {
-  relaxmsg m = {weight, VERTEX_LOCAL(glob), fromloc};
-  aml_send(&m, 1, sizeof(relaxmsg), VERTEX_OWNER(glob));
+void send_relax(int64_t toglob, float weight, int fromloc) {
+  relaxmsg m = {weight, VERTEX_LOCAL(toglob), fromloc};
+  aml_send(&m, 1, sizeof(relaxmsg), VERTEX_OWNER(toglob));
 }
 
 void run_sssp(int64_t root, int64_t* pred, float* dist) {
-  unsigned int i, j;
-  long sum = 0;
-
   float delta = 0.1;
   glob_mindelta = 0.0;
   glob_maxdelta = delta;
   glob_dist = dist;
+  glob_pred = pred;
   weights = g.weights;
-  pred_glob = pred;
-  qc = 0;
+  q1c = 0;
   q2c = 0;
 
   aml_register_handler(relaxhndl, 1);
 
   if (VERTEX_OWNER(root) == my_pe()) {
     q1[0] = VERTEX_LOCAL(root);
-    qc = 1;
+    q1c = 1;
     dist[VERTEX_LOCAL(root)] = 0.0;
     pred[VERTEX_LOCAL(root)] = root;
   }
 
   aml_barrier();
-  sum = 1;
 
+  long sum = 1;
   int64_t lastvisited = 1;
   while (sum != 0) {
 #ifdef DEBUGSTATS
     double t0 = aml_time();
     nbytes_sent = 0;
 #endif
-    // 1. iterate over light edges
+    // 1. iterate over light edges: multiple phases
     while (sum != 0) {
       CLEAN_VISITED();
       lightphase = 1;
       aml_barrier();
-      for (i = 0; i < qc; i++)
-        for (j = rowstarts[q1[i]]; j < rowstarts[q1[i] + 1]; j++)
+      for (int i = 0; i < q1c; i++) {
+        for (unsigned int j = rowstarts[q1[i]]; j < rowstarts[q1[i] + 1]; j++)
           if (weights[j] < delta)
             send_relax(COLUMN(j), dist[q1[i]] + weights[j], q1[i]);
+      }
       aml_barrier();
 
-      qc = q2c;
+      q1c = q2c;
       q2c = 0;
       int* tmp = q1;
       q1 = q2;
       q2 = tmp;
-      sum = qc;
+      sum = q1c;
       aml_long_allsum(&sum);
     }
     lightphase = 0;
     aml_barrier();
 
-    // 2. iterate over S and heavy edges
-    for (i = 0; i < g.nlocalverts; i++)
+    // 2. iterate over S and heavy edges: one phase
+    for (size_t i = 0; i < g.nlocalverts; i++)
       if (dist[i] >= glob_mindelta && dist[i] < glob_maxdelta) {
-        for (j = rowstarts[i]; j < rowstarts[i + 1]; j++)
+        for (unsigned int j = rowstarts[i]; j < rowstarts[i + 1]; j++)
           if (weights[j] >= delta)
             send_relax(COLUMN(j), dist[i] + weights[j], i);
       }
     aml_barrier();
 
+    // 3. Bucket processing and checking termination condition
     glob_mindelta = glob_maxdelta;
     glob_maxdelta += delta;
-    qc = 0;
+    q1c = 0;
     sum = 0;
-
-    // 3. Bucket processing and checking termination condition
     int64_t lvlvisited = 0;
-    for (i = 0; i < g.nlocalverts; i++)
+    for (size_t i = 0; i < g.nlocalverts; i++) {
       if (dist[i] >= glob_mindelta) {
         sum++;  // how many are still to be processed
-        if (dist[i] < glob_maxdelta) q1[qc++] = i;  // this is lowest bucket
-      } else if (dist[i] != -1.0)
+        if (dist[i] < glob_maxdelta) {
+          q1[q1c++] = i;  // this is lowest bucket
+        }
+      } else if (dist[i] != -1.0) {
         lvlvisited++;
+      }
+    }
     aml_long_allsum(&sum);
+
 #ifdef DEBUGSTATS
     t0 -= aml_time();
     aml_long_allsum(&lvlvisited);
@@ -162,7 +165,6 @@ void run_sssp(int64_t root, int64_t* pred, float* dist) {
 }
 
 void clean_shortest(float* dist) {
-  int i;
-  for (i = 0; i < g.nlocalverts; i++) dist[i] = -1.0;
+  for (size_t i = 0; i < g.nlocalverts; i++) dist[i] = -1.0;
 }
 #endif

@@ -295,11 +295,11 @@ inline void aml_send_intra(void *src, int type, int length, int local,
   memcpy(dst + sizeof(struct hdri), src, length);
 }
 
-SOATTR void aml_send(void *src, int type, int length, int node) {
-  if (node == myproc) return aml_handlers[type](myproc, src, length);
+SOATTR void aml_send(void *src, int type, int length, int dstnode) {
+  if (dstnode == myproc) return aml_handlers[type](myproc, src, length);
 
-  int group = GROUP_FROM_PROC(node);
-  int local = LOCAL_FROM_PROC(node);
+  int group = GROUP_FROM_PROC(dstnode);
+  int local = LOCAL_FROM_PROC(dstnode);
 
   // send to another node in my group
   if (group == mygroup) return aml_send_intra(src, type, length, local, myproc);
@@ -322,7 +322,7 @@ int stringCmp(const void *a, const void *b) { return strcmp(a, b); }
 
 // Should be called by user instead of MPI_Init()
 SOATTR int aml_init(int *argc, char ***argv) {
-  int r, i, j, tmpmax;
+  int r, i, j;
 
   r = MPI_Init(argc, argv);
   if (r != MPI_SUCCESS) return r;

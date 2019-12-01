@@ -76,8 +76,6 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg,
                                oned_csr_graph* const g) {
   g->tg = tg;
 
-  size_t i, j, k;
-
   int64_t nvert = tg->nglobaledges / 2;
   nvert /= num_pes();
   nvert += 1;
@@ -110,7 +108,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg,
 #ifdef DEBUGSTATS
   long maxdeg = 0, isolated = 0, totaledges = 0, originaledges;
   long maxlocaledges, minlocaledges;
-  for (i = 0; i < g->nlocalverts; i++) {
+  for (size_t i = 0; i < g->nlocalverts; i++) {
     long deg = degrees[i];
     totaledges += deg;
     if (maxdeg < deg) maxdeg = deg;
@@ -138,11 +136,11 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg,
 
   g->notisolated = g->nglobalverts - isolated;
 #endif
-  unsigned int* rowstarts = xmalloc((nlocalverts + 1) * sizeof(int));
+  unsigned int* rowstarts = xmalloc((nlocalverts + 1) * sizeof(unsigned int));
   g->rowstarts = rowstarts;
 
   rowstarts[0] = 0;
-  for (i = 0; i < nlocalverts; ++i) {
+  for (size_t i = 0; i < nlocalverts; ++i) {
     rowstarts[i + 1] = rowstarts[i] + (i >= nlocalverts ? 0 : degrees[i]);
     degrees[i] = rowstarts[i];
   }

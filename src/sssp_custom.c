@@ -6,7 +6,7 @@
 #include "csr_reference.h"
 
 extern oned_csr_graph g;
-extern int64_t *column, *pred_glob, visited_size;
+extern int64_t *column, *glob_pred, visited_size;
 extern unsigned long* visited;
 
 #ifdef SSSP
@@ -19,7 +19,7 @@ extern unsigned long* visited;
 // 0.0
 
 void run_sssp(int64_t root, int64_t* pred, float* dist) {
-  pred_glob = pred;
+  glob_pred = pred;
   // user code for SSSP
 }
 

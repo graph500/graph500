@@ -50,16 +50,15 @@ enum {
 
 void get_statistics(const double x[], int n, volatile double r[s_LAST]) {
   double temp;
-  int i;
   /* Compute mean. */
   temp = 0.0;
-  for (i = 0; i < n; ++i) temp += x[i];
+  for (int i = 0; i < n; ++i) temp += x[i];
   temp /= n;
   r[s_mean] = temp;
   double mean = temp;
   /* Compute std. dev. */
   temp = 0;
-  for (i = 0; i < n; ++i) temp += (x[i] - mean) * (x[i] - mean);
+  for (int i = 0; i < n; ++i) temp += (x[i] - mean) * (x[i] - mean);
   temp /= n - 1;
   r[s_std] = sqrt(temp);
   /* Sort x. */
@@ -216,9 +215,9 @@ int main(int argc, char** argv) {
       int periods[2] = {0, 0};
       MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 1, &cart_comm);
     }
-    int in_generating_rectangle = 0;
+    // int in_generating_rectangle = 0; // what's this?
     if (cart_comm != MPI_COMM_NULL) {
-      in_generating_rectangle = 1;
+      // in_generating_rectangle = 1;
       {
         int dims[2], periods[2], coords[2];
         MPI_Cart_get(cart_comm, 2, dims, periods, coords);
@@ -399,7 +398,7 @@ int main(int argc, char** argv) {
   int64_t* pred = (int64_t*)xMPI_Alloc_mem(nlocalverts * sizeof(int64_t));
   float* shortest = (float*)xMPI_Alloc_mem(nlocalverts * sizeof(float));
 
-  int bfs_root_idx, i;
+  int bfs_root_idx;
   if (!getenv("SKIP_BFS")) {
     clean_pred(&pred[0]);  // user-provided function from bfs_implementation.c
     run_bfs(bfs_roots[0], &pred[0]);  // warm-up
@@ -414,7 +413,7 @@ int main(int argc, char** argv) {
     if (!my_pe()) printf("finished energy loop BFS\n");
 #endif
     if (!getenv("SKIP_VALIDATION")) {
-      int64_t nedges = 0;
+      // int64_t nedges = 0;
       validate_result(1, &tg, nlocalverts, bfs_roots[0], pred, shortest, NULL);
     }
 

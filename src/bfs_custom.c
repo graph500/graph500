@@ -16,8 +16,8 @@
 unsigned long* visited;
 int64_t visited_size;
 
-int64_t *pred_glob, *column;
-int* rowstarts;
+int64_t *glob_pred, *column;
+unsigned int* rowstarts;
 oned_csr_graph g;
 
 // user should provide this function which would be called once to do kernel 1:
@@ -38,7 +38,7 @@ void make_graph_data_structure(const tuple_graph* const tg) {
 // unrechable vertices prior to calling run_bfs pred is set to -1 by calling
 // clean_pred
 void run_bfs(int64_t root, int64_t* pred) {
-  pred_glob = pred;
+  glob_pred = pred;
   // user code to do bfs
 }
 
@@ -46,11 +46,10 @@ void run_bfs(int64_t root, int64_t* pred) {
 // correct user should change this function if another format (not standart CRS)
 // used
 void get_edge_count_for_teps(int64_t* edge_visit_count) {
-  long i, j;
   long edge_count = 0;
-  for (i = 0; i < g.nlocalverts; i++)
-    if (pred_glob[i] != -1) {
-      for (j = g.rowstarts[i]; j < g.rowstarts[i + 1]; j++)
+  for (size_t i = 0; i < g.nlocalverts; i++)
+    if (glob_pred[i] != -1) {
+      for (unsigned int j = g.rowstarts[i]; j < g.rowstarts[i + 1]; j++)
         if (COLUMN(j) <= VERTEX_TO_GLOBAL(my_pe(), i)) edge_count++;
     }
   aml_long_allsum(&edge_count);
@@ -60,8 +59,7 @@ void get_edge_count_for_teps(int64_t* edge_visit_count) {
 // user provided function to initialize predecessor array to whatevere value
 // user needs
 void clean_pred(int64_t* pred) {
-  int i;
-  for (i = 0; i < g.nlocalverts; i++) pred[i] = -1;
+  for (size_t i = 0; i < g.nlocalverts; i++) pred[i] = -1;
 }
 
 // user provided function to be called once graph is no longer needed

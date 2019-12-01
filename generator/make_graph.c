@@ -59,7 +59,6 @@ void make_random_numbers(
     /* in */ int64_t position /* Start index in random number stream */,
     /* out */ double* result /* Returned array of values */
 ) {
-  int64_t i;
   uint_fast32_t seed[5];
   make_mrg_seed(userseed1, userseed2, seed);
 
@@ -69,7 +68,7 @@ void make_random_numbers(
   mrg_skip(&st, 2, 0,
            2 * (uint64_t)position); /* Each double takes two PRNG outputs */
 
-  for (i = 0; i < nvalues; ++i) {
+  for (int64_t i = 0; i < nvalues; ++i) {
     result[i] = mrg_get_double_orig(&st);
   }
 }

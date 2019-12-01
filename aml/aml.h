@@ -20,7 +20,7 @@ extern void aml_barrier(void);
 extern void aml_register_handler(void (*f)(int, void *, int), int n);
 // send AM to another(myself is ok) node
 // execution of AM might be delayed till next aml_barrier() call
-extern void aml_send(void *srcaddr, int type, int length, int node);
+extern void aml_send(void *srcaddr, int type, int length, int dstnode);
 
 // rank and size
 extern int aml_my_pe(void);
