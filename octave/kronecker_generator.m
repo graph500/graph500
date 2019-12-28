@@ -35,7 +35,7 @@ function ijw = kronecker_generator (SCALE, edgefactor)
   end
 
   %% Generate weights
-  ijw(3,:) = unifrnd(0, 1, M);
+  ijw(3,:) = rand(1, M);
 
   %% Permute vertex labels
   p = randperm (N);
