@@ -7,13 +7,13 @@
 /*  Authors: Jeremiah Willcock                                             */
 /*           Andrew Lumsdaine                                              */
 
-#include <stdlib.h>
+#include <assert.h>
+#include <limits.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <limits.h>
-#include <assert.h>
-#include <math.h>
 #ifdef __MTA__
 #include <sys/mta_task.h>
 #endif
@@ -27,7 +27,9 @@
 #include "utils.h"
 
 #ifndef GRAPH_GENERATOR_MPI
-void make_graph(int log_numverts, int64_t M, uint64_t userseed1, uint64_t userseed2, int64_t* nedges_ptr_in, packed_edge** result_ptr_in) {
+void make_graph(int log_numverts, int64_t M, uint64_t userseed1,
+                uint64_t userseed2, int64_t* nedges_ptr_in,
+                packed_edge** result_ptr_in) {
   /* Add restrict to input pointers. */
   int64_t* restrict nedges_ptr = nedges_ptr_in;
   packed_edge* restrict* restrict result_ptr = result_ptr_in;
@@ -51,22 +53,22 @@ void make_graph(int log_numverts, int64_t M, uint64_t userseed1, uint64_t userse
  * users, and creates a vector of doubles in a reproducible (and
  * random-access) way. */
 void make_random_numbers(
-       /* in */ int64_t nvalues    /* Number of values to generate */,
-       /* in */ uint64_t userseed1 /* Arbitrary 64-bit seed value */,
-       /* in */ uint64_t userseed2 /* Arbitrary 64-bit seed value */,
-       /* in */ int64_t position   /* Start index in random number stream */,
-       /* out */ double* result    /* Returned array of values */
+    /* in */ int64_t nvalues /* Number of values to generate */,
+    /* in */ uint64_t userseed1 /* Arbitrary 64-bit seed value */,
+    /* in */ uint64_t userseed2 /* Arbitrary 64-bit seed value */,
+    /* in */ int64_t position /* Start index in random number stream */,
+    /* out */ double* result /* Returned array of values */
 ) {
-  int64_t i;
   uint_fast32_t seed[5];
   make_mrg_seed(userseed1, userseed2, seed);
 
   mrg_state st;
   mrg_seed(&st, seed);
 
-  mrg_skip(&st, 2, 0, 2 * (uint64_t)position); /* Each double takes two PRNG outputs */
+  mrg_skip(&st, 2, 0,
+           2 * (uint64_t)position); /* Each double takes two PRNG outputs */
 
-  for (i = 0; i < nvalues; ++i) {
+  for (int64_t i = 0; i < nvalues; ++i) {
     result[i] = mrg_get_double_orig(&st);
   }
 }
