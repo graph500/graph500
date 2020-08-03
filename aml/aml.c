@@ -99,7 +99,8 @@ static int myproc,num_procs;
 static int mygroup,num_groups;
 static int mylocal,group_size;
 #ifndef PROCS_PER_NODE_NOT_POWER_OF_TWO
-static int loggroup,groupmask;
+int loggroup;
+static int groupmask;
 #define PROC_FROM_GROUPLOCAL(g,l) ((l)+((g)<<loggroup))
 #define GROUP_FROM_PROC(p) ((p) >> loggroup)
 #define LOCAL_FROM_PROC(p) ((p) & groupmask)
@@ -108,9 +109,9 @@ static int loggroup,groupmask;
 #define GROUP_FROM_PROC(p) ((p)/group_size)
 #define LOCAL_FROM_PROC(p) ((p)%group_size)
 #endif
-volatile static int ack=0;
+volatile int ack=0;
 
-volatile static int inbarrier=0;
+volatile int inbarrier=0;
 
 static void (*aml_handlers[256]) (int,void *,int); //pointers to user-provided AM handlers
 
@@ -119,27 +120,27 @@ static void (*aml_handlers[256]) (int,void *,int); //pointers to user-provided A
 MPI_Comm comm, comm_intra;
 
 // MPI stuff for sends
-static char *sendbuf; //coalescing buffers, most of memory is allocated is here
-static int *sendsize; //buffer occupacy in bytes
-static ushort *acks; //aggregated acks
-static ushort *nbuf; //actual buffer for each group/localcore
-static ushort activebuf[NSEND];// N_buffer used in transfer(0..NSEND{_intra}-1)
-static MPI_Request rqsend[NSEND];
+char *sendbuf; //coalescing buffers, most of memory is allocated is here
+int *sendsize; //buffer occupacy in bytes
+ushort *acks; //aggregated acks
+ushort *nbuf; //actual buffer for each group/localcore
+ushort activebuf[NSEND];// N_buffer used in transfer(0..NSEND{_intra}-1)
+MPI_Request rqsend[NSEND];
 // MPI stuff for recv
 static char recvbuf[AGGR*NRECV];
 static MPI_Request rqrecv[NRECV];
 
 unsigned long long nbytes_sent,nbytes_rcvd;
 
-static char *sendbuf_intra;
-static int *sendsize_intra;
-static ushort *acks_intra;
-static ushort *nbuf_intra;
-static ushort activebuf_intra[NSEND_intra];
-static MPI_Request rqsend_intra[NSEND_intra];
-static char recvbuf_intra[AGGR_intra*NRECV_intra];
-static MPI_Request rqrecv_intra[NRECV_intra];
-volatile static int ack_intra=0;
+char *sendbuf_intra;
+int *sendsize_intra;
+ushort *acks_intra;
+ushort *nbuf_intra;
+ushort activebuf_intra[NSEND_intra];
+MPI_Request rqsend_intra[NSEND_intra];
+char recvbuf_intra[AGGR_intra*NRECV_intra];
+MPI_Request rqrecv_intra[NRECV_intra];
+volatile int ack_intra=0;
 inline void aml_send_intra(void *srcaddr, int type, int length, int local ,int from);
 
 void aml_finalize(void);
@@ -176,7 +177,7 @@ struct __attribute__((__packed__)) hdri { //header of internode message
 };
 
 //process intranode messages
-static void process_intra(int fromlocal,int length ,char* message) {
+void process_intra(int fromlocal,int length ,char* message) {
 	int i=0;
 	while ( i < length ) {
 		void*m = message+i;
@@ -208,7 +209,7 @@ inline void aml_poll_intra(void) {
 	}
 }
 // poll internode message
-static void aml_poll(void) {
+void aml_poll(void) {
 	int flag, from, length,index;
 	MPI_Status status;
 
@@ -313,7 +314,7 @@ int stringCmp( const void *a, const void *b)
 
 // Should be called by user instead of MPI_Init()
 SOATTR int aml_init( int *argc, char ***argv ) {
-	int r, i, j,tmpmax;
+	int r, i, j;
 
 	r = MPI_Init(argc, argv);
 	if ( r != MPI_SUCCESS ) return r;

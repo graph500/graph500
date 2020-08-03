@@ -192,9 +192,7 @@ int main(int argc, char** argv) {
 			int periods[2] = {0, 0};
 			MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 1, &cart_comm);
 		}
-		int in_generating_rectangle = 0;
 		if (cart_comm != MPI_COMM_NULL) {
-			in_generating_rectangle = 1;
 			{
 				int dims[2], periods[2], coords[2];
 				MPI_Cart_get(cart_comm, 2, dims, periods, coords);
@@ -345,7 +343,7 @@ int main(int argc, char** argv) {
 	float* shortest = (float*)xMPI_Alloc_mem(nlocalverts * sizeof(float));
 
 
-	int bfs_root_idx,i;
+	int bfs_root_idx;
 	if (!getenv("SKIP_BFS")) {
 		clean_pred(&pred[0]); //user-provided function from bfs_implementation.c
 		run_bfs(bfs_roots[0], &pred[0]); //warm-up
@@ -360,7 +358,6 @@ int main(int argc, char** argv) {
                 if(!my_pe()) printf("finished energy loop BFS\n");
 #endif
 		if (!getenv("SKIP_VALIDATION")) {
-			int64_t nedges=0;
 			validate_result(1,&tg, nlocalverts, bfs_roots[0], pred,shortest,NULL);
 		}
 
@@ -486,7 +483,6 @@ int main(int argc, char** argv) {
 			fprintf(stdout, "No results printed for invalid run.\n");
 		} else {
 			int i;
-			//for (i = 0; i < num_bfs_roots; ++i) printf(" %g \n",edge_counts[i]);
 			fprintf(stdout, "SCALE:                          %d\n", SCALE);
 			fprintf(stdout, "edgefactor:                     %d\n", edgefactor);
 			fprintf(stdout, "NBFS:                           %d\n", num_bfs_roots);

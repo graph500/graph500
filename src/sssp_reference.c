@@ -92,7 +92,10 @@ void run_sssp(int64_t root,int64_t* pred,float *dist) {
 	aml_barrier();
 	sum=1;
 
+#ifdef DEBUGSTATS
 	int64_t lastvisited=1;
+#endif
+
 	while(sum!=0) {
 #ifdef DEBUGSTATS
 		double t0 = aml_time();

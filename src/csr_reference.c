@@ -75,7 +75,7 @@ void send_full_edge (int64_t src,int64_t tgt) {
 void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* const g) {
 	g->tg = tg;
 
-	size_t i,j,k;
+	size_t i;
 
 	int64_t nvert=tg->nglobaledges/2;
 	nvert/=num_pes();
@@ -83,7 +83,6 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	degrees=xcalloc(nvert,sizeof(int));
 
 	aml_register_handler(halfedgehndl,1);
-	int numiters=ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg);
 	// First pass : calculate degrees of each vertex
 	ITERATE_TUPLE_GRAPH_BEGIN(tg, buf, bufsize,wbuf) {
 		ptrdiff_t j;

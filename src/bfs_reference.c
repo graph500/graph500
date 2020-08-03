@@ -64,7 +64,7 @@ inline void send_visit(int64_t glob, int from) {
 }
 
 void make_graph_data_structure(const tuple_graph* const tg) {
-	int i,j,k;
+	int i;
 	convert_graph_to_oned_csr(tg, &g);
 	column=g.column;
 	rowstarts=g.rowstarts;
@@ -80,7 +80,10 @@ void make_graph_data_structure(const tuple_graph* const tg) {
 void run_bfs(int64_t root, int64_t* pred) {
 	int64_t nvisited;
 	long sum;
-	unsigned int i,j,k,lvl=1;
+	unsigned int i,j;
+#ifdef DEBUGSTATS
+	unsigned int lvl = 1;
+#endif
 	pred_glob=pred;
 	aml_register_handler(visithndl,1);
 
@@ -146,7 +149,6 @@ void clean_pred(int64_t* pred) {
 	for(i=0;i<g.nlocalverts;i++) pred[i]=-1;
 }
 void free_graph_data_structure(void) {
-	int i; 
 	free_oned_csr_graph(&g);
 	free(q1); free(q2); free(visited);
 }
