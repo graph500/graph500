@@ -50,7 +50,7 @@ xmalloc (size_t sz)
     }
   }
 
-  if (numa_avail)
+  if (numa_avail >= 0)
     out = numa_alloc (sz);
   else
     out = malloc (sz);
@@ -71,7 +71,7 @@ xcalloc (size_t n, size_t sz)
     }
   }
 
-  if (numa_avail) {
+  if (numa_avail >= 0) {
     size_t to_alloc;
     to_alloc = n * sz;
     if (to_alloc < n || to_alloc < sz) {
