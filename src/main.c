@@ -550,7 +550,6 @@ int main(int argc, char** argv) {
 			fprintf(stdout, "sssp harmonic_stddev_TEPS:      %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
 #endif
 			free(secs_per_edge); secs_per_edge = NULL;
-			free(edge_counts); edge_counts = NULL;
 			get_statistics(validate_times, num_bfs_roots, stats);
 			fprintf(stdout, "bfs  min_validate:              %g\n", stats[s_minimum]);
 			fprintf(stdout, "bfs  firstquartile_validate:    %g\n", stats[s_firstquartile]);
@@ -579,6 +578,7 @@ int main(int argc, char** argv) {
 
 		}
 	}
+	free(edge_counts);
 	free(bfs_times);
 	free(validate_times);
 #ifdef SSSP
